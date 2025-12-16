@@ -1,0 +1,168 @@
+{
+  "name": "TeamRole",
+  "type": "object",
+  "properties": {
+    "team_id": {
+      "type": "string",
+      "description": "ID van het team"
+    },
+    "name": {
+      "type": "string",
+      "description": "Naam van de team rol"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschrijving van wat deze rol doet"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "default",
+        "custom"
+      ],
+      "default": "custom",
+      "description": "Default roles kunnen niet verwijderd worden"
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "sites": {
+          "type": "object",
+          "properties": {
+            "view": {
+              "type": "boolean",
+              "default": false
+            },
+            "create": {
+              "type": "boolean",
+              "default": false
+            },
+            "edit": {
+              "type": "boolean",
+              "default": false
+            },
+            "delete": {
+              "type": "boolean",
+              "default": false
+            },
+            "share": {
+              "type": "boolean",
+              "default": false
+            },
+            "manage_plugins": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "description": "Site permissions"
+        },
+        "plugins": {
+          "type": "object",
+          "properties": {
+            "view": {
+              "type": "boolean",
+              "default": false
+            },
+            "create": {
+              "type": "boolean",
+              "default": false
+            },
+            "edit": {
+              "type": "boolean",
+              "default": false
+            },
+            "delete": {
+              "type": "boolean",
+              "default": false
+            },
+            "share": {
+              "type": "boolean",
+              "default": false
+            },
+            "install": {
+              "type": "boolean",
+              "default": false
+            },
+            "uninstall": {
+              "type": "boolean",
+              "default": false
+            },
+            "activate": {
+              "type": "boolean",
+              "default": false
+            },
+            "deactivate": {
+              "type": "boolean",
+              "default": false
+            },
+            "manage_versions": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "description": "Plugin permissions"
+        },
+        "members": {
+          "type": "object",
+          "properties": {
+            "view": {
+              "type": "boolean",
+              "default": false
+            },
+            "invite": {
+              "type": "boolean",
+              "default": false
+            },
+            "edit": {
+              "type": "boolean",
+              "default": false
+            },
+            "remove": {
+              "type": "boolean",
+              "default": false
+            },
+            "manage_roles": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "description": "Member management permissions"
+        },
+        "team": {
+          "type": "object",
+          "properties": {
+            "view": {
+              "type": "boolean",
+              "default": true
+            },
+            "edit_settings": {
+              "type": "boolean",
+              "default": false
+            },
+            "manage_roles": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "description": "Team-level permissions"
+        }
+      },
+      "description": "Alle permissions voor deze team rol"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Of deze rol actief is"
+    },
+    "assigned_count": {
+      "type": "integer",
+      "default": 0,
+      "description": "Aantal teamleden met deze rol"
+    }
+  },
+  "required": [
+    "team_id",
+    "name",
+    "permissions"
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "name": "Plugin",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Naam van de plugin"
+    },
+    "slug": {
+      "type": "string",
+      "description": "Unieke identifier/slug voor de plugin"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschrijving van de plugin"
+    },
+    "owner_type": {
+      "type": "string",
+      "enum": [
+        "user",
+        "team"
+      ],
+      "default": "user",
+      "description": "Type eigenaar (user of team)"
+    },
+    "owner_id": {
+      "type": "string",
+      "description": "User ID of Team ID van de eigenaar"
+    },
+    "versions": {
+      "type": "array",
+      "description": "Array van versie objecten",
+      "items": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "download_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "default": []
+    },
+    "latest_version": {
+      "type": "string",
+      "description": "Laatste versie van de plugin"
+    },
+    "is_disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Of de plugin is uitgeschakeld door admin"
+    },
+    "disabled_reason": {
+      "type": "string",
+      "description": "Reden waarom de plugin is uitgeschakeld"
+    },
+    "is_external": {
+      "type": "boolean",
+      "default": false,
+      "description": "Of de plugin extern is (ge\u00efmporteerd van WordPress)"
+    },
+    "manage_from_hub": {
+      "type": "boolean",
+      "default": false,
+      "description": "Of de externe plugin beheerd mag worden vanuit het platform"
+    }
+  },
+  "required": [
+    "name",
+    "slug",
+    "owner_id",
+    "owner_type"
+  ]
+}

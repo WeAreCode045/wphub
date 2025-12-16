@@ -1,0 +1,146 @@
+{
+  "name": "Message",
+  "type": "object",
+  "properties": {
+    "subject": {
+      "type": "string",
+      "description": "Onderwerp van het bericht"
+    },
+    "message": {
+      "type": "string",
+      "description": "Inhoud van het bericht"
+    },
+    "sender_id": {
+      "type": "string",
+      "description": "User ID van de afzender"
+    },
+    "sender_email": {
+      "type": "string",
+      "description": "Email van de afzender"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Naam van de afzender"
+    },
+    "recipient_type": {
+      "type": "string",
+      "enum": [
+        "user",
+        "team",
+        "admin"
+      ],
+      "description": "Type ontvanger"
+    },
+    "recipient_id": {
+      "type": "string",
+      "description": "User ID of Team ID van de ontvanger"
+    },
+    "recipient_email": {
+      "type": "string",
+      "description": "Email van de ontvanger (bij user type)"
+    },
+    "team_id": {
+      "type": "string",
+      "description": "Team ID (voor team berichten)"
+    },
+    "thread_id": {
+      "type": "string",
+      "description": "Thread ID voor replies"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Of het bericht gelezen is"
+    },
+    "is_archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Of het bericht gearchiveerd is"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ],
+      "default": "normal",
+      "description": "Prioriteit van het bericht"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "in_progress",
+        "resolved",
+        "closed"
+      ],
+      "default": "open",
+      "description": "Status voor ticketing"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "general",
+        "support",
+        "bug",
+        "feature_request",
+        "team_announcement"
+      ],
+      "default": "general",
+      "description": "Categorie van het bericht"
+    },
+    "attachments": {
+      "type": "array",
+      "description": "Bijlagen bij het bericht",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file_url": {
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "file_size": {
+            "type": "number"
+          }
+        }
+      },
+      "default": []
+    },
+    "replies": {
+      "type": "array",
+      "description": "Antwoorden op dit bericht",
+      "items": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "sender_id": {
+            "type": "string"
+          },
+          "sender_name": {
+            "type": "string"
+          },
+          "sender_email": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "subject",
+    "message",
+    "sender_id",
+    "recipient_type"
+  ]
+}

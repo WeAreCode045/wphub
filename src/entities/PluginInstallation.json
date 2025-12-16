@@ -1,0 +1,55 @@
+{
+  "name": "PluginInstallation",
+  "type": "object",
+  "properties": {
+    "site_id": {
+      "type": "string",
+      "description": "Referentie naar de Site"
+    },
+    "plugin_id": {
+      "type": "string",
+      "description": "Referentie naar de Plugin"
+    },
+    "version_id": {
+      "type": "string",
+      "description": "Referentie naar de specifieke PluginVersion"
+    },
+    "installed_version": {
+      "type": "string",
+      "description": "Ge\u00efnstalleerde versie nummer"
+    },
+    "is_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Of de plugin beschikbaar is voor deze site"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": false,
+      "description": "Of de plugin actief is op de site"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "unavailable",
+        "available",
+        "pending",
+        "installed",
+        "active",
+        "inactive",
+        "error"
+      ],
+      "default": "available",
+      "description": "Status: unavailable=niet beschikbaar, available=beschikbaar maar niet geinstalleerd, pending=in behandeling, installed=geinstalleerd maar niet actief, active=actief, inactive=inactief, error=fout"
+    },
+    "last_sync": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Laatste synchronisatie met de site"
+    }
+  },
+  "required": [
+    "site_id",
+    "plugin_id"
+  ]
+}

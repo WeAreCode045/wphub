@@ -1,0 +1,218 @@
+{
+  "name": "Role",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Naam van de rol"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschrijving van wat deze rol doet"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "system",
+        "custom"
+      ],
+      "default": "custom",
+      "description": "System roles kunnen niet verwijderd worden"
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "sites": {
+          "type": "object",
+          "properties": {
+            "view": {
+              "type": "boolean",
+              "default": false,
+              "description": "Sites bekijken"
+            },
+            "create": {
+              "type": "boolean",
+              "default": false,
+              "description": "Sites aanmaken"
+            },
+            "edit": {
+              "type": "boolean",
+              "default": false,
+              "description": "Sites bewerken"
+            },
+            "delete": {
+              "type": "boolean",
+              "default": false,
+              "description": "Sites verwijderen"
+            },
+            "share": {
+              "type": "boolean",
+              "default": false,
+              "description": "Sites delen met anderen"
+            },
+            "manage_plugins": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins op sites beheren"
+            }
+          },
+          "description": "Site permissions"
+        },
+        "plugins": {
+          "type": "object",
+          "properties": {
+            "view": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins bekijken"
+            },
+            "create": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins aanmaken"
+            },
+            "edit": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins bewerken"
+            },
+            "delete": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins verwijderen"
+            },
+            "share": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins delen"
+            },
+            "install": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins installeren op sites"
+            },
+            "uninstall": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins deinstalleren"
+            },
+            "activate": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins activeren"
+            },
+            "deactivate": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugins deactiveren"
+            },
+            "manage_versions": {
+              "type": "boolean",
+              "default": false,
+              "description": "Plugin versies beheren"
+            }
+          },
+          "description": "Plugin permissions"
+        },
+        "users": {
+          "type": "object",
+          "properties": {
+            "view": {
+              "type": "boolean",
+              "default": false,
+              "description": "Gebruikers bekijken"
+            },
+            "invite": {
+              "type": "boolean",
+              "default": false,
+              "description": "Gebruikers uitnodigen"
+            },
+            "edit": {
+              "type": "boolean",
+              "default": false,
+              "description": "Gebruikers bewerken"
+            },
+            "delete": {
+              "type": "boolean",
+              "default": false,
+              "description": "Gebruikers verwijderen"
+            },
+            "manage_roles": {
+              "type": "boolean",
+              "default": false,
+              "description": "Rollen toewijzen"
+            }
+          },
+          "description": "User management permissions"
+        },
+        "teams": {
+          "type": "object",
+          "properties": {
+            "view": {
+              "type": "boolean",
+              "default": false,
+              "description": "Teams bekijken"
+            },
+            "create": {
+              "type": "boolean",
+              "default": false,
+              "description": "Teams aanmaken"
+            },
+            "edit": {
+              "type": "boolean",
+              "default": false,
+              "description": "Teams bewerken"
+            },
+            "delete": {
+              "type": "boolean",
+              "default": false,
+              "description": "Teams verwijderen"
+            },
+            "manage_members": {
+              "type": "boolean",
+              "default": false,
+              "description": "Teamleden beheren"
+            }
+          },
+          "description": "Team permissions"
+        },
+        "platform": {
+          "type": "object",
+          "properties": {
+            "manage_roles": {
+              "type": "boolean",
+              "default": false,
+              "description": "Platform roles beheren"
+            },
+            "view_analytics": {
+              "type": "boolean",
+              "default": false,
+              "description": "Platform analytics bekijken"
+            },
+            "manage_settings": {
+              "type": "boolean",
+              "default": false,
+              "description": "Platform instellingen beheren"
+            }
+          },
+          "description": "Platform-level permissions"
+        }
+      },
+      "description": "Alle permissions voor deze rol"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Of deze rol actief is"
+    },
+    "assigned_count": {
+      "type": "integer",
+      "default": 0,
+      "description": "Aantal gebruikers met deze rol"
+    }
+  },
+  "required": [
+    "name",
+    "permissions"
+  ]
+}

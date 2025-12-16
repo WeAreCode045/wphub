@@ -1,0 +1,26 @@
+{
+  "name": "Connector",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Versie nummer van de connector plugin"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL naar het ZIP bestand in de storage"
+    },
+    "file_uri": {
+      "type": "string",
+      "description": "Private storage URI voor het bestand"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optionele beschrijving van de versie"
+    }
+  },
+  "required": [
+    "version",
+    "file_url"
+  ]
+}

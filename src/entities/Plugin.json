@@ -1,0 +1,54 @@
+{
+  "name": "Plugin",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Naam van de plugin"
+    },
+    "slug": {
+      "type": "string",
+      "description": "Unieke identifier/slug voor de plugin"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschrijving van de plugin"
+    },
+    "is_public": {
+      "type": "boolean",
+      "default": false,
+      "description": "Of de plugin voor alle gebruikers zichtbaar is"
+    },
+    "versions": {
+      "type": "array",
+      "description": "Array van versie objecten met versienummer en download URL",
+      "items": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "Versienummer"
+          },
+          "download_url": {
+            "type": "string",
+            "description": "URL naar het ZIP bestand"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Aanmaakdatum van deze versie"
+          }
+        }
+      },
+      "default": []
+    },
+    "latest_version": {
+      "type": "string",
+      "description": "Laatste versie van de plugin"
+    }
+  },
+  "required": [
+    "name",
+    "slug"
+  ]
+}

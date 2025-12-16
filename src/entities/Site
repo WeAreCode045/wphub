@@ -1,0 +1,91 @@
+{
+  "name": "Site",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Naam van de WordPress website"
+    },
+    "url": {
+      "type": "string",
+      "description": "URL van de WordPress website"
+    },
+    "api_key": {
+      "type": "string",
+      "description": "API key voor connector authenticatie"
+    },
+    "owner_type": {
+      "type": "string",
+      "enum": [
+        "user",
+        "team"
+      ],
+      "default": "user",
+      "description": "Type eigenaar (user of team)"
+    },
+    "owner_id": {
+      "type": "string",
+      "description": "User ID of Team ID van de eigenaar"
+    },
+    "connection_checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Laatste keer dat de connectie werd gecontroleerd"
+    },
+    "wp_version": {
+      "type": "string",
+      "description": "WordPress versie van de site"
+    },
+    "plugins": {
+      "type": "array",
+      "description": "Array van plugin objecten met status per plugin",
+      "items": {
+        "type": "object",
+        "properties": {
+          "plugin_id": {
+            "type": "string",
+            "description": "ID van de plugin"
+          },
+          "version": {
+            "type": "string",
+            "description": "Ge\u00efnstalleerde versie"
+          },
+          "is_installed": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "0 = niet ge\u00efnstalleerd, 1 = ge\u00efnstalleerd"
+          },
+          "is_activated": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "0 = niet geactiveerd, 1 = geactiveerd"
+          }
+        }
+      },
+      "default": []
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "error"
+      ],
+      "default": "active",
+      "description": "Status van de site connectie"
+    }
+  },
+  "required": [
+    "name",
+    "url",
+    "api_key",
+    "owner_id",
+    "owner_type"
+  ]
+}

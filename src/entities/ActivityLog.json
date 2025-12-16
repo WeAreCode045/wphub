@@ -1,0 +1,39 @@
+{
+  "name": "ActivityLog",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email van de gebruiker die de actie uitvoerde"
+    },
+    "action": {
+      "type": "string",
+      "description": "Beschrijving van de actie"
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "site",
+        "plugin",
+        "plugin_version",
+        "installation",
+        "user",
+        "notification"
+      ],
+      "description": "Type entiteit waarop de actie werd uitgevoerd"
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "ID van de entiteit"
+    },
+    "details": {
+      "type": "string",
+      "description": "Extra details over de actie"
+    }
+  },
+  "required": [
+    "user_email",
+    "action",
+    "entity_type"
+  ]
+}

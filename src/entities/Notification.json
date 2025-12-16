@@ -1,0 +1,74 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "recipient_id": {
+      "type": "string",
+      "description": "User ID van de ontvanger"
+    },
+    "recipient_email": {
+      "type": "string",
+      "description": "Email van de ontvanger voor referentie"
+    },
+    "title": {
+      "type": "string",
+      "description": "Titel van de notificatie"
+    },
+    "message": {
+      "type": "string",
+      "description": "Bericht inhoud"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "success",
+        "error"
+      ],
+      "default": "info",
+      "description": "Type notificatie"
+    },
+    "is_read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Of de notificatie gelezen is"
+    },
+    "replies": {
+      "type": "array",
+      "description": "Array van reply objecten met bericht, sender en timestamp",
+      "items": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Reply bericht"
+          },
+          "sender_email": {
+            "type": "string",
+            "description": "Email van degene die replyt"
+          },
+          "sender_name": {
+            "type": "string",
+            "description": "Naam van degene die replyt"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp van de reply"
+          }
+        }
+      },
+      "default": []
+    },
+    "reply_to_notification_id": {
+      "type": "string",
+      "description": "ID van de originele notificatie waar dit een reply op is"
+    }
+  },
+  "required": [
+    "recipient_id",
+    "title",
+    "message"
+  ]
+}

@@ -1,0 +1,48 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+Deno.serve(async (req) => {
+    try {
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
+
+        if (!user) {
+            return Response.json({ 
+                success: false,
+                error: 'Unauthorized' 
+            }, { status: 401 });
+        }
+
+        // Check if 2FA is enabled for this user
+        if (!user.two_fa_enabled) {
+            return Response.json({ 
+                success: false,
+                error: '2FA is not enabled for this user' 
+            }, { status: 400 });
+        }
+
+        // Reset the verified session status
+        await base44.asServiceRole.entities.User.update(user.id, {
+            two_fa_verified_session: null
+        });
+
+        // Log activity
+        await base44.asServiceRole.entities.ActivityLog.create({
+            user_email: user.email,
+            action: '2FA status gereset',
+            entity_type: "user",
+            entity_id: user.id
+        });
+
+        return Response.json({
+            success: true,
+            message: '2FA status reset'
+        });
+
+    } catch (error) {
+        console.error('[reset2FAStatus] Error:', error.message);
+        return Response.json({ 
+            success: false,
+            error: error.message 
+        }, { status: 500 });
+    }
+});

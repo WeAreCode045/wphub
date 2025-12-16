@@ -1,0 +1,140 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+Deno.serve(async (req) => {
+    try {
+        const base44 = createClientFromRequest(req);
+        const { site_id } = await req.json();
+
+        console.log('[listSitePlugins] === START ===');
+        console.log('[listSitePlugins] Site ID:', site_id);
+
+        if (!site_id) {
+            return Response.json({ error: 'Site ID is required' }, { status: 400 });
+        }
+
+        // Get site details
+        const sites = await base44.asServiceRole.entities.Site.filter({ id: site_id });
+        
+        if (sites.length === 0) {
+            console.log('[listSitePlugins] Site not found');
+            return Response.json({ error: 'Site not found' }, { status: 404 });
+        }
+
+        const site = sites[0];
+        console.log('[listSitePlugins] Site:', site.name, site.url);
+
+        // Call WordPress connector to get plugin list
+        const wpEndpoint = `${site.url}/wp-json/wphub/v1/listPlugins`;
+        console.log('[listSitePlugins] Calling WordPress connector:', wpEndpoint);
+
+        const wpResponse = await fetch(wpEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                api_key: site.api_key
+            })
+        });
+
+        if (!wpResponse.ok) {
+            const errorText = await wpResponse.text();
+            console.error('[listSitePlugins] WordPress API error:', wpResponse.status, errorText);
+            return Response.json({ 
+                error: 'Failed to connect to WordPress site',
+                details: errorText,
+                status: wpResponse.status
+            }, { status: 502 });
+        }
+
+        const result = await wpResponse.json();
+        console.log('[listSitePlugins] WordPress returned', result.plugins?.length || 0, 'plugins');
+
+        if (!result.success || !result.plugins) {
+            return Response.json({ 
+                error: 'Failed to get plugins from WordPress',
+                details: result.message || 'Unknown error'
+            }, { status: 500 });
+        }
+
+        // Update site connection status
+        await base44.asServiceRole.entities.Site.update(site_id, {
+            connection_status: 'active',
+            connection_checked_at: new Date().toISOString()
+        });
+
+        // Reconcile Plugin.installed_on arrays with actual WordPress state
+        console.log('[listSitePlugins] Starting reconciliation of Plugin.installed_on...');
+        
+        // Get all plugins from the platform
+        const allPlatformPlugins = await base44.asServiceRole.entities.Plugin.list();
+        console.log('[listSitePlugins] Found', allPlatformPlugins.length, 'platform plugins');
+
+        // Track which platform plugins are found on the WordPress site
+        const wpPluginSlugs = result.plugins.map(p => p.slug);
+        
+        for (const platformPlugin of allPlatformPlugins) {
+            const currentInstalledOn = platformPlugin.installed_on || [];
+            let needsUpdate = false;
+            let updatedInstalledOn = [...currentInstalledOn];
+
+            // Check if this plugin is on the WordPress site
+            const wpPlugin = result.plugins.find(p => p.slug === platformPlugin.slug);
+
+            if (wpPlugin) {
+                // Plugin is on WordPress site
+                const existingEntry = updatedInstalledOn.find(entry => entry.site_id === site_id);
+                
+                if (!existingEntry) {
+                    // Add new entry
+                    console.log('[listSitePlugins] Adding', platformPlugin.slug, 'to installed_on for site', site_id);
+                    updatedInstalledOn.push({
+                        site_id: site_id,
+                        version: wpPlugin.version
+                    });
+                    needsUpdate = true;
+                } else if (existingEntry.version !== wpPlugin.version) {
+                    // Update version
+                    console.log('[listSitePlugins] Updating version for', platformPlugin.slug, 'on site', site_id, 'from', existingEntry.version, 'to', wpPlugin.version);
+                    existingEntry.version = wpPlugin.version;
+                    needsUpdate = true;
+                }
+            } else {
+                // Plugin is NOT on WordPress site
+                const entryIndex = updatedInstalledOn.findIndex(entry => entry.site_id === site_id);
+                
+                if (entryIndex !== -1) {
+                    // Remove entry
+                    console.log('[listSitePlugins] Removing', platformPlugin.slug, 'from installed_on for site', site_id);
+                    updatedInstalledOn.splice(entryIndex, 1);
+                    needsUpdate = true;
+                }
+            }
+
+            // Update plugin if needed
+            if (needsUpdate) {
+                await base44.asServiceRole.entities.Plugin.update(platformPlugin.id, {
+                    installed_on: updatedInstalledOn
+                });
+                console.log('[listSitePlugins] ✅ Updated installed_on for plugin:', platformPlugin.slug);
+            }
+        }
+
+        console.log('[listSitePlugins] Reconciliation complete');
+        console.log('[listSitePlugins] === END ===');
+
+        return Response.json({ 
+            success: true,
+            plugins: result.plugins,
+            total: result.plugins.length
+        });
+
+    } catch (error) {
+        console.error('[listSitePlugins] ❌ ERROR:', error.message);
+        console.error('[listSitePlugins] Stack:', error.stack);
+        return Response.json({ 
+            error: error.message,
+            stack: error.stack
+        }, { status: 500 });
+    }
+});

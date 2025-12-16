@@ -1,0 +1,131 @@
+{
+  "name": "Team",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Naam van het team"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschrijving van het team"
+    },
+    "owner_id": {
+      "type": "string",
+      "description": "User ID van de eigenaar van het team"
+    },
+    "avatar_url": {
+      "type": "string",
+      "description": "Avatar/logo URL van het team"
+    },
+    "is_blocked": {
+      "type": "boolean",
+      "default": false,
+      "description": "Of het team geblokkeerd is door admin"
+    },
+    "members": {
+      "type": "array",
+      "description": "Array van team member objecten met user_id, email, role en team_role_id",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User ID van het teamlid"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email van het teamlid"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member",
+              "viewer"
+            ],
+            "description": "Rol binnen het team (deprecated - gebruik team_role_id)"
+          },
+          "team_role_id": {
+            "type": "string",
+            "description": "ID van de custom team role"
+          },
+          "permissions": {
+            "type": "object",
+            "properties": {
+              "manage_plugins": {
+                "type": "boolean",
+                "default": false,
+                "description": "Mag plugins beheren (deprecated)"
+              },
+              "manage_sites": {
+                "type": "boolean",
+                "default": false,
+                "description": "Mag sites beheren (deprecated)"
+              },
+              "manage_members": {
+                "type": "boolean",
+                "default": false,
+                "description": "Mag teamleden beheren (deprecated)"
+              },
+              "view_only": {
+                "type": "boolean",
+                "default": false,
+                "description": "Alleen lees toegang (deprecated)"
+              }
+            },
+            "description": "Specifieke permissions voor dit teamlid (deprecated - gebruik team_role_id)"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Wanneer teamlid toegetreden is"
+          }
+        }
+      },
+      "default": []
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "allow_member_invites": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mogen members anderen uitnodigen"
+        },
+        "default_member_permissions": {
+          "type": "object",
+          "properties": {
+            "manage_plugins": {
+              "type": "boolean",
+              "default": false
+            },
+            "manage_sites": {
+              "type": "boolean",
+              "default": false
+            },
+            "manage_members": {
+              "type": "boolean",
+              "default": false
+            },
+            "view_only": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "description": "Default permissions voor nieuwe members (deprecated)"
+        },
+        "default_team_role_id": {
+          "type": "string",
+          "description": "Default team role ID voor nieuwe members"
+        }
+      },
+      "default": {}
+    }
+  },
+  "required": [
+    "name",
+    "owner_id"
+  ]
+}

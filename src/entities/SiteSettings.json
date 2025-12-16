@@ -1,0 +1,22 @@
+{
+  "name": "SiteSettings",
+  "type": "object",
+  "properties": {
+    "setting_key": {
+      "type": "string",
+      "description": "Unieke key voor de setting (bijv. 'connector_plugin_url')"
+    },
+    "setting_value": {
+      "type": "string",
+      "description": "Waarde van de setting"
+    },
+    "description": {
+      "type": "string",
+      "description": "Beschrijving van de setting"
+    }
+  },
+  "required": [
+    "setting_key",
+    "setting_value"
+  ]
+}

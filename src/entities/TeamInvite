@@ -1,0 +1,85 @@
+{
+  "name": "TeamInvite",
+  "type": "object",
+  "properties": {
+    "team_id": {
+      "type": "string",
+      "description": "ID van het team"
+    },
+    "team_name": {
+      "type": "string",
+      "description": "Naam van het team (voor referentie)"
+    },
+    "invited_email": {
+      "type": "string",
+      "description": "Email van de uitgenodigde persoon"
+    },
+    "invited_by_id": {
+      "type": "string",
+      "description": "User ID van degene die uitnodigde"
+    },
+    "invited_by_name": {
+      "type": "string",
+      "description": "Naam van degene die uitnodigde"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "member",
+        "viewer"
+      ],
+      "default": "member",
+      "description": "Rol die de persoon krijgt bij acceptatie"
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "manage_plugins": {
+          "type": "boolean",
+          "default": false
+        },
+        "manage_sites": {
+          "type": "boolean",
+          "default": false
+        },
+        "manage_members": {
+          "type": "boolean",
+          "default": false
+        },
+        "view_only": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "description": "Permissions die de persoon krijgt"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "declined",
+        "expired"
+      ],
+      "default": "pending",
+      "description": "Status van de uitnodiging"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wanneer de uitnodiging verloopt"
+    },
+    "accepted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Wanneer de uitnodiging geaccepteerd werd"
+    }
+  },
+  "required": [
+    "team_id",
+    "invited_email",
+    "invited_by_id",
+    "role"
+  ]
+}

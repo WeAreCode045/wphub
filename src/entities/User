@@ -1,0 +1,32 @@
+{
+  "type": "object",
+  "properties": {
+    "avatar_url": {
+      "type": "string",
+      "description": "URL naar gebruiker avatar"
+    },
+    "company": {
+      "type": "string",
+      "description": "Bedrijfsnaam van de gebruiker"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Telefoonnummer"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active",
+      "description": "Account status"
+    },
+    "custom_role_id": {
+      "type": "string",
+      "description": "ID van custom role (als niet admin)"
+    }
+  },
+  "name": "User",
+  "required": []
+}

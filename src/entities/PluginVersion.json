@@ -1,0 +1,32 @@
+{
+  "name": "PluginVersion",
+  "type": "object",
+  "properties": {
+    "plugin_id": {
+      "type": "string",
+      "description": "Referentie naar de Plugin"
+    },
+    "version": {
+      "type": "string",
+      "description": "Versienummer"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL naar het ge\u00fcploade ZIP bestand"
+    },
+    "changelog": {
+      "type": "string",
+      "description": "Wijzigingen in deze versie"
+    },
+    "release_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Release datum van deze versie"
+    }
+  },
+  "required": [
+    "plugin_id",
+    "version",
+    "file_url"
+  ]
+}
