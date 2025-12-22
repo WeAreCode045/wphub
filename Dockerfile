@@ -27,6 +27,18 @@ RUN npm ci --include=dev --ignore-scripts
 # Copy application code
 COPY . .
 
+# Build arguments for environment variables
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+ARG VITE_APP_NAME
+ARG VITE_APP_DOMAIN
+
+# Set environment variables for build
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=$VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+ENV VITE_APP_NAME=$VITE_APP_NAME
+ENV VITE_APP_DOMAIN=$VITE_APP_DOMAIN
+
 # Build application
 RUN npm run build
 

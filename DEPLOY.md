@@ -1,10 +1,26 @@
 # Deploy naar eigen server
 
+## Belangrijk: Environment Variabelen
+
+De app heeft Supabase credentials nodig tijdens de build. Zorg dat je deze waarden hebt:
+
+```bash
+VITE_SUPABASE_URL=https://ossyxxlplvqakowiwbok.supabase.co
+VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT
+VITE_APP_NAME="WP Hub"
+VITE_APP_DOMAIN=https://pluginhub.code045.nl
+```
+
 ## Optie 1: Docker Image builden en pushen
 
-### 1. Build de Docker image lokaal
+### 1. Build de Docker image lokaal met environment variabelen
 ```bash
-docker build -t wphub:latest .
+docker build \
+  --build-arg VITE_SUPABASE_URL=https://ossyxxlplvqakowiwbok.supabase.co \
+  --build-arg VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT \
+  --build-arg VITE_APP_NAME="WP Hub" \
+  --build-arg VITE_APP_DOMAIN=https://pluginhub.code045.nl \
+  -t wphub:latest .
 ```
 
 ### 2. Tag de image voor je registry
@@ -32,7 +48,7 @@ docker run -d \
   your-registry.com/wphub:latest
 ```
 
-## Optie 2: Direct builden op server (sneller voor kleine wijzigingen)
+## Optie 2: Direct builden op server (aanbevolen)
 
 ### 1. Push code naar repository
 ```bash
@@ -52,8 +68,13 @@ cd /path/to/wphub
 # Pull laatste wijzigingen
 git pull
 
-# Rebuild Docker image
-docker build -t wphub:latest .
+# Rebuild Docker image met environment variabelen
+docker build \
+  --build-arg VITE_SUPABASE_URL=https://ossyxxlplvqakowiwbok.supabase.co \
+  --build-arg VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT \
+  --build-arg VITE_APP_NAME="WP Hub" \
+  --build-arg VITE_APP_DOMAIN=https://pluginhub.code045.nl \
+  -t wphub:latest .
 
 # Stop oude container en start nieuwe
 docker stop wphub && docker rm wphub
@@ -67,7 +88,7 @@ docker run -d \
 docker logs -f wphub
 ```
 
-## Optie 3: Met docker-compose (aanbevolen)
+## Optie 3: Met docker-compose (aanbevolen voor herhaalde deploys)
 
 ### 1. Maak docker-compose.yml op je server:
 ```yaml
@@ -75,12 +96,16 @@ version: '3.8'
 
 services:
   wphub:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_SUPABASE_URL: https://ossyxxlplvqakowiwbok.supabase.co
+        VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT
+        VITE_APP_NAME: "WP Hub"
+        VITE_APP_DOMAIN: https://pluginhub.code045.nl
     ports:
       - "80:80"
     restart: unless-stopped
-    environment:
-      - NODE_ENV=production
 ```
 
 ### 2. Deploy
