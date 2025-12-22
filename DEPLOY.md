@@ -4,32 +4,32 @@
 
 ### 1. Build de Docker image lokaal
 ```bash
-docker build -t pluginhub:latest .
+docker build -t wphub:latest .
 ```
 
 ### 2. Tag de image voor je registry
 ```bash
 # Als je een registry gebruikt (bijv. Docker Hub, GitHub Container Registry)
-docker tag pluginhub:latest your-registry.com/pluginhub:latest
-docker push your-registry.com/pluginhub:latest
+docker tag wphub:latest your-registry.com/wphub:latest
+docker push your-registry.com/wphub:latest
 ```
 
 ### 3. Deploy op je server
 SSH naar je server en run:
 ```bash
 # Pull de nieuwe image
-docker pull your-registry.com/pluginhub:latest
+docker pull your-registry.com/wphub:latest
 
 # Stop de oude container
-docker stop pluginhub || true
-docker rm pluginhub || true
+docker stop wphub || true
+docker rm wphub || true
 
 # Start de nieuwe container
 docker run -d \
-  --name pluginhub \
+  --name wphub \
   -p 80:80 \
   --restart unless-stopped \
-  your-registry.com/pluginhub:latest
+  your-registry.com/wphub:latest
 ```
 
 ## Optie 2: Direct builden op server (sneller voor kleine wijzigingen)
@@ -53,18 +53,18 @@ cd /path/to/wphub
 git pull
 
 # Rebuild Docker image
-docker build -t pluginhub:latest .
+docker build -t wphub:latest .
 
 # Stop oude container en start nieuwe
-docker stop pluginhub && docker rm pluginhub
+docker stop wphub && docker rm wphub
 docker run -d \
-  --name pluginhub \
+  --name wphub \
   -p 80:80 \
   --restart unless-stopped \
-  pluginhub:latest
+  wphub:latest
 
 # Check logs
-docker logs -f pluginhub
+docker logs -f wphub
 ```
 
 ## Optie 3: Met docker-compose (aanbevolen)
@@ -74,7 +74,7 @@ docker logs -f pluginhub
 version: '3.8'
 
 services:
-  pluginhub:
+  wphub:
     build: .
     ports:
       - "80:80"
@@ -113,18 +113,18 @@ Na deployment, test deze URLs:
 ### Als /login nog steeds 404 geeft:
 ```bash
 # Check of Nginx config correct is geladen
-docker exec pluginhub cat /etc/nginx/conf.d/default.conf
+docker exec wphub cat /etc/nginx/conf.d/default.conf
 
 # Check Nginx logs
-docker logs pluginhub
+docker logs wphub
 
 # Herstart Nginx binnen de container
-docker exec pluginhub nginx -s reload
+docker exec wphub nginx -s reload
 ```
 
 ### Check welke files in de container zitten:
 ```bash
-docker exec pluginhub ls -la /usr/share/nginx/html
+docker exec wphub ls -la /usr/share/nginx/html
 ```
 
 Je zou moeten zien:
