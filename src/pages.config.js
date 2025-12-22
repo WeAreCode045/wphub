@@ -36,6 +36,7 @@ import AdminSupportTickets from './pages/AdminSupportTickets';
 import InvoiceDetail from './pages/InvoiceDetail';
 import Themes from './pages/Themes';
 import ThemeDetail from './pages/ThemeDetail';
+import Login from './pages/Login';
 import __Layout from './Layout.jsx';
 
 
@@ -78,6 +79,7 @@ export const PAGES = {
     "InvoiceDetail": InvoiceDetail,
     "Themes": Themes,
     "ThemeDetail": ThemeDetail,
+    "Login": Login,
 }
 
 export const pagesConfig = {

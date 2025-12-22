@@ -10,6 +10,8 @@ import { setupIframeMessaging } from './lib/iframe-messaging';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import Login from '@/pages/Login';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -46,15 +48,40 @@ const AuthenticatedApp = () => {
 
   // Render the main app
   return (
-    <LayoutWrapper currentPageName={mainPageKey}>
-      <Routes>
-        <Route path="/" element={<MainPage />} />
-        {Object.entries(Pages).map(([path, Page]) => (
-          <Route key={path} path={`/${path}`} element={<Page />} />
-        ))}
-        <Route path="*" element={<PageNotFound />} />
-      </Routes>
-    </LayoutWrapper>
+    <Routes>
+      {/* Public routes */}
+      <Route path="/login" element={<Login />} />
+      
+      {/* Protected routes */}
+      <Route path="/" element={
+        <ProtectedRoute>
+          <LayoutWrapper currentPageName={mainPageKey}>
+            <MainPage />
+          </LayoutWrapper>
+        </ProtectedRoute>
+      } />
+      
+      {Object.entries(Pages).map(([path, Page]) => {
+        // Login is already handled above
+        if (path === 'Login') return null;
+        
+        return (
+          <Route 
+            key={path} 
+            path={`/${path}`} 
+            element={
+              <ProtectedRoute>
+                <LayoutWrapper currentPageName={path}>
+                  <Page />
+                </LayoutWrapper>
+              </ProtectedRoute>
+            } 
+          />
+        );
+      })}
+      
+      <Route path="*" element={<PageNotFound />} />
+    </Routes>
   );
 };
 

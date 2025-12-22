@@ -411,7 +411,7 @@ export default function Layout({ children, currentPageName }) {
     },
   });
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     sessionStorage.removeItem('2fa_session_id');
     sessionStorage.removeItem('admin_menu_active');
 
@@ -421,7 +421,12 @@ export default function Layout({ children, currentPageName }) {
       });
     }
 
-    base44.auth.logout();
+    // Supabase logout
+    const { supabase } = await import('@/api/supabaseClient');
+    await supabase.auth.signOut();
+    
+    // Redirect naar login
+    navigate('/login');
   };
 
   const isAdmin = user?.role === "admin";
