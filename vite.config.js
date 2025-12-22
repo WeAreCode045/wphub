@@ -24,9 +24,20 @@ export default defineConfig(({ mode }) => {
       }
     ].filter(Boolean),
     build: {
+      commonjsOptions: {
+        include: [/node_modules/],
+        transformMixedEsModules: true,
+      },
       rollupOptions: {
         onwarn(warning, warn) {
-          // Treat import errors as fatal errors
+          // Ignore Supabase module resolution warnings
+          if (
+            warning.code === "MISSING_EXPORT" &&
+            warning.id?.includes('@supabase/supabase-js')
+          ) {
+            return;
+          }
+          // Treat other import errors as fatal errors
           if (
             warning.code === "UNRESOLVED_IMPORT" ||
             warning.code === "MISSING_EXPORT"
@@ -58,10 +69,11 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
-      extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json']
+      extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json'],
+      dedupe: ['@supabase/supabase-js'],
     },
     optimizeDeps: {
-      include: ['react', 'react-dom'],
+      include: ['react', 'react-dom', '@supabase/supabase-js'],
       esbuildOptions: {
         loader: {
           '.js': 'jsx',
