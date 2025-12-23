@@ -35,7 +35,6 @@ Deno.serve(async (req) => {
     const data = await response.json();
 
     if (data.success) {
-      // Update theme's installed_on if theme_id was provided
       if (theme_id) {
         const theme = await base44.entities.Theme.get(theme_id);
         if (theme) {

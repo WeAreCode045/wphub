@@ -19,7 +19,6 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Missing required parameters' }, { status: 400 });
         }
 
-        // Get site details
         const sites = await base44.entities.Site.filter({ id: site_id });
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
@@ -29,7 +28,6 @@ Deno.serve(async (req) => {
         console.log('[togglePluginState] Site:', site.name);
         console.log('[togglePluginState] Calling connector to toggle:', plugin_slug);
 
-        // Call connector endpoint
         const connectorUrl = `${site.url}/wp-json/wphub/v1/togglePlugin`;
         console.log('[togglePluginState] Calling connector:', connectorUrl);
 
@@ -55,10 +53,6 @@ Deno.serve(async (req) => {
 
         const result = await response.json();
         console.log('[togglePluginState] Connector response:', result);
-
-        if (result.success) {
-            console.log('[togglePluginState] ✅ Success - plugin state toggled');
-        }
 
         console.log('[togglePluginState] === END ===');
 

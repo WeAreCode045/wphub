@@ -22,7 +22,6 @@ Deno.serve(async (req) => {
             }, { status: 400 });
         }
 
-        // Check if user has 2FA enabled
         if (!user.two_fa_enabled) {
             return Response.json({ 
                 success: false,
@@ -30,7 +29,6 @@ Deno.serve(async (req) => {
             }, { status: 400 });
         }
 
-        // Check if code exists
         if (!user.two_fa_code) {
             return Response.json({ 
                 success: false,
@@ -38,7 +36,6 @@ Deno.serve(async (req) => {
             }, { status: 400 });
         }
 
-        // Check if code has expired
         const expiresAt = new Date(user.two_fa_code_expires_at);
         if (expiresAt < new Date()) {
             return Response.json({ 
@@ -47,9 +44,7 @@ Deno.serve(async (req) => {
             }, { status: 400 });
         }
 
-        // Verify code
         if (user.two_fa_code !== code) {
-            // Log failed attempt
             await base44.asServiceRole.entities.ActivityLog.create({
                 user_email: user.email,
                 action: '2FA verificatie mislukt - onjuiste code',
@@ -63,17 +58,14 @@ Deno.serve(async (req) => {
             }, { status: 400 });
         }
 
-        // Generate session ID for verified status
         const sessionId = crypto.randomUUID();
 
-        // Update user with verified session
         await base44.asServiceRole.entities.User.update(user.id, {
             two_fa_verified_session: sessionId,
             two_fa_code: null,
             two_fa_code_expires_at: null
         });
 
-        // Log successful verification
         await base44.asServiceRole.entities.ActivityLog.create({
             user_email: user.email,
             action: '2FA verificatie succesvol',

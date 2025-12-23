@@ -34,13 +34,12 @@ Deno.serve(async (req) => {
 
         console.log('[searchWordPressPlugins] Found:', data.info?.results || 0, 'plugins');
 
-        // Transform the data to our format
         const plugins = data.plugins?.map(plugin => ({
             name: plugin.name,
             slug: plugin.slug,
             version: plugin.version,
             description: plugin.short_description,
-            author: plugin.author?.replace(/<[^>]*>/g, ''), // Remove HTML tags
+            author: plugin.author?.replace(/<[^>]*>/g, ''),
             download_url: plugin.download_link,
             active_installs: plugin.active_installs,
             rating: plugin.rating,

@@ -15,7 +15,6 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'Search query is required' });
     }
 
-    // Search WordPress.org themes API
     const apiUrl = `https://api.wordpress.org/themes/info/1.2/?action=query_themes&request[search]=${encodeURIComponent(search)}&request[page]=${page}&request[per_page]=${per_page}`;
 
     const response = await fetch(apiUrl);
@@ -29,7 +28,6 @@ Deno.serve(async (req) => {
 
     const data = await response.json();
 
-    // Transform the response to match our expected format
     const themes = (data.themes || []).map(theme => ({
       name: theme.name,
       slug: theme.slug,

@@ -1,4 +1,4 @@
-import { createClientFromRequest } from './base44Shim.js';
+import { createClientFromRequest } from '../base44Shim.js';
 
 Deno.serve(async (req) => {
     try {
@@ -18,16 +18,13 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Site ID is required' }, { status: 400 });
         }
 
-        // Get site details
         const sites = await base44.entities.Site.filter({ id: site_id });
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
         const site = sites[0];
 
-        // Call connector to update debug settings
         const connectorUrl = `${site.url}/wp-json/wphub/v1/updateDebugSettings`;
-        
         const response = await fetch(connectorUrl, {
             method: 'POST',
             headers: {
@@ -53,7 +50,6 @@ Deno.serve(async (req) => {
         const result = await response.json();
         console.log('[updateDebugSettings] Result:', result);
 
-        // Update site's health check data
         const healthCheck = site.health_check || {};
         healthCheck.debug_settings = {
             wp_debug: wp_debug,
@@ -65,7 +61,6 @@ Deno.serve(async (req) => {
             health_check: healthCheck
         });
 
-        // Log activity
         await base44.entities.ActivityLog.create({
             user_email: user.email,
             action: `Debug instellingen bijgewerkt voor site: ${site.name}`,

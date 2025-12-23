@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
             }, { status: 401 });
         }
 
-        // Check if 2FA is enabled for this user
         if (!user.two_fa_enabled) {
             return Response.json({ 
                 success: false,
@@ -20,12 +19,10 @@ Deno.serve(async (req) => {
             }, { status: 400 });
         }
 
-        // Reset the verified session status
         await base44.asServiceRole.entities.User.update(user.id, {
             two_fa_verified_session: null
         });
 
-        // Log activity
         await base44.asServiceRole.entities.ActivityLog.create({
             user_email: user.email,
             action: '2FA status gereset',
