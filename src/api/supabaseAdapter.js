@@ -178,8 +178,18 @@ export const entities = {
 export const Query = {
   from: (tableName) => ({
     select: (fields = '*') => ({
-      eq: (field, value) => supabaseQueries[tableName]?.filter({ [field]: value }) || db.from(tableName).select(fields).eq(field, value),
-      filter: (filters) => supabaseQueries[tableName]?.filter(filters) || db.from(tableName).select(fields),
+      eq: async (field, value) => {
+        const { supabaseQueries, supabaseAdmin } = await getClients();
+        if (supabaseQueries && supabaseQueries[tableName]) return supabaseQueries[tableName].filter({ [field]: value });
+        const { data } = await supabaseAdmin.from(tableName).select(fields).eq(field, value);
+        return data;
+      },
+      filter: async (filters) => {
+        const { supabaseQueries, supabaseAdmin } = await getClients();
+        if (supabaseQueries && supabaseQueries[tableName]) return supabaseQueries[tableName].filter(filters);
+        const { data } = await supabaseAdmin.from(tableName).select(fields);
+        return data;
+      },
     }),
   }),
 };
