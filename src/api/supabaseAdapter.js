@@ -197,49 +197,48 @@ export const Query = {
 // Auth adapter (voor Base44 auth.me())
 export const auth = {
   async me() {
-    // In Base44 wordt de user via token opgehaald
-    // Voor nu een placeholder - dit moet worden aangepast aan je auth strategie
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
+    const { supabase, supabaseAdmin: db } = await getClients();
+    const { data: { user } = {}, error } = await supabase.auth.getUser();
+
     if (error) throw error;
-    
+
     if (user) {
-      // Haal extra user data op uit de users tabel
       const { data: userData } = await db
         .from('users')
         .select('*')
         .eq('email', user.email)
         .single();
-      
+
       return userData || user;
     }
-    
+
     return null;
   },
   
   async updateMe(data) {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    const { supabase, supabaseAdmin: db } = await getClients();
+    const { data: { user } = {}, error: authError } = await supabase.auth.getUser();
+
     if (authError) throw authError;
-    
+
     if (user) {
-      // Update user data in users tabel
       const { data: updatedUser, error: updateError } = await db
         .from('users')
         .update(data)
         .eq('email', user.email)
         .select()
         .single();
-      
+
       if (updateError) throw updateError;
-      
+
       return updatedUser;
     }
-    
+
     throw new Error('No authenticated user');
   },
   
   async logout() {
+    const { supabase } = await getClients();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   },
@@ -251,20 +250,22 @@ export const integrations = {
     async UploadFile({ file }) {
       // Upload file naar Supabase Storage
       const fileName = `${Date.now()}-${file.name}`;
+      const { supabaseAdmin: db } = await getClients();
       const { data, error } = await db.storage
         .from('uploads') // Bucket naam - moet gecreëerd worden in Supabase
         .upload(fileName, file);
-      
+
       if (error) throw error;
-      
-      // Genereer public URL
-      const { data: { publicUrl } } = db.storage
+
+      const { data: pu } = await db.storage
         .from('uploads')
         .getPublicUrl(fileName);
-      
+
+      const publicUrl = pu?.publicUrl || null;
+
       return {
         file_url: publicUrl,
-        path: data.path,
+        path: data?.path,
       };
     },
     
@@ -303,12 +304,11 @@ export const integrations = {
 // Functions adapter - roept serverless functions endpoints aan
 export const functions = {
   async invoke(name, payload = {}) {
+    const { supabase } = await getClients();
     const { data: { session } = {} } = await supabase.auth.getSession();
     const token = session?.access_token || null;
-    const meta = import.meta;
-    const urlBase = meta && meta.env && meta.env.VITE_APP_DOMAIN ? String(meta.env.VITE_APP_DOMAIN).replace(/\/$/, '') : '';
-    // prefer relative path so dev server proxies work; if VITE_APP_DOMAIN is set, use absolute
-    const url = urlBase ? `${urlBase}/functions/${name}` : `/functions/${name}`;
+
+    const url = `/functions/${name}`;
 
     const res = await fetch(url, {
       method: 'POST',
@@ -322,9 +322,8 @@ export const functions = {
     let data;
     try { data = await res.json(); } catch (e) { data = null; }
     if (!res.ok) {
-      const err = new Error(`Function ${name} invoke failed: ${res.status}`);
-      err.response = data;
-      throw err;
+      const e = Object.assign(new Error(`Function ${name} invoke failed: ${res.status}`), { response: data });
+      throw e;
     }
     return data;
   }
