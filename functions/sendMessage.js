@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { createClientFromRequest } from './base44Shim.js';
 
 Deno.serve(async (req) => {
   try {

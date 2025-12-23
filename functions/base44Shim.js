@@ -79,6 +79,45 @@ async function authMeWithToken(token) {
 
 export function createClientFromRequest(_req) {
   // _req kept for compatibility with original signature
+  // build the entities proxy once so we can reuse it for top-level and asServiceRole
+  const entitiesProxy = new Proxy({}, {
+    get(_, entityName) {
+      const table = tableNameFromEntity(entityName);
+      return {
+        async filter(params) {
+          const q = buildFilterQuery(params);
+          return await supabaseRequest('GET', table, q);
+        },
+        async list() {
+          return await supabaseRequest('GET', table, '');
+        },
+        async get(id) {
+          const q = `?id=eq.${encodeURIComponent(String(id))}`;
+          const data = await supabaseRequest('GET', table, q);
+          return Array.isArray(data) ? data[0] : data;
+        },
+        async create(payload) {
+          const res = await supabaseRequest('POST', table, '', payload);
+          return res;
+        },
+        async update(idOrQuery, payload) {
+          // if idOrQuery is an id string/number use id filter
+          let q = '';
+          if (typeof idOrQuery === 'string' || typeof idOrQuery === 'number') {
+            q = `?id=eq.${encodeURIComponent(String(idOrQuery))}`;
+          } else if (typeof idOrQuery === 'object') {
+            q = buildFilterQuery(idOrQuery);
+          }
+          return await supabaseRequest('PATCH', table, q, payload);
+        },
+        async delete(id) {
+          const q = `?id=eq.${encodeURIComponent(String(id))}`;
+          return await supabaseRequest('DELETE', table, q);
+        }
+      };
+    }
+  });
+
   return {
     auth: {
       async me(req) {
@@ -86,44 +125,97 @@ export function createClientFromRequest(_req) {
         return await authMeWithToken(token);
       }
     },
+    // expose entities at top-level for compatibility with older code that used `base44.entities`.
+    entities: entitiesProxy,
     asServiceRole: {
-      entities: new Proxy({}, {
-        get(_, entityName) {
-          const table = tableNameFromEntity(entityName);
-          return {
-            async filter(params) {
-              const q = buildFilterQuery(params);
-              return await supabaseRequest('GET', table, q);
-            },
-            async list() {
-              return await supabaseRequest('GET', table, '');
-            },
-            async get(id) {
-              const q = `?id=eq.${encodeURIComponent(String(id))}`;
-              const data = await supabaseRequest('GET', table, q);
-              return Array.isArray(data) ? data[0] : data;
-            },
-            async create(payload) {
-              const res = await supabaseRequest('POST', table, '', payload);
-              return res;
-            },
-            async update(idOrQuery, payload) {
-              // if idOrQuery is an id string/number use id filter
-              let q = '';
-              if (typeof idOrQuery === 'string' || typeof idOrQuery === 'number') {
-                q = `?id=eq.${encodeURIComponent(String(idOrQuery))}`;
-              } else if (typeof idOrQuery === 'object') {
-                q = buildFilterQuery(idOrQuery);
+      entities: entitiesProxy
+    },
+    // minimal functions.invoke stub: logs and returns null. Specific functions should be refactored
+    // to not rely on remote invocation or to call underlying implementations directly.
+    functions: {
+      async invoke(name, payload) {
+        console.log('[base44Shim] functions.invoke called for', name);
+        // best-effort: try to dynamically import local function module from ./<name>{.js,.ts}
+        const tryPaths = [
+          `./${name}.js`,
+          `./${name}.ts`,
+          `./${name}/index.js`,
+          `./${name}/index.ts`,
+          `./${name}`
+        ];
+        for (const p of tryPaths) {
+          try {
+            const mod = await import(p);
+            const fn = mod.invoke || mod.handler || mod.default;
+            if (typeof fn === 'function') {
+              try {
+                return await fn(payload);
+              } catch (err) {
+                console.error('[base44Shim] invoked module threw:', err);
+                throw err;
               }
-              return await supabaseRequest('PATCH', table, q, payload);
-            },
-            async delete(id) {
-              const q = `?id=eq.${encodeURIComponent(String(id))}`;
-              return await supabaseRequest('DELETE', table, q);
             }
-          };
+          } catch (err) {
+            // ignore import errors and try next path
+            // console.debug('[base44Shim] import failed for', p, err.message);
+          }
         }
-      })
+        console.warn('[base44Shim] functions.invoke: no local handler found for', name);
+        return null;
+      }
+    },
+    // minimal integrations shim
+    integrations: {
+      Core: {
+        async UploadFile({ file, bucket = 'uploads' } = {}) {
+          if (!file) throw new Error('No file provided to UploadFile');
+          // normalize to Uint8Array
+          let bytes;
+          try {
+            if (typeof Blob !== 'undefined' && file instanceof Blob) {
+              bytes = new Uint8Array(await file.arrayBuffer());
+            } else if (file.arrayBuffer && typeof file.arrayBuffer === 'function') {
+              bytes = new Uint8Array(await file.arrayBuffer());
+            } else if (file instanceof Uint8Array) {
+              bytes = file;
+            } else if (file.buffer && file.buffer instanceof ArrayBuffer) {
+              bytes = new Uint8Array(file.buffer);
+            } else if (file.data && (file.data instanceof Uint8Array)) {
+              bytes = file.data;
+            } else {
+              throw new Error('Unsupported file type for UploadFile');
+            }
+          } catch (e) {
+            console.warn('[base44Shim] failed to read file bytes:', e);
+            throw e;
+          }
+
+          const name = (file.name && String(file.name)) || `upload-${Date.now()}`;
+          const path = `${Date.now()}-${name}`;
+          const uploadUrl = `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/${encodeURIComponent(bucket)}/${encodeURIComponent(path)}`;
+
+          const headers = {
+            Authorization: `Bearer ${SERVICE_KEY}`,
+            apikey: SERVICE_KEY,
+            'Content-Type': (file.type || 'application/octet-stream')
+          };
+
+          const res = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers,
+            body: bytes
+          });
+
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(`Supabase storage upload failed ${res.status}: ${txt}`);
+          }
+
+          // public URL for the object (assuming bucket is configured for public access as per setup script)
+          const publicUrl = `${SUPABASE_URL.replace(/\/$/, '')}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodeURIComponent(path)}`;
+          return { file_url: publicUrl, path };
+        }
+      }
     }
   };
 }
