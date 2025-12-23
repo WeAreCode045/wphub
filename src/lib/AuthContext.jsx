@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '@/api/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
@@ -13,20 +12,24 @@ export const AuthProvider = ({ children }) => {
   const [appPublicSettings] = useState(null); // Keep for backward compatibility
 
   useEffect(() => {
-    checkAuth();
+    let authListener;
+    (async () => {
+      const { supabase } = await import('@/api/supabaseClient');
+      await checkAuth();
 
-    // Subscribe to auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        loadUserData(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        setIsAuthenticated(false);
-      }
-    });
+      // Subscribe to auth changes
+      authListener = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          loadUserData(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      });
+    })();
 
     return () => {
-      authListener?.subscription?.unsubscribe();
+      try { authListener?.subscription?.unsubscribe(); } catch {}
     };
   }, []);
 
@@ -34,7 +37,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoadingAuth(true);
       setAuthError(null);
-      
+      const { supabase } = await import('@/api/supabaseClient');
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) throw error;
@@ -59,6 +62,7 @@ export const AuthProvider = ({ children }) => {
   const loadUserData = async (authUser) => {
     try {
       // Get user data from public.users table
+      const { supabase } = await import('@/api/supabaseClient');
       const { data: userData, error } = await supabase
         .from('users')
         .select('*')

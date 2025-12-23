@@ -1,10 +1,14 @@
 // Base44 naar Supabase adapter
 // Behoudt de Base44 API interface maar gebruikt Supabase onder de motorkap
 
-import { supabase, supabaseAdmin, supabaseQueries } from './supabaseClient.js';
-
-// Gebruik admin client voor alle operaties (bypass RLS)
-const db = supabaseAdmin;
+async function getClients() {
+  const mod = await import('./supabaseClient.js');
+  return {
+    supabase: mod.supabase,
+    supabaseAdmin: mod.supabaseAdmin,
+    supabaseQueries: mod.supabaseQueries,
+  };
+}
 
 // Helper om Base44 response formaat na te bootsen
 const formatResponse = (data) => {
@@ -17,6 +21,7 @@ const formatResponse = (data) => {
 // Adapter voor elke entity
 const createEntityAdapter = (tableName, queryHelper) => ({
   async list(orderBy = '-created_at', limit = 1000, skip = 0) {
+    const { supabaseAdmin: db } = await getClients();
     const { data, error } = await db
       .from(tableName)
       .select('*')
@@ -28,6 +33,7 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async get(id) {
+    const { supabaseAdmin: db } = await getClients();
     const { data, error } = await db
       .from(tableName)
       .select('*')
@@ -39,6 +45,7 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async filter(filters, orderBy = '-created_at', limit = 1000) {
+    const { supabaseAdmin: db } = await getClients();
     let query = db.from(tableName).select('*');
     
     Object.entries(filters).forEach(([key, value]) => {
@@ -60,6 +67,7 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async create(data) {
+    const { supabaseAdmin: db } = await getClients();
     const { data: result, error } = await db
       .from(tableName)
       .insert(data)
@@ -71,6 +79,7 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async update(id, data) {
+    const { supabaseAdmin: db } = await getClients();
     const { data: result, error } = await db
       .from(tableName)
       .update(data)
@@ -83,6 +92,7 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async delete(id) {
+    const { supabaseAdmin: db } = await getClients();
     const { error } = await db
       .from(tableName)
       .delete()
@@ -99,6 +109,7 @@ async function createAuthUserIfNeeded(userData) {
   
   try {
     // Gebruik admin client om auth user aan te maken
+    const { supabaseAdmin: db } = await getClients();
     const tempPassword = Math.random().toString(36).slice(-16) + Math.random().toString(36).slice(-16);
     
     const { data: authData, error } = await db.auth.admin.createUser({
