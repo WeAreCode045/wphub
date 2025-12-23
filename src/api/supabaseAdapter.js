@@ -325,7 +325,7 @@ export const functions = {
       const e = Object.assign(new Error(`Function ${name} invoke failed: ${res.status}`), { response: data });
       throw e;
     }
-    return data;
+    return { data };
   }
 };
 
