@@ -136,7 +136,7 @@ async function createAuthUserIfNeeded(userData) {
 
 // Special adapter voor User entity met auth user synchronisatie
 const createUserEntityAdapter = () => {
-  const baseAdapter = createEntityAdapter('users', supabaseQueries.users);
+  const baseAdapter = createEntityAdapter('users');
   
   return {
     ...baseAdapter,
@@ -155,23 +155,23 @@ const createUserEntityAdapter = () => {
 // Export entities met Base44-compatible interface
 export const entities = {
   User: createUserEntityAdapter(), // Speciale handler met auth sync
-  Site: createEntityAdapter('sites', supabaseQueries.sites),
-  Plugin: createEntityAdapter('plugins', supabaseQueries.plugins),
-  Theme: createEntityAdapter('themes', supabaseQueries.themes),
-  Team: createEntityAdapter('teams', supabaseQueries.teams),
-  TeamRole: createEntityAdapter('team_roles', supabaseQueries.teamRoles),
+  Site: createEntityAdapter('sites'),
+  Plugin: createEntityAdapter('plugins'),
+  Theme: createEntityAdapter('themes'),
+  Team: createEntityAdapter('teams'),
+  TeamRole: createEntityAdapter('team_roles'),
   TeamMember: createEntityAdapter('team_members'),
-  Project: createEntityAdapter('projects', supabaseQueries.projects),
-  ProjectTemplate: createEntityAdapter('project_templates', supabaseQueries.projectTemplates),
-  Message: createEntityAdapter('messages', supabaseQueries.messages),
-  Notification: createEntityAdapter('notifications', supabaseQueries.notifications),
-  ActivityLog: createEntityAdapter('activity_logs', supabaseQueries.activityLogs),
-  SupportTicket: createEntityAdapter('support_tickets', supabaseQueries.supportTickets),
-  SubscriptionPlan: createEntityAdapter('subscription_plans', supabaseQueries.subscriptionPlans),
-  UserSubscription: createEntityAdapter('user_subscriptions', supabaseQueries.userSubscriptions),
-  Invoice: createEntityAdapter('invoices', supabaseQueries.invoices),
-  SiteSettings: createEntityAdapter('site_settings', supabaseQueries.siteSettings),
-  Connector: createEntityAdapter('connectors', supabaseQueries.connectors),
+  Project: createEntityAdapter('projects'),
+  ProjectTemplate: createEntityAdapter('project_templates'),
+  Message: createEntityAdapter('messages'),
+  Notification: createEntityAdapter('notifications'),
+  ActivityLog: createEntityAdapter('activity_logs'),
+  SupportTicket: createEntityAdapter('support_tickets'),
+  SubscriptionPlan: createEntityAdapter('subscription_plans'),
+  UserSubscription: createEntityAdapter('user_subscriptions'),
+  Invoice: createEntityAdapter('invoices'),
+  SiteSettings: createEntityAdapter('site_settings'),
+  Connector: createEntityAdapter('connectors'),
 };
 
 // Query helper (Base44 compatible)
