@@ -284,8 +284,8 @@ export const functions = {
   async invoke(name, payload = {}) {
     const { data: { session } = {} } = await supabase.auth.getSession();
     const token = session?.access_token || null;
-    const meta: any = import.meta;
-    const urlBase = meta?.env?.VITE_APP_DOMAIN ? String(meta.env.VITE_APP_DOMAIN).replace(/\/$/, '') : '';
+    const meta = import.meta;
+    const urlBase = meta && meta.env && meta.env.VITE_APP_DOMAIN ? String(meta.env.VITE_APP_DOMAIN).replace(/\/$/, '') : '';
     // prefer relative path so dev server proxies work; if VITE_APP_DOMAIN is set, use absolute
     const url = urlBase ? `${urlBase}/functions/${name}` : `/functions/${name}`;
 
@@ -301,7 +301,7 @@ export const functions = {
     let data;
     try { data = await res.json(); } catch (e) { data = null; }
     if (!res.ok) {
-      const err: any = new Error(`Function ${name} invoke failed: ${res.status}`);
+      const err = new Error(`Function ${name} invoke failed: ${res.status}`);
       err.response = data;
       throw err;
     }
