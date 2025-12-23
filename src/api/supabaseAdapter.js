@@ -1,7 +1,7 @@
 // Base44 naar Supabase adapter
 // Behoudt de Base44 API interface maar gebruikt Supabase onder de motorkap
 
-import { supabase, supabaseAdmin, supabaseQueries } from './supabaseClient';
+import { supabase, supabaseAdmin, supabaseQueries } from './supabaseClient.js';
 
 // Gebruik admin client voor alle operaties (bypass RLS)
 const db = supabaseAdmin;

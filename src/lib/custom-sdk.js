@@ -1,4 +1,4 @@
-import { supabase } from "./supabase-client.js";
+import { supabase, supabaseAdmin } from "../api/supabaseClient.js";
 import { createClient } from "@supabase/supabase-js";
 
 // Handle both Vite (import.meta.env) and Node.js (process.env) environments
