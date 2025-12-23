@@ -279,10 +279,41 @@ export const integrations = {
   },
 };
 
+// Functions adapter - roept serverless functions endpoints aan
+export const functions = {
+  async invoke(name, payload = {}) {
+    const { data: { session } = {} } = await supabase.auth.getSession();
+    const token = session?.access_token || null;
+    const meta: any = import.meta;
+    const urlBase = meta?.env?.VITE_APP_DOMAIN ? String(meta.env.VITE_APP_DOMAIN).replace(/\/$/, '') : '';
+    // prefer relative path so dev server proxies work; if VITE_APP_DOMAIN is set, use absolute
+    const url = urlBase ? `${urlBase}/functions/${name}` : `/functions/${name}`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+
+    let data;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok) {
+      const err: any = new Error(`Function ${name} invoke failed: ${res.status}`);
+      err.response = data;
+      throw err;
+    }
+    return data;
+  }
+};
+
 // Export alles in Base44-compatible formaat
 export const supabaseAdapter = {
   entities,
   auth,
   Query,
   integrations,
+  functions,
 };
