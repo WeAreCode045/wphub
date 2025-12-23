@@ -95,6 +95,25 @@ export default function Login() {
     }
   };
 
+  const handleGithubLogin = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        }
+      });
+
+      if (authError) throw authError;
+    } catch (err) {
+      setError(err.message || "GitHub login mislukt. Probeer het opnieuw.");
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4">
       <Card className="w-full max-w-md shadow-xl">
@@ -200,6 +219,19 @@ export default function Login() {
                 />
               </svg>
               Doorgaan met Google
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full mt-2"
+              onClick={handleGithubLogin}
+              disabled={loading}
+            >
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden>
+                <path fill="currentColor" d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.38 7.86 10.9.58.1.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.88-1.54-3.88-1.54-.53-1.36-1.3-1.72-1.3-1.72-1.06-.73.08-.71.08-.71 1.17.08 1.79 1.2 1.79 1.2 1.04 1.78 2.73 1.27 3.4.97.11-.76.41-1.27.74-1.56-2.56-.29-5.26-1.28-5.26-5.7 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.45.11-3.01 0 0 .97-.31 3.18 1.18a11.06 11.06 0 0 1 2.9-.39c.98 0 1.97.13 2.9.39 2.2-1.49 3.17-1.18 3.17-1.18.63 1.56.23 2.72.11 3.01.74.81 1.19 1.83 1.19 3.09 0 4.43-2.71 5.4-5.29 5.69.42.36.8 1.08.8 2.18 0 1.58-.01 2.86-.01 3.25 0 .31.21.67.8.56A10.52 10.52 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/>
+              </svg>
+              Doorgaan met GitHub
             </Button>
           </form>
         </CardContent>
