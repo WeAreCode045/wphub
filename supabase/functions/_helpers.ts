@@ -1,6 +1,6 @@
 // Shared helpers for Supabase Edge Functions
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || Deno.env.get('VITE_SUPABASE_URL');
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('VITE_SUPABASE_SERVICE_ROLE_KEY');
+const SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('VITE_SUPABASE_SERVICE_ROLE_KEY');
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.warn('[supabase/functions] SUPABASE_URL or SERVICE_ROLE_KEY not set - functions will fail without env');
@@ -8,6 +8,10 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 
 export async function authMeWithToken(token: string | null) {
   if (!token) return null;
+  // If token equals the service role key, treat as privileged service user
+  if (SERVICE_KEY && token === SERVICE_KEY) {
+    return { id: 'service-role', role: 'service_role', email: null, service_role: true };
+  }
   const url = `${SUPABASE_URL}/auth/v1/user`;
   const headers: Record<string,string> = {
     Authorization: `Bearer ${token}`,
