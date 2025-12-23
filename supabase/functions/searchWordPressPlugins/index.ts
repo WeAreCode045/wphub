@@ -9,7 +9,22 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { search, page = 1, per_page = 20 } = await req.json();
+        // Support both POST (JSON body) and GET (query params) to avoid 405 on production invoke
+        let search: string | undefined;
+        let page = 1;
+        let per_page = 20;
+
+        if (req.method === 'GET') {
+            const url = new URL(req.url);
+            search = url.searchParams.get('search') || undefined;
+            page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
+            per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
+        } else {
+            const body = await req.json().catch(() => ({}));
+            search = body.search;
+            page = body.page || 1;
+            per_page = body.per_page || 20;
+        }
 
         if (!search) {
             return Response.json({ error: 'Search query is required' }, { status: 400 });
@@ -27,7 +42,7 @@ Deno.serve(async (req) => {
 
         const data = await response.json();
 
-        const plugins = data.plugins?.map(plugin => ({
+        const plugins = data.plugins?.map((plugin: any) => ({
             name: plugin.name,
             slug: plugin.slug,
             version: plugin.version,
@@ -42,16 +57,10 @@ Deno.serve(async (req) => {
 
         console.log('[searchWordPressPlugins] === END ===');
 
-        return Response.json({
-            success: true,
-            info: data.info,
-            plugins: plugins
-        });
+        return new Response(JSON.stringify({ success: true, info: data.info, plugins }), { headers: { 'content-type': 'application/json' } });
 
-    } catch (error) {
-        console.error('[searchWordPressPlugins] ❌ ERROR:', error.message);
-        return Response.json({ 
-            error: error.message 
-        }, { status: 500 });
+    } catch (error: any) {
+        console.error('[searchWordPressPlugins] ❌ ERROR:', error?.message || error);
+        return new Response(JSON.stringify({ error: (error?.message || String(error)) }), { status: 500, headers: { 'content-type': 'application/json' } });
     }
 });

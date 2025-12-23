@@ -1,5 +1,6 @@
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || Deno.env.get('VITE_SUPABASE_URL');
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('VITE_SUPABASE_SERVICE_ROLE_KEY');
+// Accept multiple secret env names: prefer explicit SERVICE_ROLE_KEY, then SUPABASE_SERVICE_ROLE_KEY
+const SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('VITE_SUPABASE_SERVICE_ROLE_KEY');
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.warn('[base44Shim] SUPABASE_URL or SERVICE_ROLE_KEY not set - functions will fail if called without proper env');
@@ -61,6 +62,17 @@ function getBearerTokenFromReq(req) {
 
 async function authMeWithToken(token) {
   if (!token) return null;
+  // If token equals the service role key, treat as privileged service user
+  if (SERVICE_KEY && token === SERVICE_KEY) {
+    return {
+      id: 'service-role',
+      role: 'service_role',
+      email: null,
+      service_role: true
+    };
+  }
+
+  // Otherwise validate against Supabase auth endpoint
   const url = `${SUPABASE_URL}/auth/v1/user`;
   const headers = {
     Authorization: `Bearer ${token}`,
