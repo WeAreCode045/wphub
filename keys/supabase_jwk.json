@@ -1,0 +1,12 @@
+{
+  "x": "yb-AuKVg_ShJGpfo9XjdVWf55QJgap4eK73O_quBLRw",
+  "y": "eP9A2f9MzEhAIpK1XVmgbUDhZO-aHhTSO8eK90vkfC0",
+  "alg": "ES256",
+  "crv": "P-256",
+  "ext": true,
+  "kid": "92d67fa7-b48f-4076-8b69-f35b4979ec28",
+  "kty": "EC",
+  "key_ops": [
+    "verify"
+  ]
+}

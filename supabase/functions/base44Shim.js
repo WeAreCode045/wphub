@@ -172,8 +172,43 @@ export function createClientFromRequest(_req) {
             // console.debug('[base44Shim] import failed for', p, err.message);
           }
         }
-        console.warn('[base44Shim] functions.invoke: no local handler found for', name);
-        return null;
+        console.warn('[base44Shim] functions.invoke: no local handler found for', name, '- falling back to remote functions endpoint');
+
+        // Fallback: call the Supabase Edge Functions HTTP endpoint directly using the service role key
+        if (!SUPABASE_URL || !SERVICE_KEY) {
+          console.error('[base44Shim] cannot call remote function: SUPABASE_URL or SERVICE_KEY missing');
+          return null;
+        }
+
+        try {
+          const url = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/${encodeURIComponent(name)}`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SERVICE_KEY,
+              'Authorization': `Bearer ${SERVICE_KEY}`
+            },
+            body: JSON.stringify(payload || {})
+          });
+
+          const text = await res.text();
+          let parsed;
+          try { parsed = text ? JSON.parse(text) : null; } catch(e) { parsed = text; }
+
+          if (!res.ok) {
+            console.error('[base44Shim] remote function call failed', res.status, parsed);
+            // throw an Error with attached response for callers to inspect
+            const err = new Error(`Remote function ${name} failed: ${res.status}`);
+            err.response = parsed;
+            throw err;
+          }
+
+          return parsed;
+        } catch (err) {
+          console.error('[base44Shim] remote invoke error:', err?.message || err);
+          return null;
+        }
       }
     },
     // minimal integrations shim
