@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
 
     try {
       // Call executePluginAction directly via Supabase Functions HTTP endpoint using service role key
-      const SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('VITE_SUPABASE_SERVICE_ROLE_KEY');
+      const SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
       const SUPA = Deno.env.get('SUPABASE_URL') || Deno.env.get('VITE_SUPABASE_URL');
 
       if (!SERVICE_KEY || !SUPA) {

@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useUser } from "../Layout";
+import { supabase } from "@/api/supabaseClient";
 
 import SendMessageDialog from "../components/messaging/SendMessageDialog";
 import SendNotificationDialog from "../components/messaging/SendNotificationDialog";
@@ -159,15 +160,26 @@ export default function UserDetail() {
   const updateUserMutation = useMutation({
     mutationFn: async (updatedData) => {
       if (!userId) throw new Error("User ID is missing.");
-      await base44.entities.User.update(userId, updatedData);
+      const { data, error } = await supabase.functions.invoke('updateUserAdmin', {
+        body: { user_id: userId, updates: updatedData }
+      });
+      if (error) throw new Error(error.message || 'Failed to update user');
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user', userId] });
       setShowEditDialog(false);
-      alert('✅ Gebruiker succesvol bijgewerkt!');
+      toast({
+        title: "Gebruiker bijgewerkt",
+        description: "De gebruiker is succesvol bijgewerkt.",
+      });
     },
     onError: (error) => {
-      alert('❌ Fout bij bijwerken: ' + error.message);
+      toast({
+        variant: "destructive",
+        title: "Fout bij bijwerken",
+        description: error.message,
+      });
     }
   });
 

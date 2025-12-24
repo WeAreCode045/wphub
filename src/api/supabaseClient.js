@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   throw new Error('Missing Supabase environment variables. Check your .env file.');
@@ -10,16 +9,6 @@ if (!supabaseUrl || !supabaseKey) {
 
 // Regular client voor normale operaties
 export const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Admin client met service role key (bypass RLS) - alleen gebruiken in backend/admin context
-export const supabaseAdmin = supabaseServiceKey 
-  ? createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-  : supabase; // Fallback naar regular client als service key niet beschikbaar is
 
 // Helper functions voor data queries
 export const supabaseQueries = {

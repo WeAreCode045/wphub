@@ -1,6 +1,6 @@
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || Deno.env.get('VITE_SUPABASE_URL');
 // Accept multiple secret env names: prefer explicit SERVICE_ROLE_KEY, then SUPABASE_SERVICE_ROLE_KEY
-const SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('VITE_SUPABASE_SERVICE_ROLE_KEY');
+const SERVICE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.warn('[base44Shim] SUPABASE_URL or SERVICE_ROLE_KEY not set - functions will fail if called without proper env');

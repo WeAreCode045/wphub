@@ -45,6 +45,7 @@ import { format } from "date-fns";
 import { nl } from "date-fns/locale";
 import { useUser } from "../Layout";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/api/supabaseClient";
 
 const USERS_PER_PAGE = 20;
 
@@ -71,48 +72,21 @@ export default function UserManager() {
     queryKey: ['admin-users', currentPage, searchQuery, statusFilter, roleFilter],
     queryFn: async () => {
       if (!user || user.role !== 'admin') return { users: [], total: 0 };
-      
-      // Calculate skip for pagination
-      const skip = (currentPage - 1) * USERS_PER_PAGE;
-      
-      // Build filter
-      let filter = {};
-      if (statusFilter !== "all") {
-        filter.is_blocked = statusFilter === "blocked";
-      }
-      if (roleFilter !== "all") {
-        filter.role = roleFilter;
-      }
-      
-      // Fetch users with limit and skip
-      const users = await base44.entities.User.list("-created_date", USERS_PER_PAGE, skip);
-      
-      // Filter by search query on client side (since backend doesn't support text search)
-      let filteredUsers = users;
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredUsers = users.filter(u => 
-          u.full_name?.toLowerCase().includes(query) ||
-          u.email?.toLowerCase().includes(query) ||
-          u.company?.toLowerCase().includes(query)
-        );
-      }
-      
-      // Apply status and role filters
-      if (statusFilter !== "all") {
-        filteredUsers = filteredUsers.filter(u => 
-          statusFilter === "blocked" ? u.is_blocked : !u.is_blocked
-        );
-      }
-      if (roleFilter !== "all") {
-        filteredUsers = filteredUsers.filter(u => u.role === roleFilter);
-      }
-      
-      return { 
-        users: filteredUsers, 
-        total: filteredUsers.length,
-        hasMore: users.length === USERS_PER_PAGE
-      };
+
+      // Call the getAllUsersAdmin edge function
+      const { data, error } = await supabase.functions.invoke('getAllUsersAdmin', {
+        body: {
+          page: currentPage,
+          limit: USERS_PER_PAGE,
+          search: searchQuery || null,
+          status: statusFilter !== "all" ? statusFilter : null,
+          role: roleFilter !== "all" ? roleFilter : null,
+        }
+      });
+
+      if (error) throw new Error(error.message);
+
+      return data || { users: [], total: 0 };
     },
     enabled: !!user && user.role === "admin",
     staleTime: 0,
@@ -120,7 +94,13 @@ export default function UserManager() {
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: ({ userId, data }) => base44.entities.User.update(userId, data),
+    mutationFn: async ({ userId, data }) => {
+      const { data: result, error } = await supabase.functions.invoke('updateUserAdmin', {
+        body: { user_id: userId, updates: data }
+      });
+      if (error) throw new Error(error.message || 'Failed to update user');
+      return result;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
     },
@@ -128,85 +108,11 @@ export default function UserManager() {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId) => {
-      setDeletingUserId(userId);
-      
-      // Get all entities owned by this user
-      const [userPlugins, userSites, userTeams, allProjects] = await Promise.all([
-        base44.entities.Plugin.filter({ owner_type: "user", owner_id: userId }),
-        base44.entities.Site.filter({ owner_type: "user", owner_id: userId }),
-        base44.entities.Team.filter({ owner_id: userId }),
-        base44.entities.Project.list()
-      ]);
-
-      // Get team IDs owned by user
-      const ownedTeamIds = userTeams.map(t => t.id);
-      
-      // Get projects in teams owned by user
-      const userProjects = allProjects.filter(p => ownedTeamIds.includes(p.team_id));
-
-      // Delete all projects owned by user
-      for (const project of userProjects) {
-        await base44.entities.Project.delete(project.id);
-      }
-
-      // Delete all teams owned by user
-      for (const team of userTeams) {
-        await base44.entities.Team.delete(team.id);
-      }
-
-      // Delete all sites owned by user
-      for (const site of userSites) {
-        await base44.entities.Site.delete(site.id);
-      }
-
-      // Delete all plugins owned by user
-      for (const plugin of userPlugins) {
-        await base44.entities.Plugin.delete(plugin.id);
-      }
-
-      // Remove user from other teams as member
-      const allTeams = await base44.entities.Team.list();
-      for (const team of allTeams) {
-        if (team.members?.some(m => m.user_id === userId)) {
-          const updatedMembers = team.members.filter(m => m.user_id !== userId);
-          await base44.entities.Team.update(team.id, { members: updatedMembers });
-        }
-      }
-
-      // Delete user's subscriptions
-      const userSubscriptions = await base44.entities.UserSubscription.filter({ user_id: userId });
-      for (const sub of userSubscriptions) {
-        await base44.entities.UserSubscription.delete(sub.id);
-      }
-
-      // Delete user's messages (sent and received)
-      const allMessages = await base44.entities.Message.list();
-      const userMessages = allMessages.filter(m => 
-        m.sender_id === userId || m.recipient_id === userId
-      );
-      for (const message of userMessages) {
-        await base44.entities.Message.delete(message.id);
-      }
-
-      // Delete user's notifications
-      const userNotifications = await base44.entities.Notification.filter({ recipient_id: userId });
-      for (const notification of userNotifications) {
-        await base44.entities.Notification.delete(notification.id);
-      }
-
-      // Delete user's activity logs
-      // Assuming ActivityLog has a user_id or user_email field that stores the userId.
-      // If `userId` is a UUID and `user_email` expects an email string, this line might need adjustment.
-      // For now, following the outline provided.
-      const userActivities = await base44.entities.ActivityLog.filter({ user_email: userId }); 
-      for (const activity of userActivities) {
-        await base44.entities.ActivityLog.delete(activity.id);
-      }
-
-      // Finally, delete the user
-      await base44.entities.User.delete(userId);
-
-      return userId;
+      const { data, error } = await supabase.functions.invoke('deleteUserAdmin', {
+        body: { user_id: userId }
+      });
+      if (error) throw new Error(error.message || 'Failed to delete user');
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
