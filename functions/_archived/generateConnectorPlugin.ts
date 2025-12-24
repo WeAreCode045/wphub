@@ -130,7 +130,7 @@ if (!defined('ABSPATH')) {
 
 class WPPluginHubConnector {
     private $api_key = '';
-    private $hub_url = 'https://pluginhub.code045.nl';
+    private $hub_url = 'https://wphub.pro';
     private $option_name = 'wphub_connector_settings';
 
     public function __construct() {

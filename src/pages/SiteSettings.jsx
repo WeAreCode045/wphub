@@ -230,7 +230,7 @@ export default function SiteSettings() {
 
   const handleGenerateConnector = () => {
     if (newConnector.version) {
-      const platformUrl = settings.find(s => s.setting_key === 'platform_url')?.setting_value || 'https://pluginhub.code045.nl';
+      const platformUrl = settings.find(s => s.setting_key === 'platform_url')?.setting_value || 'https://wphub.pro';
       
       generateConnectorMutation.mutate({
         ...newConnector,
@@ -359,7 +359,7 @@ export default function SiteSettings() {
                     <Input
                       id="platform_url"
                       type="url"
-                      placeholder="https://pluginhub.code045.nl"
+                      placeholder="https://wphub.pro"
                       value={generalSettings.platform_url}
                       onChange={(e) => setGeneralSettings({ ...generalSettings, platform_url: e.target.value })}
                       className="mt-2"
@@ -495,7 +495,7 @@ export default function SiteSettings() {
                     <Input
                       id="platform_contact_email"
                       type="email"
-                      placeholder="info@pluginhub.code045.nl"
+                      placeholder="info@wphub.pro"
                       value={generalSettings.platform_contact_email}
                       onChange={(e) => setGeneralSettings({ ...generalSettings, platform_contact_email: e.target.value })}
                       className="mt-2"
@@ -727,7 +727,7 @@ export default function SiteSettings() {
                           </div>
                           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                             <p className="text-sm text-blue-800">
-                              De connector plugin bevat de hardcoded platform URL: <strong>https://pluginhub.code045.nl</strong>
+                              De connector plugin bevat de hardcoded platform URL: <strong>https://wphub.pro</strong>
                             </p>
                           </div>
                           <div className="flex gap-2">

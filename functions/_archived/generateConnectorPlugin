@@ -330,7 +330,7 @@ class WPPluginHubConnector {
                             name="wphub_hub_url" 
                             value="<?php echo esc_attr($hub_url); ?>"
                             class="regular-text"
-                            placeholder="https://pluginhub.code045.nl"
+                            placeholder="https://wphub.pro"
                         />
                         <p class="description">De URL van je WP Plugin Hub installatie</p>
                     </div>

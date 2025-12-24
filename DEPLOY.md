@@ -8,7 +8,7 @@ De app heeft Supabase credentials nodig tijdens de build. Zorg dat je deze waard
 VITE_SUPABASE_URL=https://ossyxxlplvqakowiwbok.supabase.co
 VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT
 VITE_APP_NAME="WP Hub"
-VITE_APP_DOMAIN=https://pluginhub.code045.nl
+VITE_APP_DOMAIN=https://wphub.pro
 ```
 
 ## Optie 1: Docker Image builden en pushen
@@ -19,7 +19,7 @@ docker build \
   --build-arg VITE_SUPABASE_URL=https://ossyxxlplvqakowiwbok.supabase.co \
   --build-arg VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT \
   --build-arg VITE_APP_NAME="WP Hub" \
-  --build-arg VITE_APP_DOMAIN=https://pluginhub.code045.nl \
+  --build-arg VITE_APP_DOMAIN=https://wphub.pro \
   -t wphub:latest .
 ```
 
@@ -60,7 +60,7 @@ git push
 ### 2. SSH naar server en deploy
 ```bash
 # SSH naar je server
-ssh user@pluginhub.code045.nl
+ssh user@wphub.pro
 
 # Ga naar de app directory
 cd /path/to/wphub
@@ -73,7 +73,7 @@ docker build \
   --build-arg VITE_SUPABASE_URL=https://ossyxxlplvqakowiwbok.supabase.co \
   --build-arg VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT \
   --build-arg VITE_APP_NAME="WP Hub" \
-  --build-arg VITE_APP_DOMAIN=https://pluginhub.code045.nl \
+  --build-arg VITE_APP_DOMAIN=https://wphub.pro \
   -t wphub:latest .
 
 # Stop oude container en start nieuwe
@@ -102,7 +102,7 @@ services:
         VITE_SUPABASE_URL: https://ossyxxlplvqakowiwbok.supabase.co
         VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT
         VITE_APP_NAME: "WP Hub"
-        VITE_APP_DOMAIN: https://pluginhub.code045.nl
+        VITE_APP_DOMAIN: https://wphub.pro
     ports:
       - "80:80"
     restart: unless-stopped
@@ -111,7 +111,7 @@ services:
 ### 2. Deploy
 ```bash
 # SSH naar server
-ssh user@pluginhub.code045.nl
+ssh user@wphub.pro
 
 # Ga naar app directory
 cd /path/to/wphub
@@ -129,9 +129,9 @@ docker-compose logs -f
 ## Verificatie
 
 Na deployment, test deze URLs:
-- https://pluginhub.code045.nl/ - Homepage
-- https://pluginhub.code045.nl/login - Login pagina (zou nu moeten werken!)
-- https://pluginhub.code045.nl/dashboard - Dashboard
+- https://wphub.pro/ - Homepage
+- https://wphub.pro/login - Login pagina (zou nu moeten werken!)
+- https://wphub.pro/dashboard - Dashboard
 
 ## Troubleshooting
 

@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 class WPPluginHubConnector {
     private $api_key = '${apiKey}';
-    private $hub_url = 'https://pluginhub.code045.nl';
+    private $hub_url = 'https://wphub.pro';
 
     public function __construct() {
         add_action('rest_api_init', array($this, 'register_routes'));

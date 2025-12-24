@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: WP Plugin Hub Connector
- * Plugin URI: https://pluginhub.code045.nl
+ * Plugin URI: https://wphub.pro
  * Description: Verbindt je WordPress site met WP Plugin Hub voor centraal plugin management
  * Version: 4.0.0
  * Author: Code045
@@ -11,7 +11,7 @@
 if (!defined('ABSPATH')) exit;
 
 class WPPluginHubConnector {
-    private $platform_base_url = 'https://pluginhub.code045.nl';
+    private $platform_base_url = 'https://wphub.pro';
     
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));

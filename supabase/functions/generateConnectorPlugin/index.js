@@ -5,11 +5,11 @@ import JSZip from 'npm:jszip@3.10.1';
 const TEMPLATE_CONTENT = `<?php
 /**
  * Plugin Name: WP Plugin Hub Connector
- * Plugin URI: https://pluginhub.code045.nl
+ * Plugin URI: https://wphub.pro
  * Description: Connects WordPress site to Plugin Hub for centralized plugin management
  * Version: {{VERSION}}
  * Author: Plugin Hub
- * Author URI: https://pluginhub.code045.nl
+ * Author URI: https://wphub.pro
  * Text Domain: wp-plugin-hub-connector
  */
 

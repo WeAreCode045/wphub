@@ -5,11 +5,11 @@ import JSZip from 'npm:jszip@3.10.1';
 const TEMPLATE_CONTENT = `<?php
 /**
  * Plugin Name: WP Plugin Hub Connector
- * Plugin URI: https://pluginhub.code045.nl
+ * Plugin URI: https://wphub.pro
  * Description: Connects WordPress site to Plugin Hub for centralized plugin management
  * Version: {{VERSION}}
  * Author: Plugin Hub
- * Author URI: https://pluginhub.code045.nl
+ * Author URI: https://wphub.pro
  * Text Domain: wp-plugin-hub-connector
  */
 
@@ -601,7 +601,7 @@ Deno.serve(async (req) => {
 
         // Get platform URL from settings
         const settings = await base44.entities.SiteSettings.list();
-        const platformUrl = settings.find(s => s.setting_key === 'platform_url')?.setting_value || 'https://pluginhub.code045.nl';
+        const platformUrl = settings.find(s => s.setting_key === 'platform_url')?.setting_value || 'https://wphub.pro';
 
         console.log('[generateConnectorPlugin] Platform URL:', platformUrl);
 

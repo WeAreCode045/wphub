@@ -19,7 +19,7 @@ export default function ConnectorPluginGuide({ apiKey }) {
   const pluginCode = `<?php
 /**
  * Plugin Name: WP Plugin Hub Connector
- * Plugin URI: https://pluginhub.code045.nl
+ * Plugin URI: https://wphub.pro
  * Description: Verbindt je WordPress site met WP Plugin Hub voor centraal plugin management
  * Version: 1.3.0
  * Author: Code045
@@ -30,7 +30,7 @@ if (!defined('ABSPATH')) exit;
 
 class WPPluginHubConnector {
     private $api_key = '';
-    private $api_base_url = 'https://pluginhub.code045.nl/api/functions';
+    private $api_base_url = 'https://wphub.pro/api/functions';
     
     public function __construct() {
         add_action('admin_menu', array($this, 'add_admin_menu'));
@@ -494,7 +494,7 @@ add_action('wp_ajax_wphub_sync_now', function() {
               <Badge className="bg-indigo-600 text-white mt-0.5">3</Badge>
               <div>
                 <p className="font-medium">Pas de API URL aan</p>
-                <p className="text-gray-600 mt-1">Vervang <code className="bg-white px-2 py-0.5 rounded">https://pluginhub.code045.nl</code> met jouw Base44 app URL</p>
+                <p className="text-gray-600 mt-1">Vervang <code className="bg-white px-2 py-0.5 rounded">https://wphub.pro</code> met jouw Base44 app URL</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
