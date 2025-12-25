@@ -131,7 +131,7 @@ export default function Plugins() {
         throw new Error(limitCheck.message);
       }
       
-      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      const uploadResult = await base44.integrations.Core.UploadFile({ file, bucket: 'Plugins' });
       const fileUrl = uploadResult.file_url;
 
       const parseResponse = await base44.functions.invoke('parsePluginZip', {

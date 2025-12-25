@@ -181,7 +181,7 @@ export default function PluginDetail() {
 
   const uploadVersionMutation = useMutation({
     mutationFn: async ({ version, file }) => {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file, bucket: 'Plugins' });
 
       const versions = plugin.versions || [];
       versions.push({

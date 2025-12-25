@@ -157,7 +157,7 @@ export default function ThemeDetail() {
 
   const uploadVersionMutation = useMutation({
     mutationFn: async ({ version, file }) => {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file, bucket: 'Themes' });
 
       const versions = theme.versions || [];
       versions.push({

@@ -247,18 +247,32 @@ export const auth = {
 // Integrations adapter (voor Base44 integrations zoals UploadFile)
 export const integrations = {
   Core: {
-    async UploadFile({ file }) {
+    async UploadFile({ file, bucket = null }) {
       // Upload file naar Supabase Storage
+      // Kies bucket gebaseerd op bestandstype of expliciete parameter
+      let targetBucket = bucket;
+      
+      if (!targetBucket) {
+        // Auto-detect bucket based on file type
+        if (file.name && file.name.endsWith('.zip')) {
+          // Voorlopig alle .zip bestanden naar Plugins bucket
+          // Later kunnen we dit verfijnen met context
+          targetBucket = 'Plugins';
+        } else {
+          targetBucket = 'uploads';
+        }
+      }
+      
       const fileName = `${Date.now()}-${file.name}`;
       const { supabaseAdmin: db } = await getClients();
       const { data, error } = await db.storage
-        .from('uploads') // Bucket naam - moet gecreëerd worden in Supabase
+        .from(targetBucket)
         .upload(fileName, file);
 
       if (error) throw error;
 
       const { data: pu } = await db.storage
-        .from('uploads')
+        .from(targetBucket)
         .getPublicUrl(fileName);
 
       const publicUrl = pu?.publicUrl || null;

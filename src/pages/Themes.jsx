@@ -128,7 +128,7 @@ export default function Themes() {
         throw new Error(limitCheck.message);
       }
       
-      const uploadResult = await base44.integrations.Core.UploadFile({ file });
+      const uploadResult = await base44.integrations.Core.UploadFile({ file, bucket: 'Themes' });
       const fileUrl = uploadResult.file_url;
 
       const parseResponse = await base44.functions.invoke('parseThemeZip', {
