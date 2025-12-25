@@ -18,6 +18,12 @@ fi
 mkdir -p dist
 rsync -a --delete "$OUTDIR"/ dist/
 
+# Ensure files under dist are not marked assume-unchanged
+if git ls-files -v dist | awk '{print $1 " " $2}' | grep -E '^[[:upper:]]' >/dev/null 2>&1; then
+  echo "Clearing assume-unchanged flags for dist files"
+  git ls-files -v dist | awk '{print $2}' | xargs -r git update-index --no-assume-unchanged || true
+fi
+
 git add dist
 if git diff --staged --quiet; then
   echo "No changes in dist to commit."
