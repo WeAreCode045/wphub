@@ -68,21 +68,6 @@ node scripts/migrate-themes-to-bucket.js
 node scripts/check-user-references.js
 ```
 
-### `cleanup-base44-storage.js`
-**Doel:** Opruimen van oude base44 localStorage keys.
-
-**Wat het doet:**
-- Verwijdert oude `base44_` prefixed localStorage keys
-- Toont huidige `wphub_` prefixed keys
-- Kan worden uitgevoerd in browser console of als module
-
-**Gebruik:**
-```javascript
-// In browser console:
-import('./scripts/cleanup-base44-storage.js');
-```
-Of voer uit als Node script (hoewel het vooral voor browser is bedoeld).
-
 ## Uitvoering
 
 Alle scripts gebruiken de service role key voor volledige database toegang. Zorg ervoor dat de `.env` variabelen correct zijn ingesteld:
