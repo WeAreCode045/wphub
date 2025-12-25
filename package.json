@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --outDir dist",
     "lint": "eslint .",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
+    "postbuild": "OUTDIR=dist bash scripts/publish-dist.sh",
     "migrate": "node scripts/migrate-to-supabase.js",
     "verify-migration": "node scripts/verify-migration.js",
     "sync": "node scripts/incremental-sync.js",
@@ -16,10 +17,9 @@
     "create-admin": "node scripts/create-admin-user.js",
     "sync-users-to-auth": "node scripts/sync-users-to-auth.js",
     "reset-password": "node scripts/reset-user-password.js",
-    "update-user-ids": "node scripts/update-user-ids.js"
-    ,"publish-dist": "bash scripts/publish-dist.sh",
+    "update-user-ids": "node scripts/update-user-ids.js",
+    "publish-dist": "bash scripts/publish-dist.sh",
     "setup-git-hooks": "bash scripts/setup-git-hooks.sh"
-
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",
