@@ -184,7 +184,7 @@ export default function ActivityLog() {
                   <div className="text-center py-12 text-gray-500">
                     <Globe className="w-16 h-16 mx-auto mb-4 opacity-30" />
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Nog geen site activiteiten
+                      geen site activiteiten
                     </h3>
                   </div>
                 ) : (
