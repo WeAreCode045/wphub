@@ -5,7 +5,7 @@ async function getClients() {
   const mod = await import('./supabaseClient.js');
   return {
     supabase: mod.supabase,
-    supabaseAdmin: mod.supabaseAdmin,
+    supabaseAdmin: mod.supabase, // Use regular client for frontend operations
     supabaseQueries: mod.supabaseQueries,
   };
 }
@@ -21,8 +21,8 @@ const formatResponse = (data) => {
 // Adapter voor elke entity
 const createEntityAdapter = (tableName, queryHelper) => ({
   async list(orderBy = '-created_at', limit = 1000, skip = 0) {
-    const { supabaseAdmin: db } = await getClients();
-    const { data, error } = await db
+    const { supabase } = await getClients();
+    const { data, error } = await supabase
       .from(tableName)
       .select('*')
       .order(orderBy.replace('-', ''), { ascending: !orderBy.startsWith('-') })
@@ -33,8 +33,8 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async get(id) {
-    const { supabaseAdmin: db } = await getClients();
-    const { data, error } = await db
+    const { supabase } = await getClients();
+    const { data, error } = await supabase
       .from(tableName)
       .select('*')
       .eq('id', id)
@@ -45,8 +45,8 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async filter(filters, orderBy = '-created_at', limit = 1000) {
-    const { supabaseAdmin: db } = await getClients();
-    let query = db.from(tableName).select('*');
+    const { supabase } = await getClients();
+    let query = supabase.from(tableName).select('*');
     
     Object.entries(filters).forEach(([key, value]) => {
       query = query.eq(key, value);
@@ -67,8 +67,8 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async create(data) {
-    const { supabaseAdmin: db } = await getClients();
-    const { data: result, error } = await db
+    const { supabase } = await getClients();
+    const { data: result, error } = await supabase
       .from(tableName)
       .insert(data)
       .select()
@@ -79,8 +79,8 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async update(id, data) {
-    const { supabaseAdmin: db } = await getClients();
-    const { data: result, error } = await db
+    const { supabase } = await getClients();
+    const { data: result, error } = await supabase
       .from(tableName)
       .update(data)
       .eq('id', id)
@@ -92,8 +92,8 @@ const createEntityAdapter = (tableName, queryHelper) => ({
   },
 
   async delete(id) {
-    const { supabaseAdmin: db } = await getClients();
-    const { error } = await db
+    const { supabase } = await getClients();
+    const { error } = await supabase
       .from(tableName)
       .delete()
       .eq('id', id);
@@ -179,15 +179,15 @@ export const Query = {
   from: (tableName) => ({
     select: (fields = '*') => ({
       eq: async (field, value) => {
-        const { supabaseQueries, supabaseAdmin } = await getClients();
+        const { supabaseQueries, supabase } = await getClients();
         if (supabaseQueries && supabaseQueries[tableName]) return supabaseQueries[tableName].filter({ [field]: value });
-        const { data } = await supabaseAdmin.from(tableName).select(fields).eq(field, value);
+        const { data } = await supabase.from(tableName).select(fields).eq(field, value);
         return data;
       },
       filter: async (filters) => {
-        const { supabaseQueries, supabaseAdmin } = await getClients();
+        const { supabaseQueries, supabase } = await getClients();
         if (supabaseQueries && supabaseQueries[tableName]) return supabaseQueries[tableName].filter(filters);
-        const { data } = await supabaseAdmin.from(tableName).select(fields);
+        const { data } = await supabase.from(tableName).select(fields);
         return data;
       },
     }),
@@ -197,13 +197,13 @@ export const Query = {
 // Auth adapter (voor Base44 auth.me())
 export const auth = {
   async me() {
-    const { supabase, supabaseAdmin: db } = await getClients();
+    const { supabase } = await getClients();
     const { data: { user } = {}, error } = await supabase.auth.getUser();
 
     if (error) throw error;
 
     if (user) {
-      const { data: userData } = await db
+      const { data: userData } = await supabase
         .from('users')
         .select('*')
         .eq('email', user.email)
@@ -216,13 +216,13 @@ export const auth = {
   },
   
   async updateMe(data) {
-    const { supabase, supabaseAdmin: db } = await getClients();
+    const { supabase } = await getClients();
     const { data: { user } = {}, error: authError } = await supabase.auth.getUser();
 
     if (authError) throw authError;
 
     if (user) {
-      const { data: updatedUser, error: updateError } = await db
+      const { data: updatedUser, error: updateError } = await supabase
         .from('users')
         .update(data)
         .eq('email', user.email)
@@ -264,14 +264,14 @@ export const integrations = {
       }
       
       const fileName = `${Date.now()}-${file.name}`;
-      const { supabaseAdmin: db } = await getClients();
-      const { data, error } = await db.storage
+      const { supabase } = await getClients();
+      const { data, error } = await supabase.storage
         .from(targetBucket)
         .upload(fileName, file);
 
       if (error) throw error;
 
-      const { data: pu } = await db.storage
+      const { data: pu } = await supabase.storage
         .from(targetBucket)
         .getPublicUrl(fileName);
 

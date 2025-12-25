@@ -33,3 +33,5 @@ sdk/coverage
 sdk/tests/.env
 
 .env
+
+scripts

@@ -10,6 +10,12 @@ if (!supabaseUrl || !supabaseKey) {
 // Regular client voor normale operaties
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Admin client voor server-side operaties (edge functions)
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+export const supabaseAdmin = supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : supabase; // Fallback naar regular client als geen service key
+
 // Helper functions voor data queries
 export const supabaseQueries = {
   // Users
