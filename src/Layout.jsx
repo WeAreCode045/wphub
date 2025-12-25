@@ -518,10 +518,8 @@ export default function Layout({ children, currentPageName }) {
     );
   }
 
-  if (!user && !isPublicPage && !isAuthPage) {
-    window.location.href = createPageUrl("Home");
-    return null;
-  }
+  // Don't block access if user data is still loading - ProtectedRoute already handles auth
+  // Just show loading state for user-specific features
 
   if (user && !isPublicPage && !isAuthPage) {
     if (user.two_fa_enabled) {
