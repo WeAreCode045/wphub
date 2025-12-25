@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 // `supabase` is dynamically imported inside handlers to keep the client bundle split
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,11 +11,14 @@ import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState("login"); // 'login' or 'signup'
+
+  const from = location.state?.from?.pathname || "/dashboard";
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -33,7 +36,7 @@ export default function Login() {
 
       // User record wordt automatisch aangemaakt via database trigger
       // Redirect naar dashboard
-      navigate("/dashboard");
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err.message || "Login mislukt. Controleer je gegevens.");
     } finally {
@@ -69,7 +72,7 @@ export default function Login() {
         setMode("login");
       } else {
         // Direct inloggen als geen email confirmatie nodig is
-        navigate("/dashboard");
+        navigate(from, { replace: true });
       }
     } catch (err) {
       setError(err.message || "Registratie mislukt. Probeer het opnieuw.");

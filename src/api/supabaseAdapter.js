@@ -18,14 +18,25 @@ const formatResponse = (data) => {
   return data ? [data] : [];
 };
 
+// Field mapping voor Base44 naar Supabase
+const mapFieldName = (field) => {
+  const fieldMappings = {
+    created_date: "created_at",
+    updated_date: "updated_at",
+    // Add any other field mappings as needed
+  };
+  return fieldMappings[field] || field;
+};
+
 // Adapter voor elke entity
 const createEntityAdapter = (tableName, queryHelper) => ({
   async list(orderBy = '-created_at', limit = 1000, skip = 0) {
     const { supabase } = await getClients();
+    const mappedOrderBy = orderBy.replace(/^-?/, (match) => match + mapFieldName(orderBy.replace(/^-/, '')));
     const { data, error } = await supabase
       .from(tableName)
       .select('*')
-      .order(orderBy.replace('-', ''), { ascending: !orderBy.startsWith('-') })
+      .order(mappedOrderBy.replace('-', ''), { ascending: !mappedOrderBy.startsWith('-') })
       .range(skip, skip + limit - 1);
     
     if (error) throw error;
@@ -53,7 +64,8 @@ const createEntityAdapter = (tableName, queryHelper) => ({
     });
     
     if (orderBy) {
-      query = query.order(orderBy.replace('-', ''), { ascending: !orderBy.startsWith('-') });
+      const mappedOrderBy = orderBy.replace(/^-?/, (match) => match + mapFieldName(orderBy.replace(/^-/, '')));
+      query = query.order(mappedOrderBy.replace('-', ''), { ascending: !mappedOrderBy.startsWith('-') });
     }
     
     if (limit) {
