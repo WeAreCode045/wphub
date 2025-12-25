@@ -1,5 +1,5 @@
 // Direct Supabase client - replaces Base44 adapter
-import { supabase } from './supabaseClient';
+import { supabase, supabaseFunctionsUrl } from './supabaseClient';
 
 // Entity operations
 const entities = {
@@ -474,7 +474,7 @@ const functions = {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token || null;
 
-    const url = `/functions/${name}`;
+    const url = `${supabaseFunctionsUrl.replace(/\/$/, '')}/${name}`;
 
     const res = await fetch(url, {
       method: 'POST',

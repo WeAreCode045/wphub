@@ -10,6 +10,17 @@ if (!supabaseUrl || !supabaseKey) {
 // Regular client voor normale operaties
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Derive functions URL: prefer explicit env var, otherwise convert the standard Supabase URL
+export const supabaseFunctionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL || (() => {
+  try {
+    if (supabaseUrl && supabaseUrl.includes('supabase.co')) {
+      return supabaseUrl.replace('supabase.co', 'functions.supabase.co');
+    }
+  } catch (e) { }
+  // Fallback to relative /functions (legacy behaviour)
+  return '/functions';
+})();
+
 // Admin client voor server-side operaties (edge functions)
 const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 export const supabaseAdmin = supabaseServiceKey 
