@@ -9,7 +9,6 @@
     "lint": "eslint .",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview",
-    "postbuild": "OUTDIR=dist bash scripts/publish-dist.sh",
     "migrate": "node scripts/migrate-to-supabase.js",
     "verify-migration": "node scripts/verify-migration.js",
     "sync": "node scripts/incremental-sync.js",
