@@ -1,0 +1,25 @@
+
+#!/usr/bin/env bash
+# Post-commit hook: builds and publishes `build-output` to wphub-dist in background.
+# This runs async so commits aren't blocked; logs go to .git/hooks/post-commit.log
+
+set -e
+
+# Only run when the last commit touched files under build-output/
+CHANGED=$(git diff-tree --no-commit-id --name-only -r HEAD || true)
+if ! echo "$CHANGED" | grep -E '^build-output(/|$)' >/dev/null 2>&1; then
+  echo "Post-commit: no changes under build-output; skipping publish."
+  exit 0
+fi
+
+echo "Post-commit: detected changes under build-output, building and publishing (background)..."
+
+# Run build and publish in background, capture output
+( 
+  echo "Starting build at $(date)"
+  npm run build -- --outDir build-output && 
+  echo "Build finished at $(date)"
+  bash scripts/publish-dist.sh || echo "publish-dist.sh exited with code $?"
+ ) > .git/hooks/post-commit.log 2>&1 &
+
+exit 0

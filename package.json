@@ -17,7 +17,7 @@
     "sync-users-to-auth": "node scripts/sync-users-to-auth.js",
     "reset-password": "node scripts/reset-user-password.js",
     "update-user-ids": "node scripts/update-user-ids.js"
-    ,"publish-dist": "bash scripts/publish-dist.sh"
+
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",
