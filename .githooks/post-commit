@@ -5,14 +5,16 @@
 
 set -e
 
-# Only run when the last commit touched files under build-output/
+# Trigger build+sync when relevant source files changed in the commit.
+# We consider changes under `src/`, `public/`, config files, or top-level html/css/js that affect the build.
 CHANGED=$(git diff-tree --no-commit-id --name-only -r HEAD || true)
-if ! echo "$CHANGED" | grep -E '^build-output(/|$)' >/dev/null 2>&1; then
-  echo "Post-commit: no changes under build-output; skipping publish."
+echo "$CHANGED" | sed -n '1,200p'
+if ! echo "$CHANGED" | grep -E '^(src/|public/|index.html|package.json|vite.config.js|tailwind.config.js|postcss.config.js|src/|assets/|styles/|App.jsx|main.jsx)' >/dev/null 2>&1; then
+  echo "Post-commit: no relevant source changes; skipping build/publish."
   exit 0
 fi
 
-echo "Post-commit: detected changes under build-output, syncing dist in background..."
+echo "Post-commit: detected relevant source changes, building and syncing dist in background..."
 
 # Run build and sync in background, capture output
 ( 
