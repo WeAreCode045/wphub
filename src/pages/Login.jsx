@@ -50,28 +50,28 @@ export default function Login() {
     setError("");
 
     try {
-      const { supabase } = await import('@/api/supabaseClient');
-      const { data, error: authError } = await supabase.auth.signUp({
+      const { signUpWithProfile } = await import('@/api/auth');
+      const result = await signUpWithProfile({
         email,
         password,
-        options: {
-          data: {
-            full_name: email.split('@')[0],
-            role: 'user',
-          }
-        }
+        profile: { full_name: email.split('@')[0], role: 'user' }
       });
 
-      if (authError) throw authError;
+      if (result.error) throw result.error;
 
-      // User record wordt automatisch aangemaakt via database trigger
-      
-      // Als email confirmatie vereist is
-      if (data.user && !data.session) {
-        setError("Check je email voor de bevestigingslink!");
-        setMode("login");
+      // If profile insert failed, surface a friendly message but allow login flow.
+      if (result.insertError) {
+        setError('Account aangemaakt, maar het profiel kon niet worden aangemaakt. Je kunt nu inloggen.');
+        setMode('login');
+        return;
+      }
+
+      const data = result.data;
+      // If email confirmation is required, supabase returns a user but no session
+      if (data?.user && !data?.session) {
+        setError('Check je email voor de bevestigingslink!');
+        setMode('login');
       } else {
-        // Direct inloggen als geen email confirmatie nodig is
         navigate(from, { replace: true });
       }
     } catch (err) {
