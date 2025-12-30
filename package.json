@@ -8,15 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "typecheck": "tsc -p ./jsconfig.json",
-    "preview": "vite preview",
-    "migrate": "node scripts/migrate-to-supabase.js",
-    "verify-migration": "node scripts/verify-migration.js",
-    "sync": "node scripts/incremental-sync.js",
-    "inspect-entities": "node scripts/inspect-base44-entities.js",
-    "create-admin": "node scripts/create-admin-user.js",
-    "sync-users-to-auth": "node scripts/sync-users-to-auth.js",
-    "reset-password": "node scripts/reset-user-password.js",
-    "update-user-ids": "node scripts/update-user-ids.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",

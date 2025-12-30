@@ -21,11 +21,8 @@ export const supabaseFunctionsUrl = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL 
   return '/functions';
 })();
 
-// Admin client voor server-side operaties (edge functions)
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-export const supabaseAdmin = supabaseServiceKey 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : supabase; // Fallback naar regular client als geen service key
+// NOTE: admin/service-role client must not be created in the frontend bundle.
+// Server-side/admin tasks should run as Supabase Edge Functions (see supabase/functions/) with runtime secrets.
 
 // Helper functions voor data queries
 export const supabaseQueries = {

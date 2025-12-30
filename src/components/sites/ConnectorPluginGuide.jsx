@@ -494,7 +494,7 @@ add_action('wp_ajax_wphub_sync_now', function() {
               <Badge className="bg-indigo-600 text-white mt-0.5">3</Badge>
               <div>
                 <p className="font-medium">Pas de API URL aan</p>
-                <p className="text-gray-600 mt-1">Vervang <code className="bg-white px-2 py-0.5 rounded">https://wphub.pro</code> met jouw Base44 app URL</p>
+                <p className="text-gray-600 mt-1">Vervang <code className="bg-white px-2 py-0.5 rounded">https://wphub.pro</code> met jouw WP Plugin Hub of app URL</p>
               </div>
             </li>
             <li className="flex items-start gap-3">

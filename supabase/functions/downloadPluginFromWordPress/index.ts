@@ -12,7 +12,7 @@ Deno.serve(async (req: Request) => {
 
     // Fetch site record from Supabase REST
     const supaUrl = Deno.env.get('SUPABASE_URL')?.replace(/\/$/, '') || '';
-    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('VITE_SUPABASE_SERVICE_ROLE_KEY');
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const siteRes = await fetch(`${supaUrl}/rest/v1/sites?id=eq.${encodeURIComponent(String(site_id))}`, {
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
     });

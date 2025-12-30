@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
 
     // Create connector record in Supabase via REST
     const supaUrl = Deno.env.get('SUPABASE_URL')?.replace(/\/$/, '') || '';
-    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('VITE_SUPABASE_SERVICE_ROLE_KEY');
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const connectorRes = await fetch(`${supaUrl}/rest/v1/connectors`, {
       method: 'POST',
       headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },

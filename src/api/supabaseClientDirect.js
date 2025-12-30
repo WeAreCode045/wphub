@@ -1,4 +1,4 @@
-// Direct Supabase client - replaces Base44 adapter
+// Direct Supabase client - replaces legacy adapter
 import { supabase, supabaseFunctionsUrl } from './supabaseClient';
 
 // Entity operations

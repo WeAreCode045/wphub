@@ -23,9 +23,10 @@ Alle pagina's behalve `/login` zijn nu beveiligd:
 Users in `public.users` tabel zijn automatisch gelinkt aan `auth.users`:
 
 **Database Triggers (voer uit in Supabase SQL Editor):**
-```bash
-# Voer dit SQL script uit in Supabase
-cat scripts/sync-auth-users.sql
+```text
+// The helper SQL script `scripts/sync-auth-users.sql` was removed from the repository.
+// Apply equivalent trigger SQL directly in the Supabase SQL Editor or restore the
+// original script from the project's git history if necessary.
 ```
 
 Dit zorgt voor:
@@ -36,11 +37,11 @@ Dit zorgt voor:
 - ✅ Linking van bestaande gemigreerde users
 
 **Bestaande users synchroniseren:**
-```bash
-npm run sync-users-to-auth
+```text
+// The `npm run sync-users-to-auth` helper was removed. To synchronize existing users,
+// either recreate the script from git history, run a custom migration, or provision users
+// via the Supabase Dashboard / Auth Admin API.
 ```
-
-Dit maakt auth accounts aan voor alle users die nog geen auth account hebben.
 
 ## Setup Stappen
 
@@ -48,24 +49,16 @@ Dit maakt auth accounts aan voor alle users die nog geen auth account hebben.
 
 Ga naar [Supabase SQL Editor](https://supabase.com/dashboard/project/ossyxxlplvqakowiwbok/sql/new)
 
-**A. Auth Synchronisatie:**
-```sql
--- Plak inhoud van scripts/sync-auth-users.sql
-```
-
-**B. Storage Bucket (voor file uploads):**
-```sql
--- Plak inhoud van scripts/setup-supabase-storage.sql
-```
-
-**C. Row Level Security (optioneel voor productie):**
-```sql
--- Plak inhoud van scripts/setup-rls-policies.sql
+**A. Auth Synchronisatie / Storage / RLS:**
+```text
+// The SQL helper files referenced here were removed. Use the Supabase SQL Editor to
+// create triggers, storage setup, and RLS policies manually, or restore the original
+// helper scripts from the project's git history if you need the exact contents.
 ```
 
 ### Stap 2: Sync bestaande users naar Auth
 
-Als je al users hebt in de database (van de Base44 migratie):
+Als je al users hebt in de database from a previous migration:
 
 ```bash
 npm run sync-users-to-auth
@@ -75,14 +68,10 @@ Dit maakt auth accounts aan voor alle bestaande users.
 
 ### Stap 3: Maak een Admin User aan
 
-```bash
-npm run create-admin
+```text
+// The `create-admin` helper script was removed. Create an admin user via the Supabase
+// Dashboard or use a one-off script restored from git history.
 ```
-
-Volg de prompts:
-- Email: `admin@example.com`
-- Wachtwoord: `[veilig wachtwoord]`
-- Naam: `Admin User`
 
 ### Stap 4: Configureer Supabase Auth Settings
 
@@ -223,7 +212,7 @@ const user = await User.me();
 await supabase.auth.signOut();
 
 // Of via adapter
-await base44.auth.logout();
+await supabase.auth.signOut();
 ```
 
 ### Check Session
