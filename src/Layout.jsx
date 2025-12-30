@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useState, useEffect, createContext, useContext } from "react";
 import { entities, User, functions } from "@/api/entities";
+import { supabase } from '@/api/supabaseClient';
 import {
   LayoutDashboard,
   Globe,
@@ -422,7 +423,6 @@ export default function Layout({ children, currentPageName }) {
     }
 
     // Supabase logout
-    const { supabase } = await import('@/api/supabaseClient');
     await supabase.auth.signOut();
     
     // Redirect naar login

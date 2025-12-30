@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-// `supabase` is dynamically imported inside handlers to keep the client bundle split
+import { supabase } from '@/api/supabaseClient';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,6 @@ export default function Login() {
     setError("");
 
     try {
-      const { supabase } = await import('@/api/supabaseClient');
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -86,7 +85,6 @@ export default function Login() {
     setError("");
 
     try {
-      const { supabase } = await import('@/api/supabaseClient');
       const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -106,7 +104,6 @@ export default function Login() {
     setError("");
 
     try {
-      const { supabase } = await import('@/api/supabaseClient');
       const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {

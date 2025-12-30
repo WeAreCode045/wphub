@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-// `supabase` is dynamically imported inside the auth check to keep client bundle split
+import { supabase } from '@/api/supabaseClient';
 import { Loader2 } from "lucide-react";
 
 export function ProtectedRoute({ children }) {
@@ -14,7 +14,6 @@ export function ProtectedRoute({ children }) {
 
   const checkAuth = async () => {
     try {
-      const { supabase } = await import('@/api/supabaseClient');
       const { data: { session } } = await supabase.auth.getSession();
       setAuthenticated(!!session);
     } catch (error) {
