@@ -1,9 +1,9 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    const user = await User.me();
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'site_id and theme_slug are required' });
     }
 
-    const site = await base44.entities.Site.get(site_id);
+    const site = await entities.Site.get(site_id);
 
     if (!site) {
       return Response.json({ success: false, error: 'Site not found' });
@@ -36,17 +36,17 @@ Deno.serve(async (req) => {
 
     if (data.success) {
       if (theme_id) {
-        const theme = await base44.entities.Theme.get(theme_id);
+        const theme = await entities.Theme.get(theme_id);
         if (theme) {
           const installedOn = theme.installed_on || [];
           const updatedInstalledOn = installedOn.filter(i => i.site_id !== site_id);
-          await base44.entities.Theme.update(theme_id, {
+          await entities.Theme.update(theme_id, {
             installed_on: updatedInstalledOn
           });
         }
       }
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Theme verwijderd van ${site.name}`,
         entity_type: 'site',

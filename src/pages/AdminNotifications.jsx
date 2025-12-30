@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ export default function AdminNotifications() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
       
-      const notifs = await base44.entities.Notification.list("-created_date", 100);
+      const notifs = await entities.Notification.list("-created_date", 100);
       return notifs;
     },
     enabled: !!user && user.role === "admin", // Only run query if user is admin
@@ -45,7 +45,7 @@ export default function AdminNotifications() {
   });
 
   const deleteNotificationMutation = useMutation({
-    mutationFn: (notificationId) => base44.entities.Notification.delete(notificationId),
+    mutationFn: (notificationId) => entities.Notification.delete(notificationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-all-notifications'] });
     },

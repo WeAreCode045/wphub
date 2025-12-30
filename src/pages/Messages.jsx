@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ export default function Messages() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
@@ -58,7 +58,7 @@ export default function Messages() {
     queryKey: ['all-messages', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      return base44.entities.Message.list("-created_date");
+      return entities.Message.list("-created_date");
     },
     enabled: !!user,
     initialData: [],
@@ -69,7 +69,7 @@ export default function Messages() {
     queryKey: ['user-teams', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const allTeams = await base44.entities.Team.list();
+      const allTeams = await entities.Team.list();
       return allTeams.filter(t => 
         t.owner_id === user.id || 
         t.members?.some(m => m.user_id === user.id && m.status === "active")
@@ -160,10 +160,11 @@ export default function Messages() {
       case "sender":
         comparison = (a.sender_name || "").localeCompare(b.sender_name || "");
         break;
-      case "priority":
+      case "priority": {
         const priorityOrder = { urgent: 4, high: 3, normal: 2, low: 1 };
         comparison = (priorityOrder[a.priority] || 0) - (priorityOrder[b.priority] || 0);
         break;
+      }
       default:
         break;
     }
@@ -173,14 +174,14 @@ export default function Messages() {
 
   const markAsReadMutation = useMutation({
     mutationFn: (messageId) => 
-      base44.entities.Message.update(messageId, { is_read: true }),
+      entities.Message.update(messageId, { is_read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-messages'] });
     },
   });
 
   const deleteMessageMutation = useMutation({
-    mutationFn: (messageId) => base44.entities.Message.delete(messageId),
+    mutationFn: (messageId) => entities.Message.delete(messageId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-messages'] });
       setSelectedMessage(null);
@@ -201,7 +202,7 @@ export default function Messages() {
       });
       
       // Mark message as unread to notify recipient of new reply
-      return base44.entities.Message.update(messageId, { 
+      return entities.Message.update(messageId, { 
         replies,
         is_read: false // Mark as unread so recipient gets notified
       });

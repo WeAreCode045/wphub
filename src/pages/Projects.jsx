@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,7 @@ export default function Projects() {
     queryFn: async () => {
       if (!user) return [];
       
-      const allTeams = await base44.entities.Team.list();
+      const allTeams = await entities.Team.list();
       const teams = allTeams.filter(t =>
         t.owner_id === user.id ||
         t.members?.some(m => m.user_id === user.id && m.status === "active")
@@ -106,7 +106,7 @@ export default function Projects() {
       const teamIds = userTeams.map(t => t.id);
       if (teamIds.length === 0) return []; // Only show projects associated with a team the user is part of.
       
-      const allProjects = await base44.entities.Project.list("-created_date"); // Filter by created_date as per outline
+      const allProjects = await entities.Project.list("-created_date"); // Filter by created_date as per outline
       const userProjects = allProjects.filter(p => teamIds.includes(p.team_id));
       
       return userProjects;
@@ -123,7 +123,7 @@ export default function Projects() {
     queryFn: async () => {
       if (!user) return [];
       
-      const userSites = await base44.entities.Site.filter({
+      const userSites = await entities.Site.filter({
         owner_type: "user",
         owner_id: user.id
       });
@@ -141,7 +141,7 @@ export default function Projects() {
     queryKey: ['project-templates', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      return base44.entities.ProjectTemplate.list();
+      return entities.ProjectTemplate.list();
     },
     enabled: !!user,
     initialData: [],
@@ -177,7 +177,7 @@ export default function Projects() {
         }
       }
 
-      const newProject = await base44.entities.Project.create({
+      const newProject = await entities.Project.create({
         ...projectData,
         plugins,
         assigned_members: [{ user_id: user.id, role_on_project: "Project Lead" }],
@@ -187,7 +187,7 @@ export default function Projects() {
       });
 
       // Log activity
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Project aangemaakt: ${newProject.title}`,
         entity_type: "project",
@@ -224,7 +224,7 @@ export default function Projects() {
   });
 
   const deleteProjectMutation = useMutation({
-    mutationFn: (projectId) => base44.entities.Project.delete(projectId),
+    mutationFn: (projectId) => entities.Project.delete(projectId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast({

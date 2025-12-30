@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -113,20 +113,20 @@ export default function SiteDetail() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
   const { data: site } = useQuery({
     queryKey: ['site', siteId],
-    queryFn: () => base44.entities.Site.get(siteId),
+    queryFn: () => entities.Site.get(siteId),
     enabled: !!siteId,
   });
 
   const { data: wpPlugins = [], isLoading: isLoadingWpPlugins, refetch: refetchWpPlugins } = useQuery({
     queryKey: ['wp-plugins', siteId],
     queryFn: async () => {
-      const response = await base44.functions.invoke('listSitePlugins', { site_id: siteId });
+      const response = await functions.invoke('listSitePlugins', { site_id: siteId });
       return response.data.plugins || [];
     },
     enabled: !!siteId,
@@ -137,7 +137,7 @@ export default function SiteDetail() {
   const { data: wpThemes = [], isLoading: isLoadingWpThemes, refetch: refetchWpThemes } = useQuery({
     queryKey: ['wp-themes', siteId],
     queryFn: async () => {
-      const response = await base44.functions.invoke('listSiteThemes', { site_id: siteId });
+      const response = await functions.invoke('listSiteThemes', { site_id: siteId });
       return response.data.themes || [];
     },
     enabled: !!siteId,
@@ -148,7 +148,7 @@ export default function SiteDetail() {
   const { data: connectorVersionInfo } = useQuery({
     queryKey: ['connector-version', siteId],
     queryFn: async () => {
-      const response = await base44.functions.invoke('getConnectorVersion', { site_id: siteId });
+      const response = await functions.invoke('getConnectorVersion', { site_id: siteId });
       return response.data;
     },
     enabled: !!siteId,
@@ -159,7 +159,7 @@ export default function SiteDetail() {
     queryKey: ['my-plugins', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const allPlugins = await base44.entities.Plugin.list();
+      const allPlugins = await entities.Plugin.list();
       return allPlugins.filter(p => p.owner_type === "user" && p.owner_id === user.id);
     },
     enabled: !!user,
@@ -170,7 +170,7 @@ export default function SiteDetail() {
     queryKey: ['my-themes', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const allThemes = await base44.entities.Theme.list();
+      const allThemes = await entities.Theme.list();
       return allThemes.filter(t => t.owner_type === "user" && t.owner_id === user.id);
     },
     enabled: !!user,
@@ -179,7 +179,7 @@ export default function SiteDetail() {
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     initialData: [],
   });
 
@@ -187,7 +187,7 @@ export default function SiteDetail() {
     queryKey: ['user-teams', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const allTeams = await base44.entities.Team.list();
+      const allTeams = await entities.Team.list();
       return allTeams.filter(team =>
         team.owner_id === user.id ||
         team.members?.some(m => m.user_id === user.id)
@@ -242,7 +242,7 @@ export default function SiteDetail() {
 
   const acceptSiteTransferMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('acceptSiteTransfer', {
+      const response = await functions.invoke('acceptSiteTransfer', {
         site_id: siteId,
         scheduled_transfer_date: scheduledDate ? scheduledDate.toISOString() : null,
         transfer_plugins: selectedPluginsForTransfer,
@@ -265,7 +265,7 @@ export default function SiteDetail() {
 
   const declineSiteTransferMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('declineSiteTransfer', {
+      const response = await functions.invoke('declineSiteTransfer', {
         site_id: siteId
       });
       return response.data;
@@ -281,7 +281,7 @@ export default function SiteDetail() {
 
   const performHealthCheckMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('performHealthCheck', {
+      const response = await functions.invoke('performHealthCheck', {
         site_id: siteId
       });
       return response.data;
@@ -297,7 +297,7 @@ export default function SiteDetail() {
 
   const updateDebugSettingsMutation = useMutation({
     mutationFn: async (settings) => {
-      const response = await base44.functions.invoke('updateDebugSettings', {
+      const response = await functions.invoke('updateDebugSettings', {
         site_id: siteId,
         ...settings
       });
@@ -314,7 +314,7 @@ export default function SiteDetail() {
 
   const testConnectionMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('testSiteConnection', {
+      const response = await functions.invoke('testSiteConnection', {
         site_id: siteId
       });
       return response.data;
@@ -333,7 +333,7 @@ export default function SiteDetail() {
 
   const updateConnectorMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('updateConnectorPlugin', {
+      const response = await functions.invoke('updateConnectorPlugin', {
         site_id: siteId
       });
       return response.data;
@@ -354,28 +354,28 @@ export default function SiteDetail() {
 
   const deleteSiteMutation = useMutation({
     mutationFn: async () => {
-      const user = await base44.auth.me();
+      const user = await User.me();
 
-      const allPlugins = await base44.entities.Plugin.list();
+      const allPlugins = await entities.Plugin.list();
       for (const plugin of allPlugins) {
         const installedOn = plugin.installed_on || [];
         const updatedInstalledOn = installedOn.filter(entry => entry.site_id !== siteId);
 
         if (installedOn.length !== updatedInstalledOn.length) {
-          await base44.entities.Plugin.update(plugin.id, {
+          await entities.Plugin.update(plugin.id, {
             installed_on: updatedInstalledOn
           });
         }
       }
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Site verwijderd: ${site.name}`,
         entity_type: "site",
         details: site.url
       });
 
-      return base44.entities.Site.delete(siteId);
+      return entities.Site.delete(siteId);
     },
     onSuccess: () => {
       window.location.href = createPageUrl("Sites");
@@ -384,7 +384,7 @@ export default function SiteDetail() {
 
   const installPluginMutation = useMutation({
     mutationFn: async ({ plugin_id, download_url }) => {
-      const response = await base44.functions.invoke('installPlugin', {
+      const response = await functions.invoke('installPlugin', {
         site_id: siteId,
         plugin_id,
         download_url
@@ -405,7 +405,7 @@ export default function SiteDetail() {
 
   const updatePluginMutation = useMutation({
     mutationFn: async ({ plugin_slug, plugin_id, download_url }) => {
-      const response = await base44.functions.invoke('updatePlugin', {
+      const response = await functions.invoke('updatePlugin', {
         site_id: siteId,
         plugin_slug,
         plugin_id,
@@ -426,7 +426,7 @@ export default function SiteDetail() {
 
   const togglePluginStateMutation = useMutation({
     mutationFn: async (pluginSlug) => {
-      const response = await base44.functions.invoke('togglePluginState', {
+      const response = await functions.invoke('togglePluginState', {
         site_id: siteId,
         plugin_slug: pluginSlug
       });
@@ -442,7 +442,7 @@ export default function SiteDetail() {
 
   const uninstallPluginMutation = useMutation({
     mutationFn: async ({ pluginSlug, pluginId }) => {
-      const response = await base44.functions.invoke('uninstallPlugin', {
+      const response = await functions.invoke('uninstallPlugin', {
         site_id: siteId,
         plugin_slug: pluginSlug,
         plugin_id: pluginId
@@ -462,7 +462,7 @@ export default function SiteDetail() {
 
   const updatePlatformPluginMutation = useMutation({
     mutationFn: async ({ wpPlugin, platformPlugin }) => {
-      const response = await base44.functions.invoke('downloadPluginFromWordPress', {
+      const response = await functions.invoke('downloadPluginFromWordPress', {
         site_id: siteId,
         plugin_slug: wpPlugin.slug
       });
@@ -479,7 +479,7 @@ export default function SiteDetail() {
         created_at: new Date().toISOString()
       }];
 
-      await base44.entities.Plugin.update(platformPlugin.id, {
+      await entities.Plugin.update(platformPlugin.id, {
         versions: updatedVersions,
         latest_version: plugin_data.version
       });
@@ -499,7 +499,7 @@ export default function SiteDetail() {
 
   const editSiteMutation = useMutation({
     mutationFn: async (data) => {
-      return base44.entities.Site.update(siteId, data);
+      return entities.Site.update(siteId, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['site', siteId] });
@@ -518,7 +518,7 @@ export default function SiteDetail() {
         updateData.owner_type = "team";
         updateData.owner_id = toTeamId;
       }
-      return base44.entities.Site.update(siteId, updateData);
+      return entities.Site.update(siteId, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['site', siteId] });
@@ -531,7 +531,7 @@ export default function SiteDetail() {
 
   const shareWithTeamsMutation = useMutation({
     mutationFn: async (teamIds) => {
-      return base44.entities.Site.update(siteId, {
+      return entities.Site.update(siteId, {
         shared_with_teams: teamIds
       });
     },
@@ -547,7 +547,7 @@ export default function SiteDetail() {
 
     setIsSearchingWp(true);
     try {
-      const response = await base44.functions.invoke('searchWordPressPlugins', {
+      const response = await functions.invoke('searchWordPressPlugins', {
         search: wpSearchQuery,
         page: 1,
         per_page: 20
@@ -567,7 +567,7 @@ export default function SiteDetail() {
 
     setIsSearchingWpThemes(true);
     try {
-      const response = await base44.functions.invoke('searchWordPressThemes', {
+      const response = await functions.invoke('searchWordPressThemes', {
         search: wpThemeSearchQuery,
         page: 1,
         per_page: 20
@@ -605,7 +605,7 @@ export default function SiteDetail() {
   // Theme handlers
   const installThemeMutation = useMutation({
     mutationFn: async ({ theme_id, download_url }) => {
-      const response = await base44.functions.invoke('installTheme', {
+      const response = await functions.invoke('installTheme', {
         site_id: siteId,
         theme_id,
         download_url
@@ -626,7 +626,7 @@ export default function SiteDetail() {
 
   const activateThemeMutation = useMutation({
     mutationFn: async (themeSlug) => {
-      const response = await base44.functions.invoke('activateTheme', {
+      const response = await functions.invoke('activateTheme', {
         site_id: siteId,
         theme_slug: themeSlug
       });
@@ -643,7 +643,7 @@ export default function SiteDetail() {
 
   const uninstallThemeMutation = useMutation({
     mutationFn: async ({ themeSlug, themeId }) => {
-      const response = await base44.functions.invoke('uninstallTheme', {
+      const response = await functions.invoke('uninstallTheme', {
         site_id: siteId,
         theme_slug: themeSlug,
         theme_id: themeId

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -85,7 +85,7 @@ export default function Sites() {
     queryFn: async () => {
       if (!user) return [];
       
-      const userSites = await base44.entities.Site.filter({
+      const userSites = await entities.Site.filter({
         owner_type: "user",
         owner_id: user.id
       }, "-updated_date");
@@ -103,7 +103,7 @@ export default function Sites() {
     queryFn: async () => {
       if (!user) return [];
       
-      const allSites = await base44.entities.Site.list();
+      const allSites = await entities.Site.list();
       
       // Filter for sites with pending transfers where user is involved
       return allSites.filter(site => {
@@ -122,7 +122,7 @@ export default function Sites() {
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     initialData: [],
   });
 
@@ -131,7 +131,7 @@ export default function Sites() {
     queryFn: async () => {
       if (!user) return [];
       
-      const userPlugins = await base44.entities.Plugin.filter({
+      const userPlugins = await entities.Plugin.filter({
         owner_type: "user",
         owner_id: user.id
       });
@@ -147,7 +147,7 @@ export default function Sites() {
   const checkSiteExistsMutation = useMutation({
     mutationFn: async (url) => {
       const normalizedUrl = url.replace(/\/$/, '');
-      const allSites = await base44.entities.Site.list();
+      const allSites = await entities.Site.list();
       const existing = allSites.find(s => s.url.replace(/\/$/, '') === normalizedUrl);
       return existing;
     },
@@ -155,7 +155,7 @@ export default function Sites() {
 
   const requestTransferMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await base44.functions.invoke('requestSiteTransfer', {
+      const response = await functions.invoke('requestSiteTransfer', {
         site_id: siteId
       });
       return response.data;
@@ -206,7 +206,7 @@ export default function Sites() {
       const apiKey = Math.random().toString(36).substring(2, 15) + 
                      Math.random().toString(36).substring(2, 15);
 
-      const newSite = await base44.entities.Site.create({
+      const newSite = await entities.Site.create({
         name: siteData.name,
         url: siteData.url.replace(/\/$/, ''),
         api_key: apiKey,
@@ -216,7 +216,7 @@ export default function Sites() {
         shared_with_teams: []
       });
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Site toegevoegd: ${siteData.name}`,
         entity_type: "site",
@@ -254,14 +254,14 @@ export default function Sites() {
       const site = sites.find(s => s.id === siteId);
       
       if (site) {
-        await base44.entities.ActivityLog.create({
+        await entities.ActivityLog.create({
           user_email: user.email,
           action: `Site verwijderd: ${site.name}`,
           entity_type: "site"
         });
       }
       
-      return base44.entities.Site.delete(siteId);
+      return entities.Site.delete(siteId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sites'] });

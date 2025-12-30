@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ export default function PlatformActivities() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
     
     if (currentUser.role !== "admin") {
@@ -31,7 +31,7 @@ export default function PlatformActivities() {
 
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ['platform-activities'],
-    queryFn: () => base44.entities.ActivityLog.list("-created_date", 200),
+    queryFn: () => entities.ActivityLog.list("-created_date", 200),
     initialData: [],
   });
 

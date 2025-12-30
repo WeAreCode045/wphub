@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useState, useEffect, createContext, useContext } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions } from "@/api/entities";
 import {
   LayoutDashboard,
   Globe,
@@ -166,16 +166,16 @@ export default function Layout({ children, currentPageName }) {
       setIsLoading(true);
 
       // Load user
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       setUser(currentUser);
 
       // Load user mailboxes
       if (currentUser?.id) {
-        const userData = await base44.entities.User.get(currentUser.id);
+        const userData = await entities.User.get(currentUser.id);
         setUserMailboxes(userData.mailboxes || []);
 
         // Load user teams once
-        const allTeams = await base44.entities.Team.list();
+        const allTeams = await entities.Team.list();
         const teams = allTeams.filter(t =>
           t.owner_id === currentUser.id ||
           t.members?.some(m => m.user_id === currentUser.id && m.status === "active")
@@ -184,7 +184,7 @@ export default function Layout({ children, currentPageName }) {
       }
 
       // Load platform settings once
-      const settings = await base44.entities.SiteSettings.list();
+      const settings = await entities.SiteSettings.list();
       const name = settings.find(s => s.setting_key === 'platform_name')?.setting_value;
       const subtitle = settings.find(s => s.setting_key === 'platform_subtitle')?.setting_value;
       const icon = settings.find(s => s.setting_key === 'platform_icon')?.setting_value;
@@ -213,7 +213,7 @@ export default function Layout({ children, currentPageName }) {
   const loadUnreadNotifications = async () => {
     if (!user) return;
     try {
-      const notifications = await base44.entities.Notification.filter({
+      const notifications = await entities.Notification.filter({
         recipient_id: user.id,
         is_read: false
       });
@@ -234,7 +234,7 @@ export default function Layout({ children, currentPageName }) {
 
       // Count unread in user inbox
       if (userInboxId) {
-        const userInboxMessages = await base44.entities.Message.filter({
+        const userInboxMessages = await entities.Message.filter({
           to_mailbox_id: userInboxId,
           is_read: false
         });
@@ -243,7 +243,7 @@ export default function Layout({ children, currentPageName }) {
 
       // Count unread in admin inbox (if admin)
       if (adminInboxId) {
-        const adminInboxMessages = await base44.entities.Message.filter({
+        const adminInboxMessages = await entities.Message.filter({
           to_mailbox_id: adminInboxId,
           is_read: false
         });
@@ -252,14 +252,14 @@ export default function Layout({ children, currentPageName }) {
 
       // Count unread in team inboxes
       if (userTeamIds.length > 0) {
-        const allTeams = await base44.entities.Team.list();
+        const allTeams = await entities.Team.list();
         const teamInboxIds = allTeams
           .filter(t => userTeamIds.includes(t.id))
           .map(t => t.inbox_id)
           .filter(id => id);
 
         for (const inboxId of teamInboxIds) {
-          const teamMessages = await base44.entities.Message.filter({
+          const teamMessages = await entities.Message.filter({
             to_mailbox_id: inboxId,
             is_read: false
           });
@@ -287,11 +287,11 @@ export default function Layout({ children, currentPageName }) {
 
   const loadActiveConnector = async () => {
     try {
-      const settings = await base44.entities.SiteSettings.list();
+      const settings = await entities.SiteSettings.list();
       const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
 
       if (activeVersion) {
-        const connectors = await base44.entities.Connector.list();
+        const connectors = await entities.Connector.list();
         const connector = connectors.find(c => c.version === activeVersion);
         setActiveConnector(connector);
       }
@@ -304,7 +304,7 @@ export default function Layout({ children, currentPageName }) {
     queryKey: ['header-notifications', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      return base44.entities.Notification.filter({ recipient_id: user.id }, "-created_date", 5);
+      return entities.Notification.filter({ recipient_id: user.id }, "-created_date", 5);
     },
     enabled: !!user && notificationsOpen,
     staleTime: 0,
@@ -315,7 +315,7 @@ export default function Layout({ children, currentPageName }) {
     queryKey: ['header-activities', user?.email],
     queryFn: async () => {
       if (!user) return [];
-      const allActivities = await base44.entities.ActivityLog.filter({ user_email: user.email }, "-created_date", 5);
+      const allActivities = await entities.ActivityLog.filter({ user_email: user.email }, "-created_date", 5);
       return allActivities.filter(activity => activity.entity_type !== "connector");
     },
     enabled: !!user && activityOpen,
@@ -332,7 +332,7 @@ export default function Layout({ children, currentPageName }) {
       if (!userInboxId) return [];
 
       // Only fetch messages for user personal inbox - no admin inbox, no team inboxes
-      const messages = await base44.entities.Message.filter({
+      const messages = await entities.Message.filter({
         to_mailbox_id: userInboxId
       }, "-created_date", 5);
 
@@ -347,16 +347,16 @@ export default function Layout({ children, currentPageName }) {
     mutationFn: async (notification) => {
       if (!notification.team_invite_id) throw new Error('Geen team uitnodiging ID');
 
-      const invites = await base44.entities.TeamInvite.filter({ id: notification.team_invite_id });
+      const invites = await entities.TeamInvite.filter({ id: notification.team_invite_id });
       if (invites.length === 0) throw new Error('Uitnodiging niet gevonden');
 
       const invite = invites[0];
-      await base44.entities.TeamInvite.update(invite.id, {
+      await entities.TeamInvite.update(invite.id, {
         status: "accepted",
         accepted_at: new Date().toISOString()
       });
 
-      const teams = await base44.entities.Team.filter({ id: invite.team_id });
+      const teams = await entities.Team.filter({ id: invite.team_id });
       if (teams.length === 0) throw new Error("Team niet gevonden");
 
       const team = teams[0];
@@ -381,8 +381,8 @@ export default function Layout({ children, currentPageName }) {
         ];
       }
 
-      await base44.entities.Team.update(team.id, { members: updatedMembers });
-      await base44.entities.Notification.update(notification.id, { is_read: true });
+      await entities.Team.update(team.id, { members: updatedMembers });
+      await entities.Notification.update(notification.id, { is_read: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['header-notifications'] });
@@ -395,7 +395,7 @@ export default function Layout({ children, currentPageName }) {
 
   const markAsReadMutation = useMutation({
     mutationFn: (notificationId) =>
-      base44.entities.Notification.update(notificationId, { is_read: true }),
+      entities.Notification.update(notificationId, { is_read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['header-notifications'] });
       loadUnreadNotifications();
@@ -404,7 +404,7 @@ export default function Layout({ children, currentPageName }) {
 
   const markMessageAsReadMutation = useMutation({
     mutationFn: (messageId) =>
-      base44.entities.Message.update(messageId, { is_read: true }),
+      entities.Message.update(messageId, { is_read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['header-messages'] });
       loadUnreadMessages();
@@ -416,9 +416,9 @@ export default function Layout({ children, currentPageName }) {
     sessionStorage.removeItem('admin_menu_active');
 
     if (user?.two_fa_enabled) {
-      base44.functions.invoke('reset2FAStatus', {}).catch(err => {
-        console.error('Error resetting 2FA status:', err);
-      });
+        functions.invoke('reset2FAStatus', {}).catch(err => {
+          console.error('Error resetting 2FA status:', err);
+        });
     }
 
     // Supabase logout

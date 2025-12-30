@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export default function TeamRoles() {
   }, [teamId, navigate]);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
@@ -59,7 +59,7 @@ export default function TeamRoles() {
     queryKey: ['team', teamId],
     queryFn: async () => {
       if (!teamId) return null;
-      const teams = await base44.entities.Team.filter({ id: teamId });
+      const teams = await entities.Team.filter({ id: teamId });
       return teams[0] || null;
     },
     enabled: !!teamId,
@@ -67,14 +67,14 @@ export default function TeamRoles() {
 
   const { data: teamRoles = [] } = useQuery({
     queryKey: ['team-roles', teamId],
-    queryFn: () => base44.entities.TeamRole.filter({ team_id: teamId }, "-created_date"),
+    queryFn: () => entities.TeamRole.filter({ team_id: teamId }, "-created_date"),
     enabled: !!teamId,
     initialData: [],
   });
 
   const createRoleMutation = useMutation({
     mutationFn: (roleData) => 
-      base44.entities.TeamRole.create({
+      entities.TeamRole.create({
         ...roleData,
         team_id: teamId,
         type: "custom",
@@ -89,7 +89,7 @@ export default function TeamRoles() {
 
   const updateRoleMutation = useMutation({
     mutationFn: ({ roleId, data }) => 
-      base44.entities.TeamRole.update(roleId, data),
+      entities.TeamRole.update(roleId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team-roles'] });
       resetDialog();
@@ -97,7 +97,7 @@ export default function TeamRoles() {
   });
 
   const deleteRoleMutation = useMutation({
-    mutationFn: (roleId) => base44.entities.TeamRole.delete(roleId),
+    mutationFn: (roleId) => entities.TeamRole.delete(roleId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team-roles'] });
     },

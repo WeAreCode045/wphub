@@ -8,6 +8,16 @@ server creates the user-app files in the __components__, __pages__ folders
 ## server injected data
 server injects app related data to __app.config.js__, which is used by App.jsx to render the components in the files.
 
+
+## Shim removal and migration notes
+
+- The previous Base44 compatibility shim has been removed from the codebase now that the database uses the canonical Supabase `id` values.
+- Frontend code no longer uses the Base44 shim; server-side compatibility is provided by `supabase/functions/supabaseClientServer.js` for edge functions that still expect a `createClientFromRequest` shape.
+- Migration scripts that referenced Base44 are archived under `scripts/migration-archive/`.
+- A number of `.bak` backup files created during batch edits were removed from the workspace; if you need the backups for rollback, please restore from your VCS history or contact the team.
+
+If you run into issues with server functions, consider migrating individual functions to use a canonical server-side client implementation (see `src/api/supabaseClientDirect.js`) instead of the compatibility bridge.
+
 ## Production: Supabase Service Role Key
 
 This project requires a Supabase Service Role Key for server-side operations (Edge Functions, scripts).

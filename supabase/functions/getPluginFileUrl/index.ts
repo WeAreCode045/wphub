@@ -1,4 +1,4 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {

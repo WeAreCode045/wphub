@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -104,13 +104,13 @@ export default function ThemeDetail() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
   const { data: theme } = useQuery({
     queryKey: ['theme', themeId],
-    queryFn: () => base44.entities.Theme.get(themeId),
+    queryFn: () => entities.Theme.get(themeId),
   });
 
   useEffect(() => {
@@ -131,13 +131,13 @@ export default function ThemeDetail() {
 
   const { data: allSites = [] } = useQuery({
     queryKey: ['sites'],
-    queryFn: () => base44.entities.Site.list(),
+    queryFn: () => entities.Site.list(),
     initialData: [],
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     initialData: [],
   });
 
@@ -145,7 +145,7 @@ export default function ThemeDetail() {
     queryKey: ['user-teams', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const allTeams = await base44.entities.Team.list();
+      const allTeams = await entities.Team.list();
       return allTeams.filter(team =>
         team.owner_id === user.id ||
         team.members?.some(m => m.user_id === user.id)
@@ -157,7 +157,7 @@ export default function ThemeDetail() {
 
   const uploadVersionMutation = useMutation({
     mutationFn: async ({ version, file }) => {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file, bucket: 'Themes' });
+      const { file_url } = await integrations.Core.UploadFile({ file, bucket: 'Themes' });
 
       const versions = theme.versions || [];
       versions.push({
@@ -166,7 +166,7 @@ export default function ThemeDetail() {
         created_at: new Date().toISOString()
       });
 
-      await base44.entities.Theme.update(themeId, {
+      await entities.Theme.update(themeId, {
         versions,
         latest_version: version
       });
@@ -191,7 +191,7 @@ export default function ThemeDetail() {
         ? versions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0].version
         : null;
 
-      await base44.entities.Theme.update(themeId, {
+      await entities.Theme.update(themeId, {
         versions,
         latest_version: latestVersion
       });
@@ -208,7 +208,7 @@ export default function ThemeDetail() {
 
   const flagAsRiskMutation = useMutation({
     mutationFn: async () => {
-      await base44.entities.Theme.update(themeId, {
+      await entities.Theme.update(themeId, {
         is_disabled: !theme.is_disabled,
         disabled_reason: !theme.is_disabled ? 'Gemarkeerd als risico door beheerder' : null
       });
@@ -224,7 +224,7 @@ export default function ThemeDetail() {
   });
 
   const deleteThemeMutation = useMutation({
-    mutationFn: () => base44.entities.Theme.delete(themeId),
+    mutationFn: () => entities.Theme.delete(themeId),
     onSuccess: () => {
       toast({
         variant: "success",
@@ -239,7 +239,7 @@ export default function ThemeDetail() {
 
   const editThemeMutation = useMutation({
     mutationFn: async (data) => {
-      return base44.entities.Theme.update(themeId, data);
+      return entities.Theme.update(themeId, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['theme', themeId] });
@@ -262,7 +262,7 @@ export default function ThemeDetail() {
         updateData.owner_type = "team";
         updateData.owner_id = toTeamId;
       }
-      return base44.entities.Theme.update(themeId, updateData);
+      return entities.Theme.update(themeId, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['theme', themeId] });
@@ -277,7 +277,7 @@ export default function ThemeDetail() {
 
   const shareWithTeamsMutation = useMutation({
     mutationFn: async (teamIds) => {
-      return base44.entities.Theme.update(themeId, {
+      return entities.Theme.update(themeId, {
         shared_with_teams: teamIds
       });
     },

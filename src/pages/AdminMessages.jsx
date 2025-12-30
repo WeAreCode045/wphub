@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,11 +66,11 @@ export default function AdminMessages() {
   const loadAdminMailboxes = async () => {
     if (!user) return;
 
-    const settings = await base44.entities.SiteSettings.list();
+    const settings = await entities.SiteSettings.list();
     const globalInboxId = settings.find(s => s.setting_key === 'admin_global_inbox_id')?.setting_value;
     setAdminGlobalInboxId(globalInboxId);
 
-    const currentUser = await base44.entities.User.get(user.id);
+    const currentUser = await entities.User.get(user.id);
     const adminOutbox = currentUser.mailboxes?.find(m => m.type === 'adminoutbox');
     setAdminOutboxId(adminOutbox?.id);
   };
@@ -80,7 +80,7 @@ export default function AdminMessages() {
     queryFn: async () => {
       if (!user || user.role !== 'admin' || !adminGlobalInboxId) return [];
       
-      const messages = await base44.entities.Message.filter({
+      const messages = await entities.Message.filter({
         to_mailbox_id: adminGlobalInboxId
       }, "-created_date");
       
@@ -93,14 +93,14 @@ export default function AdminMessages() {
 
   const markAsReadMutation = useMutation({
     mutationFn: (messageId) =>
-      base44.entities.Message.update(messageId, { is_read: true }),
+      entities.Message.update(messageId, { is_read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-all-messages'] });
     },
   });
 
   const deleteMessageMutation = useMutation({
-    mutationFn: (messageId) => base44.entities.Message.delete(messageId),
+    mutationFn: (messageId) => entities.Message.delete(messageId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-all-messages'] });
       setSelectedThread(null);
@@ -109,7 +109,7 @@ export default function AdminMessages() {
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ messageId, status }) =>
-      base44.entities.Message.update(messageId, { status }),
+      entities.Message.update(messageId, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-all-messages'] });
     },
@@ -117,7 +117,7 @@ export default function AdminMessages() {
 
   const replyToMessageMutation = useMutation({
     mutationFn: async ({ originalMessage, replyText }) => {
-      const response = await base44.functions.invoke('sendMessage', {
+      const response = await functions.invoke('sendMessage', {
         subject: originalMessage.subject,
         message: replyText,
         to_user_id: originalMessage.sender_id,
@@ -189,12 +189,13 @@ export default function AdminMessages() {
       case "date-desc":
         return new Date(b.latestMessage.created_date) - new Date(a.latestMessage.created_date);
       case "date-asc":
-        return new Date(a.latestMessage.created_date) - new Date(a.latestMessage.created_date); // Bug: This should be `new Date(a.latestMessage.created_date) - new Date(b.latestMessage.created_date);`
+        return new Date(a.latestMessage.created_date) - new Date(b.latestMessage.created_date);
       case "sender":
         return (a.latestMessage.sender_name || "").localeCompare(b.latestMessage.sender_name || "");
-      case "priority":
+      case "priority": {
         const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
         return priorityOrder[a.latestMessage.priority] - priorityOrder[b.latestMessage.priority];
+      }
       default:
         return 0;
     }

@@ -1,9 +1,9 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        const user = await User.me();
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
         console.log('[deleteConnectorPlugin] Deleting connector:', connector_id);
 
         // Get connector
-        const connectors = await base44.entities.Connector.filter({ id: connector_id });
+        const connectors = await entities.Connector.filter({ id: connector_id });
         
         if (connectors.length === 0) {
             return Response.json({ error: 'Connector not found' }, { status: 404 });
@@ -32,12 +32,12 @@ Deno.serve(async (req) => {
         const connector = connectors[0];
 
         // Delete from database
-        await base44.entities.Connector.delete(connector_id);
+        await entities.Connector.delete(connector_id);
 
         console.log('[deleteConnectorPlugin] Deleted from database');
 
         // Log activity
-        await base44.entities.ActivityLog.create({
+        await entities.ActivityLog.create({
             user_email: user.email,
             action: `Connector Plugin v${connector.version} verwijderd`,
             entity_type: 'connector',

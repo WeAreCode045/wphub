@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -217,7 +217,7 @@ export default function Support() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
@@ -225,7 +225,7 @@ export default function Support() {
     queryKey: ['support-tickets', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      return base44.entities.SupportTicket.filter(
+      return entities.SupportTicket.filter(
         { submitter_id: user.id },
         "-created_date"
       );
@@ -238,7 +238,7 @@ export default function Support() {
     mutationFn: async (ticketData) => {
       const ticketNumber = `TICK-${Date.now().toString().slice(-6)}`;
       
-      return base44.entities.SupportTicket.create({
+      return entities.SupportTicket.create({
         ...ticketData,
         ticket_number: ticketNumber,
         submitter_id: user.id,
@@ -273,7 +273,7 @@ export default function Support() {
         created_at: new Date().toISOString()
       });
 
-      return base44.entities.SupportTicket.update(ticketId, {
+      return entities.SupportTicket.update(ticketId, {
         responses,
         last_updated: new Date().toISOString()
       });

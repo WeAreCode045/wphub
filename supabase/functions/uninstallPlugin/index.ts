@@ -1,9 +1,9 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        const user = await User.me();
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
             return Response.json({ success: false, error: 'Missing required parameters: site_id and plugin_slug are required' }, { status: 400 });
         }
 
-        const sites = await base44.entities.Site.filter({ id: site_id });
+        const sites = await entities.Site.filter({ id: site_id });
         if (sites.length === 0) {
             console.log('[uninstallPlugin] Site not found');
             return Response.json({ success: false, error: 'Site not found' }, { status: 404 });
@@ -50,13 +50,13 @@ Deno.serve(async (req) => {
 
         if (plugin_id) {
             try {
-                const plugins = await base44.entities.Plugin.filter({ id: plugin_id });
+                const plugins = await entities.Plugin.filter({ id: plugin_id });
                 if (plugins.length > 0) {
                     const plugin = plugins[0];
                     const currentInstalledOn = plugin.installed_on || [];
                     const updatedInstalledOn = currentInstalledOn.filter(entry => entry.site_id !== site_id);
                     
-                    await base44.entities.Plugin.update(plugin_id, { installed_on: updatedInstalledOn });
+                    await entities.Plugin.update(plugin_id, { installed_on: updatedInstalledOn });
                     console.log('[uninstallPlugin] ✅ Removed site from installed_on array');
                 }
             } catch (dbError) {
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
         }
 
         try {
-            await base44.entities.ActivityLog.create({ user_email: user.email, action: `Plugin gedeïnstalleerd van ${site.name}`, entity_type: "site", details: `Plugin slug: ${plugin_slug}` });
+            await entities.ActivityLog.create({ user_email: user.email, action: `Plugin gedeïnstalleerd van ${site.name}`, entity_type: "site", details: `Plugin slug: ${plugin_slug}` });
         } catch (logError) {
             console.error('[uninstallPlugin] Activity log error:', logError);
         }

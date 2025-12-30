@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Package, Globe, Users } from "lucide-react";
@@ -11,7 +11,7 @@ export default function TeamActivity({ teamId }) {
     queryKey: ['team-activities', teamId],
     queryFn: async () => {
       if (!teamId) return [];
-      return await base44.entities.ActivityLog.filter({ 
+      return await entities.ActivityLog.filter({ 
         entity_type: "team",
         entity_id: teamId 
       }, "-created_date", 10);

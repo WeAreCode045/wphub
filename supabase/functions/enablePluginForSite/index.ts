@@ -1,9 +1,9 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        const user = await User.me();
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
         }
 
         // Get site
-        const sites = await base44.entities.Site.filter({ id: site_id });
+        const sites = await entities.Site.filter({ id: site_id });
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
             }
         }
 
-        await base44.entities.Site.update(site_id, {
+        await entities.Site.update(site_id, {
             plugins: currentPlugins
         });
 

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, functions } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,10 +58,10 @@ export default function UserMessages() {
   const loadUserMailboxes = async () => {
     if (!user) return;
     
-    const currentUser = await base44.entities.User.get(user.id);
+    const currentUser = await entities.User.get(user.id);
     setUserMailboxes(currentUser.mailboxes || []);
 
-    const allTeams = await base44.entities.Team.list();
+    const allTeams = await entities.Team.list();
     const teams = allTeams.filter(t =>
       t.owner_id === user.id ||
       t.members?.some(m => m.user_id === user.id && m.status === "active")
@@ -73,7 +73,7 @@ export default function UserMessages() {
     queryKey: ['user-messages', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const messages = await base44.entities.Message.list("-created_date");
+      const messages = await entities.Message.list("-created_date");
       return messages;
     },
     enabled: !!user,
@@ -83,14 +83,14 @@ export default function UserMessages() {
 
   const markAsReadMutation = useMutation({
     mutationFn: (messageId) =>
-      base44.entities.Message.update(messageId, { is_read: true }),
+      entities.Message.update(messageId, { is_read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-messages'] });
     },
   });
 
   const deleteMessageMutation = useMutation({
-    mutationFn: (messageId) => base44.entities.Message.delete(messageId),
+    mutationFn: (messageId) => entities.Message.delete(messageId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-messages'] });
       setSelectedThread(null);
@@ -101,7 +101,7 @@ export default function UserMessages() {
     mutationFn: async ({ originalMessage, replyText }) => {
       const isReplyToAdmin = originalMessage.from_admin_outbox;
       
-      const response = await base44.functions.invoke('sendMessage', {
+      const response = await functions.invoke('sendMessage', {
         subject: originalMessage.subject,
         message: replyText,
         to_user_id: isReplyToAdmin ? null : originalMessage.sender_id,
@@ -195,9 +195,10 @@ export default function UserMessages() {
         return new Date(a.latestMessage.created_date) - new Date(b.latestMessage.created_date);
       case "sender":
         return (a.latestMessage.sender_name || "").localeCompare(b.latestMessage.sender_name || "");
-      case "priority":
+      case "priority": {
         const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
         return priorityOrder[a.latestMessage.priority] - priorityOrder[b.latestMessage.priority];
+      }
       default:
         return 0;
     }

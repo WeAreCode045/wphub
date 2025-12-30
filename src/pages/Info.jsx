@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +32,7 @@ export default function Info() {
 
   const loadUser = async () => {
     try {
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       setUser(currentUser);
     } catch (error) {
       console.log("User not logged in");
@@ -42,7 +42,7 @@ export default function Info() {
   const { data: plans = [] } = useQuery({
     queryKey: ['public-subscription-plans'],
     queryFn: async () => {
-      const allPlans = await base44.entities.SubscriptionPlan.filter({
+      const allPlans = await entities.SubscriptionPlan.filter({
         is_active: true
       }, "sort_order");
       return allPlans;

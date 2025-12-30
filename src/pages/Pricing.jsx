@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ export default function Pricing() {
 
   const loadUser = async () => {
     try {
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       setUser(currentUser);
     } catch (error) {
       console.log("User not logged in");
@@ -46,7 +46,7 @@ export default function Pricing() {
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ['subscription-plans'],
     queryFn: async () => {
-      const allPlans = await base44.entities.SubscriptionPlan.filter({
+      const allPlans = await entities.SubscriptionPlan.filter({
         is_active: true
       }, "sort_order");
       return allPlans;
@@ -58,7 +58,7 @@ export default function Pricing() {
     queryKey: ['my-subscription', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const subs = await base44.entities.UserSubscription.filter({
+      const subs = await entities.UserSubscription.filter({
         user_id: user.id,
         status: ['active', 'trialing']
       });
@@ -76,7 +76,7 @@ export default function Pricing() {
 
     setIsCheckingOut(true);
     try {
-      const response = await base44.functions.invoke('createCheckoutSession', {
+      const response = await functions.invoke('createCheckoutSession', {
         plan_id: plan.id,
         billing_cycle: billingCycle === "monthly" ? "month" : "year",
         discount_code: discountCode || null,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,14 +55,14 @@ export default function SendNotificationDialog({
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     enabled: isAdmin && open,
     initialData: [],
   });
 
   const { data: allTeams = [] } = useQuery({
     queryKey: ['all-teams'],
-    queryFn: () => base44.entities.Team.list(),
+    queryFn: () => entities.Team.list(),
     enabled: isAdmin && open,
     initialData: [],
   });
@@ -84,7 +84,7 @@ export default function SendNotificationDialog({
         notificationPayload.recipient_id = data.team_id;
       }
 
-      return base44.entities.Notification.create(notificationPayload);
+      return entities.Notification.create(notificationPayload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });

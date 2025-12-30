@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { entities, functions } from "@/api/entities";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -39,7 +39,7 @@ export default function TeamInboxPopover({
   const { data: team } = useQuery({
     queryKey: ['team', teamId],
     queryFn: async () => {
-      const teams = await base44.entities.Team.filter({ id: teamId });
+      const teams = await entities.Team.filter({ id: teamId });
       return teams[0] || null;
     },
     enabled: !!teamId && open,
@@ -49,7 +49,7 @@ export default function TeamInboxPopover({
     queryKey: ['team-inbox-messages', teamId],
     queryFn: async () => {
       if (!team?.inbox_id) return [];
-      return base44.entities.Message.filter({
+      return entities.Message.filter({
         to_mailbox_id: team.inbox_id
       }, "-created_date");
     },
@@ -59,7 +59,7 @@ export default function TeamInboxPopover({
 
   const markAsReadMutation = useMutation({
     mutationFn: (messageId) =>
-      base44.entities.Message.update(messageId, { is_read: true }),
+      entities.Message.update(messageId, { is_read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team-inbox-messages'] });
       queryClient.invalidateQueries({ queryKey: ['user-messages'] });
@@ -67,7 +67,7 @@ export default function TeamInboxPopover({
   });
 
   const deleteMessageMutation = useMutation({
-    mutationFn: (messageId) => base44.entities.Message.delete(messageId),
+    mutationFn: (messageId) => entities.Message.delete(messageId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team-inbox-messages'] });
       queryClient.invalidateQueries({ queryKey: ['user-messages'] });
@@ -79,7 +79,7 @@ export default function TeamInboxPopover({
     mutationFn: async ({ originalMessage, replyText }) => {
       const isReplyToAdmin = originalMessage.from_admin_outbox;
       
-      const response = await base44.functions.invoke('sendMessage', {
+      const response = await functions.invoke('sendMessage', {
         subject: originalMessage.subject,
         message: replyText,
         to_user_id: isReplyToAdmin ? null : originalMessage.sender_id,

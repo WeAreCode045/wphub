@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,7 +11,7 @@ import {
   Send,
   Loader2,
   Sparkles,
-  User,
+  User as UserIcon,
   Bot,
   Trash2,
   RefreshCw
@@ -148,7 +148,7 @@ Geef korte, duidelijke antwoorden in het Nederlands. Als de gebruiker op een spe
         content: m.content
       }));
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await integrations.Core.InvokeLLM({
         prompt: `${systemPrompt}
 
 CONVERSATIE GESCHIEDENIS:

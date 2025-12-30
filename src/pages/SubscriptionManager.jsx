@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,7 @@ export default function SubscriptionManager() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
       
-      const subs = await base44.entities.UserSubscription.list("-created_date");
+      const subs = await entities.UserSubscription.list("-created_date");
       return subs;
     },
     enabled: !!user && user.role === "admin",
@@ -75,7 +75,7 @@ export default function SubscriptionManager() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
       
-      const plans = await base44.entities.SubscriptionPlan.list();
+      const plans = await entities.SubscriptionPlan.list();
       return plans;
     },
     enabled: !!user && user.role === "admin",
@@ -88,7 +88,7 @@ export default function SubscriptionManager() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
       
-      const users = await base44.entities.User.list();
+      const users = await entities.User.list();
       return users;
     },
     enabled: !!user && user.role === "admin",
@@ -171,7 +171,7 @@ export default function SubscriptionManager() {
 
   const cancelSubscriptionMutation = useMutation({
     mutationFn: async (subscriptionId) => {
-      return base44.entities.UserSubscription.update(subscriptionId, {
+      return entities.UserSubscription.update(subscriptionId, {
         status: "canceled",
         canceled_at: new Date().toISOString()
       });

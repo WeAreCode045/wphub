@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +26,7 @@ export default function TeamProjectOverview({ userId }) {
     queryKey: ['dashboard-teams', userId],
     queryFn: async () => {
       if (!userId) return [];
-      const allTeams = await base44.entities.Team.list("-created_date");
+      const allTeams = await entities.Team.list("-created_date");
       return allTeams.filter(team => 
         team.owner_id === userId || 
         team.members?.some(m => m.user_id === userId && m.status === "active")
@@ -43,7 +43,7 @@ export default function TeamProjectOverview({ userId }) {
     queryFn: async () => {
       if (!userId || userTeams.length === 0) return [];
       const teamIds = userTeams.map(t => t.id);
-      const allProjects = await base44.entities.Project.list("-created_date");
+      const allProjects = await entities.Project.list("-created_date");
       return allProjects.filter(p => teamIds.includes(p.team_id)).slice(0, 5);
     },
     enabled: !!userId && userTeams.length > 0,

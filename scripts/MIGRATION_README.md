@@ -188,7 +188,7 @@ Update je applicatie code om Supabase te gebruiken i.p.v. Base44:
 
 ```javascript
 // Oud (Base44)
-const sites = await base44.entities.Site.list();
+const sites = await entities.Site.list();
 
 // Nieuw (Supabase)
 const { data: sites } = await supabase

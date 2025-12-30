@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import ProfileSubscriptionCard from "../components/dashboard/ProfileSubscriptionCard";
 import AccountUsageCard from "../components/dashboard/AccountUsageCard";
@@ -15,7 +15,7 @@ export default function Dashboard() {
     queryFn: async () => {
       if (!user) return [];
       
-      const userPlugins = await base44.entities.Plugin.filter({
+      const userPlugins = await entities.Plugin.filter({
         owner_type: "user",
         owner_id: user.id
       }, "-updated_date");
@@ -33,7 +33,7 @@ export default function Dashboard() {
     queryFn: async () => {
       if (!user) return [];
       
-      const userSites = await base44.entities.Site.filter({
+      const userSites = await entities.Site.filter({
         owner_type: "user",
         owner_id: user.id
       }, "-updated_date");

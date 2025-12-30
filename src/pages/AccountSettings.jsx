@@ -1,13 +1,13 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { User, integrations } from "@/api/entities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Mail, Building, Phone, Upload, Check, Copy, CheckCircle, Shield } from "lucide-react";
+import { User as UserIcon, Mail, Building, Phone, Upload, Check, Copy, CheckCircle, Shield } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge"; // Assuming this component exists
 
@@ -31,7 +31,7 @@ export default function AccountSettings() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
     setFormData({
       full_name: currentUser.full_name || "",
@@ -44,7 +44,7 @@ export default function AccountSettings() {
   };
 
   const updateUserMutation = useMutation({
-    mutationFn: (data) => base44.auth.updateMe(data),
+    mutationFn: (data) => User.updateMe(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       setSaved(true);
@@ -58,7 +58,7 @@ export default function AccountSettings() {
     if (file) {
       setUploadingAvatar(true);
       try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await integrations.Core.UploadFile({ file });
         setFormData(prev => ({ ...prev, avatar_url: file_url }));
         updateUserMutation.mutate({ avatar_url: file_url });
       } catch (error) {

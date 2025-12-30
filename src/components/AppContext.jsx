@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { entities, User } from '@/api/entities';
 
 const AppContext = createContext();
 
@@ -33,12 +33,12 @@ export const AppProvider = ({ children }) => {
       setIsLoading(true);
       
       // Load user
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       setUser(currentUser);
 
       // Load user subscription
       if (currentUser?.id) {
-        const subscriptions = await base44.entities.UserSubscription.filter({
+        const subscriptions = await entities.UserSubscription.filter({
           user_id: currentUser.id,
           status: ['active', 'trialing']
         });
@@ -47,7 +47,7 @@ export const AppProvider = ({ children }) => {
 
       // Load user teams (once)
       if (currentUser?.id) {
-        const allTeams = await base44.entities.Team.list();
+        const allTeams = await entities.Team.list();
         const teams = allTeams.filter(t =>
           t.owner_id === currentUser.id ||
           t.members?.some(m => m.user_id === currentUser.id && m.status === "active")
@@ -57,7 +57,7 @@ export const AppProvider = ({ children }) => {
       }
 
       // Load platform settings (once)
-      const settings = await base44.entities.SiteSettings.list();
+      const settings = await entities.SiteSettings.list();
       const name = settings.find(s => s.setting_key === 'platform_name')?.setting_value;
       const subtitle = settings.find(s => s.setting_key === 'platform_subtitle')?.setting_value;
       const icon = settings.find(s => s.setting_key === 'platform_icon')?.setting_value;
@@ -79,7 +79,7 @@ export const AppProvider = ({ children }) => {
   // Refresh only user data (for profile updates, etc.)
   const refreshUser = async () => {
     try {
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       setUser(currentUser);
       return currentUser;
     } catch (error) {
@@ -93,7 +93,7 @@ export const AppProvider = ({ children }) => {
     if (!user?.id) return null;
     
     try {
-      const subscriptions = await base44.entities.UserSubscription.filter({
+      const subscriptions = await entities.UserSubscription.filter({
         user_id: user.id,
         status: ['active', 'trialing']
       });
@@ -111,7 +111,7 @@ export const AppProvider = ({ children }) => {
     if (!user?.id) return;
     
     try {
-      const allTeams = await base44.entities.Team.list();
+      const allTeams = await entities.Team.list();
       const teams = allTeams.filter(t =>
         t.owner_id === user.id ||
         t.members?.some(m => m.user_id === user.id && m.status === "active")

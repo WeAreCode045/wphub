@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,7 +95,7 @@ export default function ProjectDetail() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
@@ -103,7 +103,7 @@ export default function ProjectDetail() {
     queryKey: ['project', projectId],
     queryFn: async () => {
       if (!projectId) return null;
-      const projects = await base44.entities.Project.filter({ id: projectId });
+      const projects = await entities.Project.filter({ id: projectId });
       return projects[0] || null;
     },
     enabled: !!projectId,
@@ -113,7 +113,7 @@ export default function ProjectDetail() {
     queryKey: ['project-team', project?.team_id],
     queryFn: async () => {
       if (!project?.team_id) return null;
-      const teams = await base44.entities.Team.filter({ id: project.team_id });
+      const teams = await entities.Team.filter({ id: project.team_id });
       return teams[0] || null;
     },
     enabled: !!project?.team_id,
@@ -123,7 +123,7 @@ export default function ProjectDetail() {
     queryKey: ['project-site', project?.site_id],
     queryFn: async () => {
       if (!project?.site_id) return null;
-      const sites = await base44.entities.Site.filter({ id: project.site_id });
+      const sites = await entities.Site.filter({ id: project.site_id });
       return sites[0] || null;
     },
     enabled: !!project?.site_id,
@@ -131,7 +131,7 @@ export default function ProjectDetail() {
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     initialData: [],
   });
 
@@ -140,7 +140,7 @@ export default function ProjectDetail() {
     queryFn: async () => {
       if (!project?.plugins) return [];
       const pluginIds = project.plugins.map(p => p.plugin_id);
-      const allPlugins = await base44.entities.Plugin.list();
+      const allPlugins = await entities.Plugin.list();
       return allPlugins.filter(p => pluginIds.includes(p.id));
     },
     enabled: !!project?.plugins && project.plugins.length > 0,
@@ -151,7 +151,7 @@ export default function ProjectDetail() {
     queryKey: ['project-inbox', projectId],
     queryFn: async () => {
       if (!projectId || !project?.inbox_id) return [];
-      const messages = await base44.entities.Message.filter({
+      const messages = await entities.Message.filter({
         to_mailbox_id: project.inbox_id
       }, "-created_date", 20); // Fetch top 20 latest messages
       return messages;
@@ -175,7 +175,7 @@ export default function ProjectDetail() {
   }, [project]);
 
   const updateProjectMutation = useMutation({
-    mutationFn: (data) => base44.entities.Project.update(projectId, data),
+    mutationFn: (data) => entities.Project.update(projectId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });
       setShowEditDialog(false); // Close dialog on success
@@ -194,7 +194,7 @@ export default function ProjectDetail() {
   });
 
   const saveNotesMutation = useMutation({
-    mutationFn: (notes) => base44.entities.Project.update(projectId, { notes }),
+    mutationFn: (notes) => entities.Project.update(projectId, { notes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });
       setIsEditingNotes(false);
@@ -211,7 +211,7 @@ export default function ProjectDetail() {
         throw new Error("Dit teamlid is al toegewezen aan het project");
       }
       const updatedMembers = [...currentMembers, { user_id: userId, role_on_project: role }];
-      return base44.entities.Project.update(projectId, { assigned_members: updatedMembers });
+      return entities.Project.update(projectId, { assigned_members: updatedMembers });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });
@@ -234,7 +234,7 @@ export default function ProjectDetail() {
   const removeMemberMutation = useMutation({
     mutationFn: (userId) => {
       const updatedMembers = project.assigned_members.filter(m => m.user_id !== userId);
-      return base44.entities.Project.update(projectId, { assigned_members: updatedMembers });
+      return entities.Project.update(projectId, { assigned_members: updatedMembers });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });
@@ -248,7 +248,7 @@ export default function ProjectDetail() {
     mutationFn: (event) => {
       const currentEvents = project.timeline_events || [];
       const updatedEvents = [...currentEvents, { ...event, completed: false }];
-      return base44.entities.Project.update(projectId, { timeline_events: updatedEvents });
+      return entities.Project.update(projectId, { timeline_events: updatedEvents });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });
@@ -264,7 +264,7 @@ export default function ProjectDetail() {
     mutationFn: (index) => {
       const updatedEvents = [...project.timeline_events];
       updatedEvents[index].completed = !updatedEvents[index].completed;
-      return base44.entities.Project.update(projectId, { timeline_events: updatedEvents });
+      return entities.Project.update(projectId, { timeline_events: updatedEvents });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });
@@ -274,7 +274,7 @@ export default function ProjectDetail() {
   const deleteTimelineEventMutation = useMutation({
     mutationFn: (index) => {
       const updatedEvents = project.timeline_events.filter((_, i) => i !== index);
-      return base44.entities.Project.update(projectId, { timeline_events: updatedEvents });
+      return entities.Project.update(projectId, { timeline_events: updatedEvents });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });
@@ -286,7 +286,7 @@ export default function ProjectDetail() {
 
   const uploadAttachmentMutation = useMutation({
     mutationFn: async (file) => {
-      const { data } = await base44.integrations.Core.UploadFile({ file });
+      const { data } = await integrations.Core.UploadFile({ file });
       const currentAttachments = project.attachments || [];
       const newAttachment = {
         file_url: data.file_url,
@@ -295,7 +295,7 @@ export default function ProjectDetail() {
         uploaded_at: new Date().toISOString()
       };
       const updatedAttachments = [...currentAttachments, newAttachment];
-      return base44.entities.Project.update(projectId, { attachments: updatedAttachments });
+      return entities.Project.update(projectId, { attachments: updatedAttachments });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });
@@ -308,7 +308,7 @@ export default function ProjectDetail() {
   const deleteAttachmentMutation = useMutation({
     mutationFn: (index) => {
       const updatedAttachments = project.attachments.filter((_, i) => i !== index);
-      return base44.entities.Project.update(projectId, { attachments: updatedAttachments });
+      return entities.Project.update(projectId, { attachments: updatedAttachments });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });
@@ -323,7 +323,7 @@ export default function ProjectDetail() {
       const updatedPlugins = project.plugins.map(p =>
         p.plugin_id === pluginId ? { ...p, installed: !p.installed } : p
       );
-      return base44.entities.Project.update(projectId, { plugins: updatedPlugins });
+      return entities.Project.update(projectId, { plugins: updatedPlugins });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project'] });

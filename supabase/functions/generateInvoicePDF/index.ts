@@ -1,10 +1,10 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    const user = await User.me();
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
     }
 
     // Get invoice
-    const invoice = await base44.entities.Invoice.get(invoice_id);
+    const invoice = await entities.Invoice.get(invoice_id);
 
     if (!invoice) {
       return Response.json({ error: 'Invoice not found' }, { status: 404 });
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     }
 
     // Load invoice settings
-    const allSettings = await base44.entities.SiteSettings.list();
+    const allSettings = await entities.SiteSettings.list();
     const getSetting = (key, defaultValue) => {
       const setting = allSettings.find(s => s.setting_key === key);
       return setting?.setting_value || defaultValue;

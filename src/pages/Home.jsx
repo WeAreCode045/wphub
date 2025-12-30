@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,7 @@ import {
   Briefcase,
   Layers,
   Crown,
-  Infinity
+  Infinity as InfinityIcon
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -34,7 +34,7 @@ export default function Home() {
 
   const loadUser = async () => {
     try {
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       setUser(currentUser);
     } catch (error) {
       console.log("User not logged in");
@@ -44,7 +44,7 @@ export default function Home() {
   const { data: planGroups = [] } = useQuery({
     queryKey: ['public-plan-groups'],
     queryFn: async () => {
-      const groups = await base44.entities.PlanGroup.filter({
+      const groups = await entities.PlanGroup.filter({
         is_active: true
       }, "sort_order");
       return groups;
@@ -56,7 +56,7 @@ export default function Home() {
   const { data: plans = [] } = useQuery({
     queryKey: ['public-subscription-plans'],
     queryFn: async () => {
-      const allPlans = await base44.entities.SubscriptionPlan.filter({
+      const allPlans = await entities.SubscriptionPlan.filter({
         is_active: true
       }, "sort_order");
       return allPlans;
@@ -367,7 +367,7 @@ export default function Home() {
                                       <p className="text-sm font-medium text-gray-900">
                                         {feature.limit === -1 ? (
                                           <>
-                                            <Infinity className="w-4 h-4 inline mr-1" />
+                                            <InfinityIcon className="w-4 h-4 inline mr-1" />
                                             Onbeperkt {getFeatureLabel(key)}
                                           </>
                                         ) : (
@@ -478,7 +478,7 @@ export default function Home() {
                                     <p className="text-sm font-medium text-gray-900">
                                       {feature.limit === -1 ? (
                                         <>
-                                          <Infinity className="w-4 h-4 inline mr-1" />
+                                          <InfinityIcon className="w-4 h-4 inline mr-1" />
                                           Onbeperkt {getFeatureLabel(key)}
                                         </>
                                       ) : (

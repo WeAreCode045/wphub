@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -331,7 +331,7 @@ export default function TeamDetail() {
   }, [teamId, navigate]);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
@@ -339,7 +339,7 @@ export default function TeamDetail() {
     queryKey: ['team', teamId],
     queryFn: async () => {
       if (!teamId) return null;
-      const teams = await base44.entities.Team.filter({ id: teamId });
+      const teams = await entities.Team.filter({ id: teamId });
       return teams[0] || null;
     },
     enabled: !!teamId,
@@ -347,7 +347,7 @@ export default function TeamDetail() {
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     initialData: [],
   });
 
@@ -355,7 +355,7 @@ export default function TeamDetail() {
     queryKey: ['team-plugins', teamId],
     queryFn: async () => {
       if (!teamId) return [];
-      const allPlugins = await base44.entities.Plugin.list();
+      const allPlugins = await entities.Plugin.list();
       return allPlugins.filter(p =>
         p.owner_type === "team" && p.owner_id === teamId ||
         p.shared_with_teams?.includes(teamId)
@@ -369,7 +369,7 @@ export default function TeamDetail() {
     queryKey: ['team-sites', teamId],
     queryFn: async () => {
       if (!teamId) return [];
-      const allSites = await base44.entities.Site.list();
+      const allSites = await entities.Site.list();
       return allSites.filter(s =>
         s.owner_type === "team" && s.owner_id === teamId ||
         s.shared_with_teams?.includes(teamId)
@@ -384,7 +384,7 @@ export default function TeamDetail() {
     queryKey: ['team-custom-roles', teamId],
     queryFn: async () => {
       if (!teamId) return [];
-      return await base44.entities.TeamRole.filter({ team_id: teamId, is_active: true });
+      return await entities.TeamRole.filter({ team_id: teamId, is_active: true });
     },
     enabled: !!teamId,
     initialData: [],
@@ -394,7 +394,7 @@ export default function TeamDetail() {
     queryKey: ['team-notifications', teamId],
     queryFn: async () => {
       if (!teamId) return [];
-      return base44.entities.Notification.filter({
+      return entities.Notification.filter({
         recipient_type: "team",
         team_id: teamId
       }, "-created_date", 20);
@@ -407,7 +407,7 @@ export default function TeamDetail() {
     queryKey: ['team-inbox', teamId],
     queryFn: async () => {
       if (!teamId) return [];
-      return base44.entities.Message.filter({
+      return entities.Message.filter({
         recipient_type: "team",
         team_id: teamId
       }, "-created_date", 20);
@@ -420,7 +420,7 @@ export default function TeamDetail() {
     queryKey: ['team-projects', teamId],
     queryFn: async () => {
       if (!teamId) return [];
-      const allProjects = await base44.entities.Project.list("-updated_date");
+      const allProjects = await entities.Project.list("-updated_date");
       return allProjects.filter(p => p.team_id === teamId);
     },
     enabled: !!teamId,
@@ -429,7 +429,7 @@ export default function TeamDetail() {
 
   const inviteMemberMutation = useMutation({
     mutationFn: async () => {
-      const users = await base44.entities.User.filter({ email: inviteEmail });
+      const users = await entities.User.filter({ email: inviteEmail });
 
       if (users.length === 0) {
         throw new Error('Alleen reeds geregistreerde gebruikers kunnen worden uitgenodigd.');
@@ -453,9 +453,9 @@ export default function TeamDetail() {
         }
       ];
 
-      await base44.entities.Team.update(teamId, { members: updatedMembers });
+      await entities.Team.update(teamId, { members: updatedMembers });
 
-      const invite = await base44.entities.TeamInvite.create({
+      const invite = await entities.TeamInvite.create({
         team_id: teamId,
         team_name: team.name,
         invited_email: inviteEmail,
@@ -465,7 +465,7 @@ export default function TeamDetail() {
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       });
 
-      await base44.entities.Notification.create({
+      await entities.Notification.create({
         recipient_id: existingUser.id,
         recipient_email: existingUser.email,
         title: `Uitnodiging voor team: ${team.name}`,
@@ -475,7 +475,7 @@ export default function TeamDetail() {
         team_id: teamId
       });
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `${existingUser.full_name} uitgenodigd voor team ${team.name}`,
         entity_type: "team",
@@ -496,7 +496,7 @@ export default function TeamDetail() {
   const removeMemberMutation = useMutation({
     mutationFn: async (memberId) => {
       const updatedMembers = (team.members || []).filter(m => m.user_id !== memberId);
-      return base44.entities.Team.update(teamId, { members: updatedMembers });
+      return entities.Team.update(teamId, { members: updatedMembers });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team'] });
@@ -518,11 +518,11 @@ export default function TeamDetail() {
           : m
       );
 
-      await base44.entities.Team.update(teamId, { members: updatedMembers });
+      await entities.Team.update(teamId, { members: updatedMembers });
 
       const memberUser = allUsers.find(u => u.id === memberId);
       if (memberUser) {
-        await base44.entities.Notification.create({
+        await entities.Notification.create({
           recipient_id: memberUser.id,
           recipient_email: memberUser.email,
           title: `Je rol in team "${team.name}" is bijgewerkt`,
@@ -531,7 +531,7 @@ export default function TeamDetail() {
         });
       }
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Rol bijgewerkt voor ${memberUser?.full_name || 'teamlid'} in team ${team.name}`,
         entity_type: "team",
@@ -547,7 +547,7 @@ export default function TeamDetail() {
 
   const createTeamNotificationMutation = useMutation({
     mutationFn: async (notificationData) => {
-      return base44.entities.Notification.create({
+      return entities.Notification.create({
         ...notificationData,
         recipient_type: "team",
         team_id: teamId,
@@ -569,14 +569,14 @@ export default function TeamDetail() {
 
   const markTeamNotificationAsReadMutation = useMutation({
     mutationFn: (notificationId) =>
-      base44.entities.Notification.update(notificationId, { is_read: true }),
+      entities.Notification.update(notificationId, { is_read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team-notifications'] });
     },
   });
 
   const deleteTeamNotificationMutation = useMutation({
-    mutationFn: (notificationId) => base44.entities.Notification.delete(notificationId),
+    mutationFn: (notificationId) => entities.Notification.delete(notificationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team-notifications'] });
       alert('✅ Notificatie verwijderd');

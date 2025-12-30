@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -90,7 +90,7 @@ export default function PlanGroups() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
       
-      const groups = await base44.entities.PlanGroup.list("sort_order");
+      const groups = await entities.PlanGroup.list("sort_order");
       return groups;
     },
     enabled: !!user && user.role === "admin",
@@ -103,7 +103,7 @@ export default function PlanGroups() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
       
-      const plans = await base44.entities.SubscriptionPlan.list();
+      const plans = await entities.SubscriptionPlan.list();
       return plans;
     },
     enabled: !!user && user.role === "admin",
@@ -112,7 +112,7 @@ export default function PlanGroups() {
   });
 
   const createGroupMutation = useMutation({
-    mutationFn: (groupData) => base44.entities.PlanGroup.create(groupData),
+    mutationFn: (groupData) => entities.PlanGroup.create(groupData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-plan-groups'] });
       setShowDialog(false);
@@ -132,7 +132,7 @@ export default function PlanGroups() {
   });
 
   const updateGroupMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PlanGroup.update(id, data),
+    mutationFn: ({ id, data }) => entities.PlanGroup.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-plan-groups'] });
       setShowDialog(false);
@@ -152,7 +152,7 @@ export default function PlanGroups() {
   });
 
   const deleteGroupMutation = useMutation({
-    mutationFn: (groupId) => base44.entities.PlanGroup.delete(groupId),
+    mutationFn: (groupId) => entities.PlanGroup.delete(groupId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-plan-groups'] });
       toast({

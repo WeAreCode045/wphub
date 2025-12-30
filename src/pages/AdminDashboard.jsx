@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,11 +45,11 @@ export default function AdminDashboard() {
       if (!user || user.role !== 'admin') return null;
 
       const [users, plugins, sites, subscriptions, activities] = await Promise.all([
-        base44.entities.User.list("-created_date", 100),
-        base44.entities.Plugin.list("-updated_date", 100),
-        base44.entities.Site.list("-updated_date", 100),
-        base44.entities.UserSubscription.list("-created_date", 100),
-        base44.entities.ActivityLog.list("-created_date", 50)
+        entities.User.list("-created_date", 100),
+        entities.Plugin.list("-updated_date", 100),
+        entities.Site.list("-updated_date", 100),
+        entities.UserSubscription.list("-created_date", 100),
+        entities.ActivityLog.list("-created_date", 50)
       ]);
 
       const activeSubscriptions = subscriptions.filter(s => s.status === "active" || s.status === "trialing");

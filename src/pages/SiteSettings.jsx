@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ export default function SiteSettings() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
 
     if (currentUser.role !== "admin") {
@@ -63,13 +63,13 @@ export default function SiteSettings() {
 
   const { data: settings = [] } = useQuery({
     queryKey: ['site-settings'],
-    queryFn: () => base44.entities.SiteSettings.list(),
+    queryFn: () => entities.SiteSettings.list(),
     initialData: []
   });
 
   const { data: connectors = [] } = useQuery({
     queryKey: ['connectors'],
-    queryFn: () => base44.entities.Connector.list("-created_date"),
+    queryFn: () => entities.Connector.list("-created_date"),
     initialData: []
   });
 
@@ -107,11 +107,11 @@ export default function SiteSettings() {
       const existing = settings.find((s) => s.setting_key === settingKey);
 
       if (existing) {
-        return base44.entities.SiteSettings.update(existing.id, {
+        return entities.SiteSettings.update(existing.id, {
           setting_value: value
         });
       } else {
-        return base44.entities.SiteSettings.create({
+        return entities.SiteSettings.create({
           setting_key: settingKey,
           setting_value: value,
           description: description || settingKey
@@ -125,7 +125,7 @@ export default function SiteSettings() {
 
   const generateConnectorMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await base44.functions.invoke('generateConnectorPlugin', data);
+      const response = await functions.invoke('generateConnectorPlugin', data);
       return response.data;
     },
     onSuccess: () => {
@@ -142,7 +142,7 @@ export default function SiteSettings() {
 
   const deleteConnectorMutation = useMutation({
     mutationFn: async (connector_id) => {
-      const response = await base44.functions.invoke('deleteConnectorPlugin', { connector_id });
+      const response = await functions.invoke('deleteConnectorPlugin', { connector_id });
       return response.data;
     },
     onSuccess: () => {
@@ -155,7 +155,7 @@ export default function SiteSettings() {
     if (file && file.type.startsWith('image/')) {
       setUploadingLogo(true);
       try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await integrations.Core.UploadFile({ file });
         setGeneralSettings(prev => ({ ...prev, platform_logo: file_url }));
       } catch (error) {
         console.error("Error uploading logo:", error);
@@ -173,7 +173,7 @@ export default function SiteSettings() {
     if (file && file.type.startsWith('image/')) {
       setUploadingIcon(true);
       try {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await integrations.Core.UploadFile({ file });
         setGeneralSettings(prev => ({ ...prev, platform_icon: file_url }));
       } catch (error) {
         console.error("Error uploading icon:", error);

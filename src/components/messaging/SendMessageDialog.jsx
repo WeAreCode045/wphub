@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Send, User, Users, Inbox, ShieldCheck } from "lucide-react";
+import { Loader2, Send, User as UserIcon, Users, Inbox, ShieldCheck } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function SendMessageDialog({ 
@@ -40,7 +40,7 @@ export default function SendMessageDialog({
 
   const sendMessageMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await base44.functions.invoke('sendMessage', data);
+      const response = await functions.invoke('sendMessage', data);
       return response.data;
     },
     onSuccess: () => {

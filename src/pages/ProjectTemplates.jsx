@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ export default function ProjectTemplates() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
@@ -73,7 +73,7 @@ export default function ProjectTemplates() {
     queryKey: ['project-templates', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const allTemplates = await base44.entities.ProjectTemplate.list("-updated_date");
+      const allTemplates = await entities.ProjectTemplate.list("-updated_date");
       return allTemplates.filter(t => 
         t.created_by === user.email || 
         t.is_public || 
@@ -88,7 +88,7 @@ export default function ProjectTemplates() {
     queryKey: ['user-teams', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const allTeams = await base44.entities.Team.list();
+      const allTeams = await entities.Team.list();
       return allTeams.filter(t => 
         t.owner_id === user.id || 
         t.members?.some(m => m.user_id === user.id && m.status === "active")
@@ -102,7 +102,7 @@ export default function ProjectTemplates() {
     queryKey: ['all-plugins', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const plugins = await base44.entities.Plugin.list();
+      const plugins = await entities.Plugin.list();
       const teamIds = userTeams.map(t => t.id);
       return plugins.filter(p => 
         (p.owner_type === "user" && p.owner_id === user.id) ||
@@ -125,7 +125,7 @@ export default function ProjectTemplates() {
         };
       });
 
-      return base44.entities.ProjectTemplate.create({
+      return entities.ProjectTemplate.create({
         ...templateData,
         plugins: pluginsData,
         created_by: user.email
@@ -162,7 +162,7 @@ export default function ProjectTemplates() {
         };
       });
 
-      return base44.entities.ProjectTemplate.update(id, {
+      return entities.ProjectTemplate.update(id, {
         ...data,
         plugins: pluginsData
       });
@@ -179,7 +179,7 @@ export default function ProjectTemplates() {
   });
 
   const deleteTemplateMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProjectTemplate.delete(id),
+    mutationFn: (id) => entities.ProjectTemplate.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-templates'] });
       toast({
@@ -190,7 +190,7 @@ export default function ProjectTemplates() {
 
   const duplicateTemplateMutation = useMutation({
     mutationFn: async (template) => {
-      return base44.entities.ProjectTemplate.create({
+      return entities.ProjectTemplate.create({
         ...template,
         name: `${template.name} (Kopie)`,
         created_by: user.email,

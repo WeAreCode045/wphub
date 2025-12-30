@@ -1,9 +1,9 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        const user = await User.me();
 
         if (!user) {
             return Response.json({ 
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
         }
 
         // Check if default roles already exist for this team
-        const existingRoles = await base44.entities.TeamRole.filter({ 
+        const existingRoles = await entities.TeamRole.filter({ 
             team_id: team_id,
             type: "default"
         });
@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
         // Create the roles
         const createdRoles = [];
         for (const roleData of defaultRoles) {
-            const role = await base44.entities.TeamRole.create(roleData);
+            const role = await entities.TeamRole.create(roleData);
             createdRoles.push(role);
         }
 

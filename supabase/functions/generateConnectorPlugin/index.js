@@ -1,4 +1,4 @@
-import { createClientFromRequest } from './base44Shim.js';
+import { createClientFromRequest } from './supabaseClientServer.js';
 import JSZip from 'npm:jszip@3.10.1';
 
 // Template content - embedded directly in the function
@@ -103,7 +103,7 @@ class WP_Plugin_Hub_Connector {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
+    const user = await User.me();
 
     if (!user || user.role !== 'admin') {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     const content = await zip.generateAsync({ type: 'uint8array' });
 
     // Upload to Supabase storage via base44Shim.UploadFile
-    const uploaded = await base44.integrations.Core.UploadFile({ file: { data: content, name: `wp-plugin-hub-connector-${version}.zip`, type: 'application/zip' }, bucket: 'Connectors' });
+    const uploaded = await integrations.Core.UploadFile({ file: { data: content, name: `wp-plugin-hub-connector-${version}.zip`, type: 'application/zip' }, bucket: 'Connectors' });
 
     await base44.asServiceRole.entities.Connector.create({
       version,

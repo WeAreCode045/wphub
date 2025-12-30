@@ -1,4 +1,4 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 import Stripe from 'npm:stripe@14.11.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2023-10-16' });
@@ -6,7 +6,7 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion:
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const admin = await base44.auth.me();
+    const admin = await User.me();
 
     if (!admin || admin.role !== 'admin') {
       return Response.json({ error: 'Unauthorized - Admin only' }, { status: 403 });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ export default function ActivityLog() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
@@ -26,7 +26,7 @@ export default function ActivityLog() {
     queryKey: ['activities', user?.email],
     queryFn: async () => {
       if (!user) return [];
-      const allActivities = await base44.entities.ActivityLog.filter({ user_email: user.email }, "-created_date", 100);
+      const allActivities = await entities.ActivityLog.filter({ user_email: user.email }, "-created_date", 100);
       // Filter out connector activities (admin-only activities)
       return allActivities.filter(activity => activity.entity_type !== "connector");
     },

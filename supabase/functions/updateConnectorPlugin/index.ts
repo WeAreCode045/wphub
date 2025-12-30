@@ -1,9 +1,9 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        const user = await User.me();
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Missing required parameters' }, { status: 400 });
         }
 
-        const sites = await base44.entities.Site.filter({ id: site_id });
+        const sites = await entities.Site.filter({ id: site_id });
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
         console.log('[updateConnectorPlugin] Connector response:', result);
 
         if (result.success) {
-            await base44.entities.ActivityLog.create({ user_email: user.email, action: `Connector plugin geüpdatet op site ${site.name}`, entity_type: "site", details: `Nieuwe versie: ${activeVersion}` });
+            await entities.ActivityLog.create({ user_email: user.email, action: `Connector plugin geüpdatet op site ${site.name}`, entity_type: "site", details: `Nieuwe versie: ${activeVersion}` });
             console.log('[updateConnectorPlugin] ✅ Success');
         }
 

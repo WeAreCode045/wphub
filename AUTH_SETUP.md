@@ -215,7 +215,7 @@ const { data, error } = await supabase.auth.signUp({
 const { data: { user } } = await supabase.auth.getUser();
 
 // Of via adapter
-const user = await base44.auth.me();
+const user = await User.me();
 ```
 
 ### Logout

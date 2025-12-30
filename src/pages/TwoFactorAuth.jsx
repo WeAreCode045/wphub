@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +26,7 @@ export default function TwoFactorAuth() {
 
   const initializeTwoFactor = async () => {
     try {
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       setUser(currentUser);
 
       // Check if 2FA is enabled
@@ -40,7 +40,7 @@ export default function TwoFactorAuth() {
       await sendCode();
     } catch (error) {
       console.error("Error initializing 2FA:", error);
-      base44.auth.redirectToLogin("/TwoFactorAuth");
+      User.redirectToLogin("/TwoFactorAuth");
     } finally {
       setIsInitializing(false);
     }
@@ -52,7 +52,7 @@ export default function TwoFactorAuth() {
     setSuccess("");
     
     try {
-      const response = await base44.functions.invoke('generate2FACode', {});
+      const response = await functions.invoke('generate2FACode', {});
       
       if (response.data.success) {
         setCodeSent(true);
@@ -81,7 +81,7 @@ export default function TwoFactorAuth() {
     setSuccess("");
 
     try {
-      const response = await base44.functions.invoke('verify2FACode', { code });
+      const response = await functions.invoke('verify2FACode', { code });
       
       if (response.data.success) {
         setSuccess('Verificatie succesvol! Je wordt doorgestuurd...');

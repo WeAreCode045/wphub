@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ export default function CurrentSubscriptionCard({ userId }) {
     queryKey: ['current-subscription', userId],
     queryFn: async () => {
       if (!userId) return null;
-      const subs = await base44.entities.UserSubscription.filter({
+      const subs = await entities.UserSubscription.filter({
         user_id: userId,
         status: ['active', 'trialing']
       }, "-created_date", 1);
@@ -29,7 +29,7 @@ export default function CurrentSubscriptionCard({ userId }) {
     queryKey: ['subscription-plan', subscription?.plan_id],
     queryFn: async () => {
       if (!subscription?.plan_id) return null;
-      return base44.entities.SubscriptionPlan.get(subscription.plan_id);
+      return entities.SubscriptionPlan.get(subscription.plan_id);
     },
     enabled: !!subscription?.plan_id,
     staleTime: 0,

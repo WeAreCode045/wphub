@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,7 @@ export default function FinanceSettings() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
     if (currentUser?.role !== "admin") {
       navigate(createPageUrl("Dashboard"));
@@ -95,28 +95,28 @@ export default function FinanceSettings() {
 
   const { data: discounts = [] } = useQuery({
     queryKey: ['discount-codes'],
-    queryFn: () => base44.entities.DiscountCode.list("-created_date"),
+    queryFn: () => entities.DiscountCode.list("-created_date"),
     enabled: !!user && user.role === "admin",
     initialData: [],
   });
 
   const { data: plans = [] } = useQuery({
     queryKey: ['subscription-plans'],
-    queryFn: () => base44.entities.SubscriptionPlan.list(),
+    queryFn: () => entities.SubscriptionPlan.list(),
     enabled: !!user && user.role === "admin",
     initialData: [],
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     enabled: !!user && user.role === "admin",
     initialData: [],
   });
 
   const { data: allSubscriptions = [] } = useQuery({
     queryKey: ['all-subscriptions'],
-    queryFn: () => base44.entities.UserSubscription.list(),
+    queryFn: () => entities.UserSubscription.list(),
     enabled: !!user && user.role === "admin",
     initialData: [],
   });
@@ -124,7 +124,7 @@ export default function FinanceSettings() {
   const { data: invoiceSettingsData } = useQuery({
     queryKey: ['invoice-settings'],
     queryFn: async () => {
-      const settings = await base44.entities.SiteSettings.list();
+      const settings = await entities.SiteSettings.list();
       return {
         vat_rate: settings.find(s => s.setting_key === 'invoice_vat_rate')?.setting_value || "21",
         vat_number: settings.find(s => s.setting_key === 'invoice_vat_number')?.setting_value || "",
@@ -145,7 +145,7 @@ export default function FinanceSettings() {
   });
 
   const createDiscountMutation = useMutation({
-    mutationFn: (data) => base44.entities.DiscountCode.create(data),
+    mutationFn: (data) => entities.DiscountCode.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discount-codes'] });
       setShowDiscountDialog(false);
@@ -154,7 +154,7 @@ export default function FinanceSettings() {
   });
 
   const updateDiscountMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.DiscountCode.update(id, data),
+    mutationFn: ({ id, data }) => entities.DiscountCode.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discount-codes'] });
       setShowDiscountDialog(false);
@@ -163,7 +163,7 @@ export default function FinanceSettings() {
   });
 
   const deleteDiscountMutation = useMutation({
-    mutationFn: (id) => base44.entities.DiscountCode.delete(id),
+    mutationFn: (id) => entities.DiscountCode.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['discount-codes'] });
     }
@@ -171,7 +171,7 @@ export default function FinanceSettings() {
 
   const importInvoicesMutation = useMutation({
     mutationFn: async (userId) => {
-      const response = await base44.functions.invoke('importStripeInvoices', {
+      const response = await functions.invoke('importStripeInvoices', {
         user_id: userId
       });
       return response.data;
@@ -202,17 +202,17 @@ export default function FinanceSettings() {
         { key: 'invoice_text_color', value: settings.text_color, description: 'Tekstkleur factuur' }
       ];
 
-      const existingSettings = await base44.entities.SiteSettings.list();
+      const existingSettings = await entities.SiteSettings.list();
       
       for (const setting of settingsToSave) {
         const existing = existingSettings.find(s => s.setting_key === setting.key);
         if (existing) {
-          await base44.entities.SiteSettings.update(existing.id, {
+          await entities.SiteSettings.update(existing.id, {
             setting_value: setting.value,
             description: setting.description
           });
         } else {
-          await base44.entities.SiteSettings.create({
+          await entities.SiteSettings.create({
             setting_key: setting.key,
             setting_value: setting.value,
             description: setting.description

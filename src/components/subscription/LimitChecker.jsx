@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 
 /**
  * Check if user can perform an action based on their subscription limits
@@ -12,7 +12,7 @@ export async function checkSubscriptionLimit(userId, featureType) {
     // Check if user is admin - admins have unlimited access
     let currentUser = null;
     try {
-      currentUser = await base44.auth.me();
+      currentUser = await User.me();
     } catch (error) {
       // User not authenticated or session expired, continue with subscription check
     }
@@ -30,7 +30,7 @@ export async function checkSubscriptionLimit(userId, featureType) {
     }
 
     // Get user's active subscription
-    const subscriptions = await base44.entities.UserSubscription.filter({
+    const subscriptions = await entities.UserSubscription.filter({
       user_id: userId,
       status: ['active', 'trialing']
     });
@@ -80,7 +80,7 @@ export async function checkSubscriptionLimit(userId, featureType) {
     }
     
     // Get the plan details
-    const plan = await base44.entities.SubscriptionPlan.get(subscription.plan_id);
+    const plan = await entities.SubscriptionPlan.get(subscription.plan_id);
     
     if (!plan || !plan.features) {
       return {
@@ -222,7 +222,7 @@ export async function checkDowngradeEligibility(userId, targetPlan) {
  */
 export async function getPlansWithFeature(featureType) {
   try {
-    const allPlans = await base44.entities.SubscriptionPlan.filter({ is_active: true });
+    const allPlans = await entities.SubscriptionPlan.filter({ is_active: true });
     
     return allPlans.filter(plan => {
       const feature = plan.features?.[featureType];
@@ -241,7 +241,7 @@ async function getCurrentUsage(userId, featureType) {
   try {
     switch (featureType) {
       case 'plugins': {
-        const plugins = await base44.entities.Plugin.filter({
+        const plugins = await entities.Plugin.filter({
           owner_type: "user",
           owner_id: userId
         });
@@ -249,7 +249,7 @@ async function getCurrentUsage(userId, featureType) {
       }
       
       case 'themes': {
-        const themes = await base44.entities.Theme.filter({
+        const themes = await entities.Theme.filter({
           owner_type: "user",
           owner_id: userId
         });
@@ -257,7 +257,7 @@ async function getCurrentUsage(userId, featureType) {
       }
       
       case 'sites': {
-        const sites = await base44.entities.Site.filter({
+        const sites = await entities.Site.filter({
           owner_type: "user",
           owner_id: userId
         });
@@ -265,7 +265,7 @@ async function getCurrentUsage(userId, featureType) {
       }
       
       case 'teams': {
-        const teams = await base44.entities.Team.filter({
+        const teams = await entities.Team.filter({
           owner_id: userId
         });
         return teams.length;
@@ -273,12 +273,12 @@ async function getCurrentUsage(userId, featureType) {
       
       case 'projects': {
         // Projects are team-based, so count projects in teams the user owns
-        const teams = await base44.entities.Team.filter({
+        const teams = await entities.Team.filter({
           owner_id: userId
         });
         const teamIds = teams.map(t => t.id);
         
-        const allProjects = await base44.entities.Project.list();
+        const allProjects = await entities.Project.list();
         return allProjects.filter(p => teamIds.includes(p.team_id)).length;
       }
       

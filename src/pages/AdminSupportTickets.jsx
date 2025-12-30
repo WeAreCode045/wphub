@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ import {
   XCircle,
   Filter,
   Mail,
-  User
+  User as UserIcon
 } from "lucide-react";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -53,27 +53,27 @@ export default function AdminSupportTickets() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
   const { data: allTickets = [], isLoading } = useQuery({
     queryKey: ['all-support-tickets'],
     queryFn: async () => {
-      return base44.entities.SupportTicket.list("-created_date");
+      return entities.SupportTicket.list("-created_date");
     },
     initialData: [],
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     initialData: [],
   });
 
   const updateTicketMutation = useMutation({
     mutationFn: async ({ ticketId, updates }) => {
-      return base44.entities.SupportTicket.update(ticketId, {
+      return entities.SupportTicket.update(ticketId, {
         ...updates,
         last_updated: new Date().toISOString()
       });
@@ -96,7 +96,7 @@ export default function AdminSupportTickets() {
         created_at: new Date().toISOString()
       });
 
-      return base44.entities.SupportTicket.update(ticketId, {
+      return entities.SupportTicket.update(ticketId, {
         responses,
         status: 'waiting_response',
         last_updated: new Date().toISOString()

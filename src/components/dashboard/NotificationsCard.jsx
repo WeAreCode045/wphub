@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bell, Trash2, Reply, Send, CheckCircle, Info, AlertTriangle, XCircle, ChevronDown, ChevronUp, Inbox, SendHorizontal, Plus, Users } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
@@ -45,7 +45,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
     queryKey: ['notifications', userId],
     queryFn: async () => {
       if (!userId) return [];
-      return base44.entities.Notification.filter({ recipient_id: userId }, "-created_date");
+      return entities.Notification.filter({ recipient_id: userId }, "-created_date");
     },
     enabled: !!userId,
     initialData: [],
@@ -56,7 +56,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
     queryKey: ['sent-notifications', userEmail],
     queryFn: async () => {
       if (!userEmail) return [];
-      const allNotifications = await base44.entities.Notification.list("-created_date");
+      const allNotifications = await entities.Notification.list("-created_date");
       return allNotifications.filter(n => n.created_by === userEmail);
     },
     enabled: !!userEmail,
@@ -66,7 +66,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
   // Query for all users (for recipient selection)
   const { data: users = [] } = useQuery({
     queryKey: ['users-for-notifications'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     initialData: [],
   });
 
@@ -77,7 +77,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
 
   const markAsReadMutation = useMutation({
     mutationFn: (notificationId) => 
-      base44.entities.Notification.update(notificationId, { is_read: true }),
+      entities.Notification.update(notificationId, { is_read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
@@ -85,7 +85,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
 
   const deleteMutation = useMutation({
     mutationFn: (notificationId) => 
-      base44.entities.Notification.delete(notificationId),
+      entities.Notification.delete(notificationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['sent-notifications'] });
@@ -94,12 +94,12 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
 
   const sendNotificationMutation = useMutation({
     mutationFn: async (notificationData) => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       
       if (notificationData.recipient_id === "all") {
         const allUsers = users.filter(u => u.id !== currentUser.id);
         const promises = allUsers.map(user => 
-          base44.entities.Notification.create({
+          entities.Notification.create({
             recipient_id: user.id,
             recipient_email: user.email,
             title: notificationData.title,
@@ -110,7 +110,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
         );
         await Promise.all(promises);
         
-        await base44.entities.ActivityLog.create({
+        await entities.ActivityLog.create({
           user_email: currentUser.email,
           action: `Notificatie gestuurd naar alle gebruikers`,
           entity_type: "notification",
@@ -118,7 +118,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
         });
       } else {
         const recipient = users.find(u => u.id === notificationData.recipient_id);
-        await base44.entities.Notification.create({
+        await entities.Notification.create({
           recipient_id: recipient.id,
           recipient_email: recipient.email,
           title: notificationData.title,
@@ -127,7 +127,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
           is_read: false
         });
         
-        await base44.entities.ActivityLog.create({
+        await entities.ActivityLog.create({
           user_email: currentUser.email,
           action: `Notificatie gestuurd naar ${recipient.full_name}`,
           entity_type: "notification",
@@ -154,7 +154,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
       }
 
       // Get the invite
-      const invites = await base44.entities.TeamInvite.filter({ id: notification.team_invite_id });
+      const invites = await entities.TeamInvite.filter({ id: notification.team_invite_id });
       if (invites.length === 0) {
         throw new Error('Uitnodiging niet gevonden');
       }
@@ -162,20 +162,20 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
       const invite = invites[0];
 
       // Update invite status
-      await base44.entities.TeamInvite.update(invite.id, {
+      await entities.TeamInvite.update(invite.id, {
         status: "accepted",
         accepted_at: new Date().toISOString()
       });
 
       // Get team
-      const teams = await base44.entities.Team.filter({ id: invite.team_id });
+      const teams = await entities.Team.filter({ id: invite.team_id });
       if (teams.length === 0) throw new Error("Team niet gevonden");
       
       const team = teams[0];
       const currentMembers = team.members || [];
 
       // Check if user is already in members array
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       const existingMemberIndex = currentMembers.findIndex(m => m.user_id === currentUser.id);
       
       let updatedMembers;
@@ -200,13 +200,13 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
         ];
       }
 
-      await base44.entities.Team.update(team.id, { members: updatedMembers });
+      await entities.Team.update(team.id, { members: updatedMembers });
 
       // Mark notification as read
-      await base44.entities.Notification.update(notification.id, { is_read: true });
+      await entities.Notification.update(notification.id, { is_read: true });
 
       // Log activity
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: currentUser.email,
         action: `Toegetreden tot team: ${team.name}`,
         entity_type: "team",
@@ -231,7 +231,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
       }
 
       // Get the invite
-      const invites = await base44.entities.TeamInvite.filter({ id: notification.team_invite_id });
+      const invites = await entities.TeamInvite.filter({ id: notification.team_invite_id });
       if (invites.length === 0) {
         throw new Error('Uitnodiging niet gevonden');
       }
@@ -239,19 +239,19 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
       const invite = invites[0];
 
       // Update invite status
-      await base44.entities.TeamInvite.update(invite.id, { status: "declined" });
+      await entities.TeamInvite.update(invite.id, { status: "declined" });
 
       // Remove from team members if exists as pending
-      const teams = await base44.entities.Team.filter({ id: invite.team_id });
+      const teams = await entities.Team.filter({ id: invite.team_id });
       if (teams.length > 0) {
         const team = teams[0];
-        const currentUser = await base44.auth.me();
+        const currentUser = await User.me();
         const updatedMembers = (team.members || []).filter(m => m.user_id !== currentUser.id);
-        await base44.entities.Team.update(team.id, { members: updatedMembers });
+        await entities.Team.update(team.id, { members: updatedMembers });
       }
 
       // Mark notification as read
-      await base44.entities.Notification.update(notification.id, { is_read: true });
+      await entities.Notification.update(notification.id, { is_read: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -266,7 +266,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
 
   const replyMutation = useMutation({
     mutationFn: async ({ notification, reply }) => {
-      const currentUser = await base44.auth.me();
+      const currentUser = await User.me();
       
       const existingReplies = notification.replies || [];
       const newReply = {
@@ -276,16 +276,16 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
         created_at: new Date().toISOString()
       };
       
-      await base44.entities.Notification.update(notification.id, { 
+      await entities.Notification.update(notification.id, { 
         replies: [...existingReplies, newReply],
         is_read: true 
       });
 
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await entities.User.list();
       const sender = allUsers.find(u => u.email === notification.created_by);
       
       if (sender && sender.id !== currentUser.id) {
-        await base44.entities.Notification.create({
+        await entities.Notification.create({
           recipient_id: sender.id,
           recipient_email: sender.email,
           title: `Reactie op: ${notification.title}`,
@@ -295,7 +295,7 @@ export default function NotificationsCard({ userId, userEmail, isAdmin }) {
           reply_to_notification_id: notification.id
         });
 
-        await base44.entities.ActivityLog.create({
+        await entities.ActivityLog.create({
           user_email: currentUser.email,
           action: `Reactie gegeven op notificatie`,
           entity_type: "notification",

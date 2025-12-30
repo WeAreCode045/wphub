@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
-  User,
+  User as UserIcon,
   Mail,
   Building,
   Crown,
@@ -49,8 +49,8 @@ export default function ProfileInfo() {
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data) => {
-      await base44.auth.updateMe(data);
-      const updatedUser = await base44.auth.me();
+      await User.updateMe(data);
+      const updatedUser = await User.me();
       return updatedUser;
     },
     onSuccess: () => {
@@ -76,8 +76,8 @@ export default function ProfileInfo() {
 
     setUploadingAvatar(true);
     try {
-      const uploadResult = await base44.integrations.Core.UploadFile({ file });
-      await base44.auth.updateMe({ avatar_url: uploadResult.file_url });
+      const uploadResult = await integrations.Core.UploadFile({ file });
+      await User.updateMe({ avatar_url: uploadResult.file_url });
       queryClient.invalidateQueries();
       toast({
         title: "Avatar bijgewerkt",

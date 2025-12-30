@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,7 @@ export default function Themes() {
     queryFn: async () => {
       if (!user) return [];
       
-      const userThemes = await base44.entities.Theme.filter({
+      const userThemes = await entities.Theme.filter({
         owner_type: "user",
         owner_id: user.id
       }, "-updated_date");
@@ -97,7 +97,7 @@ export default function Themes() {
     queryFn: async () => {
       if (!user) return [];
       
-      const userSites = await base44.entities.Site.filter({
+      const userSites = await entities.Site.filter({
         owner_type: "user",
         owner_id: user.id
       });
@@ -128,10 +128,10 @@ export default function Themes() {
         throw new Error(limitCheck.message);
       }
       
-      const uploadResult = await base44.integrations.Core.UploadFile({ file, bucket: 'Themes' });
+      const uploadResult = await integrations.Core.UploadFile({ file, bucket: 'Themes' });
       const fileUrl = uploadResult.file_url;
 
-      const parseResponse = await base44.functions.invoke('parseThemeZip', {
+      const parseResponse = await functions.invoke('parseThemeZip', {
         file_url: fileUrl
       });
       
@@ -141,7 +141,7 @@ export default function Themes() {
 
       const theme_data = parseResponse.data.theme;
 
-      const allExistingThemes = await base44.entities.Theme.list();
+      const allExistingThemes = await entities.Theme.list();
       const existingTheme = allExistingThemes.find(t =>
         t.slug === theme_data.slug &&
         t.owner_type === "user" &&
@@ -152,7 +152,7 @@ export default function Themes() {
         throw new Error(`Theme "${theme_data.name}" bestaat al in je library`);
       }
 
-      const newTheme = await base44.entities.Theme.create({
+      const newTheme = await entities.Theme.create({
         name: theme_data.name,
         slug: theme_data.slug,
         description: theme_data.description || '',
@@ -172,7 +172,7 @@ export default function Themes() {
         shared_with_teams: []
       });
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Theme geüpload: ${theme_data.name}`,
         entity_type: "theme",
@@ -209,7 +209,7 @@ export default function Themes() {
         throw new Error(limitCheck.message);
       }
       
-      const allExistingThemes = await base44.entities.Theme.list();
+      const allExistingThemes = await entities.Theme.list();
       const existingTheme = allExistingThemes.find(t =>
         t.slug === wpTheme.slug &&
         t.owner_type === "user" &&
@@ -220,7 +220,7 @@ export default function Themes() {
         throw new Error(`Theme "${wpTheme.name}" bestaat al in je library`);
       }
 
-      const newTheme = await base44.entities.Theme.create({
+      const newTheme = await entities.Theme.create({
         name: wpTheme.name,
         slug: wpTheme.slug,
         description: wpTheme.description || '',
@@ -240,7 +240,7 @@ export default function Themes() {
         shared_with_teams: []
       });
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Theme toegevoegd uit WP Library: ${wpTheme.name}`,
         entity_type: "theme",
@@ -273,14 +273,14 @@ export default function Themes() {
       const themeToDelete = themes.find(t => t.id === themeId);
       
       if (themeToDelete) {
-        await base44.entities.ActivityLog.create({
+        await entities.ActivityLog.create({
           user_email: user.email,
           action: `Theme verwijderd: ${themeToDelete.name}`,
           entity_type: "theme"
         });
       }
       
-      return base44.entities.Theme.delete(themeId);
+      return entities.Theme.delete(themeId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['themes'] });
@@ -316,7 +316,7 @@ export default function Themes() {
     setIsSearchingWp(true);
     setWpSearchResults([]);
     try {
-      const response = await base44.functions.invoke('searchWordPressThemes', {
+      const response = await functions.invoke('searchWordPressThemes', {
         search: wpSearchQuery,
         page: 1,
         per_page: 20

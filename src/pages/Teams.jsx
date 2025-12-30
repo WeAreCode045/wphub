@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ export default function Teams() {
     queryFn: async () => {
       if (!user) return [];
       
-      const allTeams = await base44.entities.Team.list("-created_date");
+      const allTeams = await entities.Team.list("-created_date");
       const userTeams = allTeams.filter(team => 
         team.owner_id === user.id || 
         team.members?.some(m => m.user_id === user.id && m.status === "active")
@@ -79,7 +79,7 @@ export default function Teams() {
         throw new Error(limitCheck.message);
       }
 
-      const newTeam = await base44.entities.Team.create({
+      const newTeam = await entities.Team.create({
         name: teamData.name,
         description: teamData.description,
         owner_id: user.id,
@@ -92,11 +92,11 @@ export default function Teams() {
         }]
       });
 
-      await base44.functions.invoke('createDefaultTeamRoles', {
+      await functions.invoke('createDefaultTeamRoles', {
         team_id: newTeam.id
       });
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Team aangemaakt: ${teamData.name}`,
         entity_type: "team",
@@ -130,14 +130,14 @@ export default function Teams() {
       const team = teams.find(t => t.id === teamId);
       
       if (team) {
-        await base44.entities.ActivityLog.create({
+        await entities.ActivityLog.create({
           user_email: user.email,
           action: `Team verwijderd: ${team.name}`,
           entity_type: "team"
         });
       }
       
-      return base44.entities.Team.delete(teamId);
+      return entities.Team.delete(teamId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] });

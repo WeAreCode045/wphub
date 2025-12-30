@@ -1,9 +1,9 @@
-import { createClientFromRequest } from '../base44Shim.js';
+import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
-        const user = await base44.auth.me();
+        const user = await User.me();
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,14 +20,14 @@ Deno.serve(async (req) => {
         }
 
         // Get site details
-        const sites = await base44.entities.Site.filter({ id: site_id });
+        const sites = await entities.Site.filter({ id: site_id });
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
         const site = sites[0];
 
         // Get plugin details
-        const plugins = await base44.entities.Plugin.filter({ id: plugin_id });
+        const plugins = await entities.Plugin.filter({ id: plugin_id });
         if (plugins.length === 0) {
             return Response.json({ error: 'Plugin not found' }, { status: 404 });
         }
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
                 currentPlugins[pluginIndex].is_activated = 0;
             }
 
-            await base44.entities.Site.update(site_id, {
+            await entities.Site.update(site_id, {
                 plugins: currentPlugins,
                 connection_checked_at: new Date().toISOString()
             });

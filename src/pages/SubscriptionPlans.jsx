@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ import {
   EyeOff,
   Globe,
   Briefcase,
-  Infinity
+  Infinity as InfinityIcon
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -95,7 +95,7 @@ export default function SubscriptionPlans() {
     queryKey: ['admin-subscription-plans'],
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
-      const allPlans = await base44.entities.SubscriptionPlan.list("sort_order");
+      const allPlans = await entities.SubscriptionPlan.list("sort_order");
       return allPlans;
     },
     enabled: !!user && user.role === "admin",
@@ -107,7 +107,7 @@ export default function SubscriptionPlans() {
     queryKey: ['admin-plan-groups'],
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
-      const groups = await base44.entities.PlanGroup.list("sort_order");
+      const groups = await entities.PlanGroup.list("sort_order");
       return groups;
     },
     enabled: !!user && user.role === "admin",
@@ -117,7 +117,7 @@ export default function SubscriptionPlans() {
 
   const createPlanMutation = useMutation({
     mutationFn: async (planData) => {
-      return base44.entities.SubscriptionPlan.create(planData);
+      return entities.SubscriptionPlan.create(planData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-subscription-plans'] });
@@ -139,7 +139,7 @@ export default function SubscriptionPlans() {
 
   const updatePlanMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      return base44.entities.SubscriptionPlan.update(id, data);
+      return entities.SubscriptionPlan.update(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-subscription-plans'] });
@@ -160,7 +160,7 @@ export default function SubscriptionPlans() {
   });
 
   const deletePlanMutation = useMutation({
-    mutationFn: (planId) => base44.entities.SubscriptionPlan.delete(planId),
+    mutationFn: (planId) => entities.SubscriptionPlan.delete(planId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-subscription-plans'] });
       toast({
@@ -199,7 +199,7 @@ export default function SubscriptionPlans() {
         sort_order: plan.sort_order + 1
       };
 
-      return base44.entities.SubscriptionPlan.create(copiedPlan);
+      return entities.SubscriptionPlan.create(copiedPlan);
     },
     onSuccess: (newPlan) => {
       queryClient.invalidateQueries({ queryKey: ['admin-subscription-plans'] });
@@ -230,7 +230,7 @@ export default function SubscriptionPlans() {
 
     setIsCreatingProduct(true);
     try {
-      const productResponse = await base44.functions.invoke('createStripeProduct', {
+      const productResponse = await functions.invoke('createStripeProduct', {
         name: formData.name,
         description: formData.description
       });
@@ -241,7 +241,7 @@ export default function SubscriptionPlans() {
 
       const productId = productResponse.data.product_id;
 
-      const monthlyPriceResponse = await base44.functions.invoke('createStripePrice', {
+      const monthlyPriceResponse = await functions.invoke('createStripePrice', {
         product_id: productId,
         amount: formData.monthly_price_amount,
         currency: formData.currency,
@@ -252,7 +252,7 @@ export default function SubscriptionPlans() {
         throw new Error(monthlyPriceResponse.data.error);
       }
 
-      const annualPriceResponse = await base44.functions.invoke('createStripePrice', {
+      const annualPriceResponse = await functions.invoke('createStripePrice', {
         product_id: productId,
         amount: formData.annual_price_amount,
         currency: formData.currency,

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, functions } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -91,7 +91,7 @@ export default function UserDetail() {
     queryKey: ['user', userId],
     queryFn: async () => {
       if (!userId) return null;
-      const users = await base44.entities.User.list();
+      const users = await entities.User.list();
       const foundUser = users.find(u => u.id === userId) || null;
       if (foundUser) {
         setEditForm({
@@ -112,7 +112,7 @@ export default function UserDetail() {
     queryKey: ['sites', userId],
     queryFn: async () => {
       if (!userId || !targetUser) return [];
-      const allSites = await base44.entities.Site.list();
+      const allSites = await entities.Site.list();
       return allSites.filter(site => site.created_by === targetUser.email);
     },
     enabled: !!userId && !!targetUser,
@@ -123,7 +123,7 @@ export default function UserDetail() {
     queryKey: ['plugins', userId],
     queryFn: async () => {
       if (!userId || !targetUser) return [];
-      const allPlugins = await base44.entities.Plugin.list();
+      const allPlugins = await entities.Plugin.list();
       return allPlugins.filter(plugin => plugin.created_by === targetUser.email);
     },
     enabled: !!userId && !!targetUser,
@@ -134,7 +134,7 @@ export default function UserDetail() {
     queryKey: ['notifications', userId],
     queryFn: async () => {
       if (!userId) return [];
-      return base44.entities.Notification.filter({ recipient_id: userId }, "-created_date", 10);
+      return entities.Notification.filter({ recipient_id: userId }, "-created_date", 10);
     },
     enabled: !!userId,
     initialData: [],
@@ -144,7 +144,7 @@ export default function UserDetail() {
     queryKey: ['user-subscriptions', userId], // Keep userId for specific user subscriptions
     queryFn: async () => {
       if (!userId) return [];
-      return base44.entities.UserSubscription.filter({ user_id: userId }); // Corrected entity name
+      return entities.UserSubscription.filter({ user_id: userId }); // Corrected entity name
     },
     enabled: !!userId,
     initialData: [],
@@ -152,7 +152,7 @@ export default function UserDetail() {
 
   const { data: subscriptionPlans = [] } = useQuery({
     queryKey: ['subscription-plans'],
-    queryFn: () => base44.entities.SubscriptionPlan.filter({ is_active: true }),
+    queryFn: () => entities.SubscriptionPlan.filter({ is_active: true }),
     enabled: !!currentUser && currentUser.role === "admin",
     initialData: [],
   });
@@ -186,7 +186,7 @@ export default function UserDetail() {
   const blockUserMutation = useMutation({
     mutationFn: async (status) => {
       if (!userId) throw new Error("User ID is missing.");
-      await base44.entities.User.update(userId, { status });
+      await entities.User.update(userId, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user', userId] });
@@ -200,7 +200,7 @@ export default function UserDetail() {
   const assignManualSubMutation = useMutation({
     mutationFn: async (data) => {
       if (!targetUser) throw new Error("Target user not found.");
-      const response = await base44.functions.invoke('assignManualSubscription', {
+      const response = await functions.invoke('assignManualSubscription', {
         user_id: targetUser.id,
         ...data,
         custom_amount: data.custom_amount,

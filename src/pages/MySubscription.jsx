@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ export default function MySubscription() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
@@ -64,7 +64,7 @@ export default function MySubscription() {
     queryKey: ['my-subscription', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const allSubs = await base44.entities.UserSubscription.filter({
+      const allSubs = await entities.UserSubscription.filter({
         user_id: user.id
       });
       const activeSubs = allSubs.filter(s =>
@@ -79,7 +79,7 @@ export default function MySubscription() {
     queryKey: ['subscription-plan', subscription?.plan_id],
     queryFn: async () => {
       if (!subscription?.plan_id) return null;
-      const plans = await base44.entities.SubscriptionPlan.filter({
+      const plans = await entities.SubscriptionPlan.filter({
         id: subscription.plan_id
       });
       return plans[0] || null;
@@ -90,7 +90,7 @@ export default function MySubscription() {
   const { data: allPlans = [] } = useQuery({
     queryKey: ['all-plans'],
     queryFn: async () => {
-      return base44.entities.SubscriptionPlan.filter({
+      return entities.SubscriptionPlan.filter({
         is_active: true
       }, "sort_order");
     },
@@ -102,7 +102,7 @@ export default function MySubscription() {
     queryKey: ['my-plugins-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
-      const plugins = await base44.entities.Plugin.filter({
+      const plugins = await entities.Plugin.filter({
         owner_type: "user",
         owner_id: user.id
       });
@@ -116,7 +116,7 @@ export default function MySubscription() {
     queryKey: ['my-sites-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
-      const sites = await base44.entities.Site.filter({
+      const sites = await entities.Site.filter({
         owner_type: "user",
         owner_id: user.id
       });
@@ -130,7 +130,7 @@ export default function MySubscription() {
     queryKey: ['my-teams-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
-      const teams = await base44.entities.Team.filter({
+      const teams = await entities.Team.filter({
         owner_id: user.id
       });
       return teams.length;
@@ -143,8 +143,8 @@ export default function MySubscription() {
     queryKey: ['my-projects-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
-      const allProjects = await base44.entities.Project.list();
-      const myTeams = await base44.entities.Team.filter({ owner_id: user.id });
+      const allProjects = await entities.Project.list();
+      const myTeams = await entities.Team.filter({ owner_id: user.id });
       const myTeamIds = myTeams.map(t => t.id);
       return allProjects.filter(p => myTeamIds.includes(p.team_id)).length;
     },
@@ -156,7 +156,7 @@ export default function MySubscription() {
     queryKey: ['my-invoices', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      return base44.entities.Invoice.filter({ user_id: user.id }, "-created_date");
+      return entities.Invoice.filter({ user_id: user.id }, "-created_date");
     },
     enabled: !!user,
     initialData: [],
@@ -164,7 +164,7 @@ export default function MySubscription() {
 
   const downloadInvoiceMutation = useMutation({
     mutationFn: async (invoiceId) => {
-      const response = await base44.functions.invoke('generateInvoicePDF', {
+      const response = await functions.invoke('generateInvoicePDF', {
         invoice_id: invoiceId
       });
       return { data: response.data, invoiceId };
@@ -192,7 +192,7 @@ export default function MySubscription() {
 
   const changeSubscriptionMutation = useMutation({
     mutationFn: async ({ plan_id, action }) => {
-      const response = await base44.functions.invoke('changeSubscription', {
+      const response = await functions.invoke('changeSubscription', {
         new_plan_id: plan_id,
         action: action
       });
@@ -222,7 +222,7 @@ export default function MySubscription() {
 
   const cancelSubscriptionMutation = useMutation({
     mutationFn: async () => {
-      const response = await base44.functions.invoke('cancelSubscription');
+      const response = await functions.invoke('cancelSubscription');
       return response.data;
     },
     onSuccess: (data) => {

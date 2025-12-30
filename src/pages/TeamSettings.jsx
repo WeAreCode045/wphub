@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,7 +55,7 @@ export default function TeamSettings() {
   }, [teamId, navigate]);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
@@ -63,7 +63,7 @@ export default function TeamSettings() {
     queryKey: ['team', teamId],
     queryFn: async () => {
       if (!teamId) return null;
-      const teams = await base44.entities.Team.filter({ id: teamId });
+      const teams = await entities.Team.filter({ id: teamId });
       const foundTeam = teams[0] || null;
 
       if (foundTeam) {
@@ -88,7 +88,7 @@ export default function TeamSettings() {
     queryKey: ['team-custom-roles', teamId],
     queryFn: async () => {
       if (!teamId) return [];
-      return await base44.entities.TeamRole.filter({ team_id: teamId, is_active: true });
+      return await entities.TeamRole.filter({ team_id: teamId, is_active: true });
     },
     enabled: !!teamId,
     initialData: [],
@@ -105,7 +105,7 @@ export default function TeamSettings() {
 
   const updateTeamMutation = useMutation({
     mutationFn: async () => {
-      return base44.entities.Team.update(teamId, {
+      return entities.Team.update(teamId, {
         ...teamData,
         settings
       });
@@ -119,10 +119,10 @@ export default function TeamSettings() {
   const deleteTeamMutation = useMutation({
     mutationFn: async () => {
       // Delete team
-      await base44.entities.Team.delete(teamId);
+      await entities.Team.delete(teamId);
 
       // Log activity
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Team verwijderd: ${team.name}`,
         entity_type: "team",

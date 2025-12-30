@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -128,13 +128,13 @@ export default function PluginDetail() {
   }, []);
 
   const loadUser = async () => {
-    const currentUser = await base44.auth.me();
+    const currentUser = await User.me();
     setUser(currentUser);
   };
 
   const { data: plugin } = useQuery({
     queryKey: ['plugin', pluginId],
-    queryFn: () => base44.entities.Plugin.get(pluginId),
+    queryFn: () => entities.Plugin.get(pluginId),
   });
 
   useEffect(() => {
@@ -155,13 +155,13 @@ export default function PluginDetail() {
 
   const { data: allSites = [] } = useQuery({
     queryKey: ['sites'],
-    queryFn: () => base44.entities.Site.list(),
+    queryFn: () => entities.Site.list(),
     initialData: [],
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     initialData: [],
   });
 
@@ -169,7 +169,7 @@ export default function PluginDetail() {
     queryKey: ['user-teams', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const allTeams = await base44.entities.Team.list();
+      const allTeams = await entities.Team.list();
       return allTeams.filter(team =>
         team.owner_id === user.id ||
         team.members?.some(m => m.user_id === user.id)
@@ -181,7 +181,7 @@ export default function PluginDetail() {
 
   const uploadVersionMutation = useMutation({
     mutationFn: async ({ version, file }) => {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file, bucket: 'Plugins' });
+      const { file_url } = await integrations.Core.UploadFile({ file, bucket: 'Plugins' });
 
       const versions = plugin.versions || [];
       versions.push({
@@ -190,7 +190,7 @@ export default function PluginDetail() {
         created_at: new Date().toISOString()
       });
 
-      await base44.entities.Plugin.update(pluginId, {
+      await entities.Plugin.update(pluginId, {
         versions,
         latest_version: version
       });
@@ -215,7 +215,7 @@ export default function PluginDetail() {
         ? versions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0].version
         : null;
 
-      await base44.entities.Plugin.update(pluginId, {
+      await entities.Plugin.update(pluginId, {
         versions,
         latest_version: latestVersion
       });
@@ -232,7 +232,7 @@ export default function PluginDetail() {
 
   const togglePluginForSiteMutation = useMutation({
     mutationFn: async ({ siteId, enabled }) => {
-      const response = await base44.functions.invoke('enablePluginForSite', {
+      const response = await functions.invoke('enablePluginForSite', {
         site_id: siteId,
         plugin_id: pluginId,
         enabled
@@ -247,7 +247,7 @@ export default function PluginDetail() {
   const bulkToggleAvailabilityMutation = useMutation({
     mutationFn: async ({ siteIds, enabled }) => {
       const promises = siteIds.map(siteId =>
-        base44.functions.invoke('enablePluginForSite', {
+        functions.invoke('enablePluginForSite', {
           site_id: siteId,
           plugin_id: pluginId,
           enabled
@@ -269,7 +269,7 @@ export default function PluginDetail() {
 
   const flagAsRiskMutation = useMutation({
     mutationFn: async () => {
-      await base44.entities.Plugin.update(pluginId, {
+      await entities.Plugin.update(pluginId, {
         is_disabled: !plugin.is_disabled,
         disabled_reason: !plugin.is_disabled ? 'Gemarkeerd als risico door beheerder' : null
       });
@@ -285,7 +285,7 @@ export default function PluginDetail() {
   });
 
   const deletePluginMutation = useMutation({
-    mutationFn: () => base44.entities.Plugin.delete(pluginId),
+    mutationFn: () => entities.Plugin.delete(pluginId),
     onSuccess: () => {
       toast({
         variant: "success",
@@ -300,7 +300,7 @@ export default function PluginDetail() {
 
   const installPluginMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await base44.functions.invoke('installPlugin', {
+      const response = await functions.invoke('installPlugin', {
         site_id: siteId,
         plugin_id: pluginId
       });
@@ -326,7 +326,7 @@ export default function PluginDetail() {
 
   const activatePluginMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await base44.functions.invoke('activatePlugin', {
+      const response = await functions.invoke('activatePlugin', {
         site_id: siteId,
         plugin_id: pluginId
       });
@@ -351,7 +351,7 @@ export default function PluginDetail() {
 
   const deactivatePluginMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await base44.functions.invoke('deactivatePlugin', {
+      const response = await functions.invoke('deactivatePlugin', {
         site_id: siteId,
         plugin_id: pluginId
       });
@@ -376,7 +376,7 @@ export default function PluginDetail() {
 
   const uninstallPluginMutation = useMutation({
     mutationFn: async ({ siteId }) => {
-      const response = await base44.functions.invoke('uninstallPlugin', {
+      const response = await functions.invoke('uninstallPlugin', {
         site_id: siteId,
         plugin_slug: plugin.slug,
         plugin_id: plugin.id
@@ -395,7 +395,7 @@ export default function PluginDetail() {
 
   const editPluginMutation = useMutation({
     mutationFn: async (data) => {
-      return base44.entities.Plugin.update(pluginId, data);
+      return entities.Plugin.update(pluginId, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plugin', pluginId] });
@@ -418,7 +418,7 @@ export default function PluginDetail() {
         updateData.owner_type = "team";
         updateData.owner_id = toTeamId;
       }
-      return base44.entities.Plugin.update(pluginId, updateData);
+      return entities.Plugin.update(pluginId, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plugin', pluginId] });
@@ -433,7 +433,7 @@ export default function PluginDetail() {
 
   const shareWithTeamsMutation = useMutation({
     mutationFn: async (teamIds) => {
-      return base44.entities.Plugin.update(pluginId, {
+      return entities.Plugin.update(pluginId, {
         shared_with_teams: teamIds
       });
     },
@@ -450,7 +450,7 @@ export default function PluginDetail() {
 
   const downloadFromWordPressMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await base44.functions.invoke('downloadPluginFromWordPress', {
+      const response = await functions.invoke('downloadPluginFromWordPress', {
         site_id: siteId,
         plugin_slug: plugin.slug
       });
@@ -466,7 +466,7 @@ export default function PluginDetail() {
           created_at: new Date().toISOString()
         });
 
-        await base44.entities.Plugin.update(pluginId, {
+        await entities.Plugin.update(pluginId, {
           versions,
           latest_version: data.plugin_data.version
         });

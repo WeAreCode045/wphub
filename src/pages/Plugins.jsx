@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,7 @@ export default function Plugins() {
     queryFn: async () => {
       if (!user) return [];
       
-      const userPlugins = await base44.entities.Plugin.filter({
+      const userPlugins = await entities.Plugin.filter({
         owner_type: "user",
         owner_id: user.id
       }, "-updated_date");
@@ -100,7 +100,7 @@ export default function Plugins() {
     queryFn: async () => {
       if (!user) return [];
       
-      const userSites = await base44.entities.Site.filter({
+      const userSites = await entities.Site.filter({
         owner_type: "user",
         owner_id: user.id
       });
@@ -131,10 +131,10 @@ export default function Plugins() {
         throw new Error(limitCheck.message);
       }
       
-      const uploadResult = await base44.integrations.Core.UploadFile({ file, bucket: 'Plugins' });
+      const uploadResult = await integrations.Core.UploadFile({ file, bucket: 'Plugins' });
       const fileUrl = uploadResult.file_url;
 
-      const parseResponse = await base44.functions.invoke('parsePluginZip', {
+      const parseResponse = await functions.invoke('parsePluginZip', {
         file_url: fileUrl
       });
       
@@ -144,7 +144,7 @@ export default function Plugins() {
 
       const plugin_data = parseResponse.data.plugin;
 
-      const allExistingPlugins = await base44.entities.Plugin.list();
+      const allExistingPlugins = await entities.Plugin.list();
       const existingPlugin = allExistingPlugins.find(p =>
         p.slug === plugin_data.slug &&
         p.owner_type === "user" &&
@@ -155,7 +155,7 @@ export default function Plugins() {
         throw new Error(`Plugin "${plugin_data.name}" bestaat al in je library`);
       }
 
-      const newPlugin = await base44.entities.Plugin.create({
+      const newPlugin = await entities.Plugin.create({
         name: plugin_data.name,
         slug: plugin_data.slug,
         description: plugin_data.description || '',
@@ -174,7 +174,7 @@ export default function Plugins() {
         shared_with_teams: []
       });
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Plugin geüpload: ${plugin_data.name}`,
         entity_type: "plugin",
@@ -211,7 +211,7 @@ export default function Plugins() {
         throw new Error(limitCheck.message);
       }
       
-      const allExistingPlugins = await base44.entities.Plugin.list();
+      const allExistingPlugins = await entities.Plugin.list();
       const existingPlugin = allExistingPlugins.find(p =>
         p.slug === wpPlugin.slug &&
         p.owner_type === "user" &&
@@ -222,7 +222,7 @@ export default function Plugins() {
         throw new Error(`Plugin "${wpPlugin.name}" bestaat al in je library`);
       }
 
-      const newPlugin = await base44.entities.Plugin.create({
+      const newPlugin = await entities.Plugin.create({
         name: wpPlugin.name,
         slug: wpPlugin.slug,
         description: wpPlugin.description || '',
@@ -241,7 +241,7 @@ export default function Plugins() {
         shared_with_teams: []
       });
 
-      await base44.entities.ActivityLog.create({
+      await entities.ActivityLog.create({
         user_email: user.email,
         action: `Plugin toegevoegd uit WP Library: ${wpPlugin.name}`,
         entity_type: "plugin",
@@ -274,14 +274,14 @@ export default function Plugins() {
       const pluginToDelete = plugins.find(p => p.id === pluginId);
       
       if (pluginToDelete) {
-        await base44.entities.ActivityLog.create({
+        await entities.ActivityLog.create({
           user_email: user.email,
           action: `Plugin verwijderd: ${pluginToDelete.name}`,
           entity_type: "plugin"
         });
       }
       
-      return base44.entities.Plugin.delete(pluginId);
+      return entities.Plugin.delete(pluginId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plugins'] });
@@ -317,7 +317,7 @@ export default function Plugins() {
     setIsSearchingWp(true);
     setWpSearchResults([]);
     try {
-      const response = await base44.functions.invoke('searchWordPressPlugins', {
+      const response = await functions.invoke('searchWordPressPlugins', {
         search: wpSearchQuery,
         page: 1,
         per_page: 20

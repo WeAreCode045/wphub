@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities, User, functions, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,7 @@ export default function PlatformTools() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
       // Custom caching logic removed, relying on react-query's default caching
-      const conns = await base44.entities.Connector.list("-created_date");
+      const conns = await entities.Connector.list("-created_date");
       return conns;
     },
     enabled: !!user && user.role === "admin",
@@ -88,7 +88,7 @@ export default function PlatformTools() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
       // Custom caching logic removed, relying on react-query's default caching
-      const settings = await base44.entities.SiteSettings.list();
+      const settings = await entities.SiteSettings.list();
       return settings;
     },
     enabled: !!user && user.role === "admin",
@@ -98,25 +98,25 @@ export default function PlatformTools() {
 
   const { data: allSites = [] } = useQuery({
     queryKey: ['all-sites'],
-    queryFn: () => base44.entities.Site.list(),
+    queryFn: () => entities.Site.list(),
     initialData: [],
   });
 
   const { data: allPlugins = [] } = useQuery({
     queryKey: ['all-plugins'],
-    queryFn: () => base44.entities.Plugin.list(),
+    queryFn: () => entities.Plugin.list(),
     initialData: [],
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => entities.User.list(),
     initialData: [],
   });
 
   const { data: allTeams = [] } = useQuery({
     queryKey: ['all-teams'],
-    queryFn: () => base44.entities.Team.list(),
+    queryFn: () => entities.Team.list(),
     initialData: [],
   });
 
@@ -178,8 +178,8 @@ export default function PlatformTools() {
       };
 
       if (type === 'site') {
-        await base44.entities.Site.update(item.id, updateData);
-        await base44.entities.ActivityLog.create({
+        await entities.Site.update(item.id, updateData);
+        await entities.ActivityLog.create({
           user_email: user.email,
           action: `Site eigendom overgedragen: ${item.name}`,
           entity_type: "site",
@@ -187,8 +187,8 @@ export default function PlatformTools() {
           details: `Naar ${toType}: ${toId}`
         });
       } else if (type === 'plugin') {
-        await base44.entities.Plugin.update(item.id, updateData);
-        await base44.entities.ActivityLog.create({
+        await entities.Plugin.update(item.id, updateData);
+        await entities.ActivityLog.create({
           user_email: user.email,
           action: `Plugin eigendom overgedragen: ${item.name}`,
           entity_type: "plugin",
@@ -227,7 +227,7 @@ export default function PlatformTools() {
   // New: Generate Connector Mutation
   const generateConnectorMutation = useMutation({
     mutationFn: async (version) => {
-      const response = await base44.functions.invoke('generateConnectorPlugin', { version });
+      const response = await functions.invoke('generateConnectorPlugin', { version });
       return response.data;
     },
     onSuccess: () => {
@@ -249,7 +249,7 @@ export default function PlatformTools() {
   // New: Delete Connector Mutation
   const deleteConnectorMutation = useMutation({
     mutationFn: async (connectorId) => {
-      await base44.entities.Connector.delete(connectorId);
+      await entities.Connector.delete(connectorId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-connectors'] }); // Invalidate react-query cache
@@ -270,15 +270,15 @@ export default function PlatformTools() {
   // New: Set Active Connector Mutation
   const setActiveConnectorMutation = useMutation({
     mutationFn: async (version) => {
-      const settings = await base44.entities.SiteSettings.list();
+      const settings = await entities.SiteSettings.list();
       const activeSetting = settings.find(s => s.setting_key === 'active_connector_version');
 
       if (activeSetting) {
-        await base44.entities.SiteSettings.update(activeSetting.id, {
+        await entities.SiteSettings.update(activeSetting.id, {
           setting_value: version
         });
       } else {
-        await base44.entities.SiteSettings.create({
+        await entities.SiteSettings.create({
           setting_key: 'active_connector_version',
           setting_value: version,
           description: 'Currently active connector plugin version'
@@ -310,7 +310,7 @@ export default function PlatformTools() {
     setCleaning(true);
     try {
       for (const site of orphanedSites) {
-        await base44.entities.Site.delete(site.id);
+        await entities.Site.delete(site.id);
       }
       queryClient.invalidateQueries({ queryKey: ['all-sites'] });
       setOrphanedSites([]);
@@ -336,7 +336,7 @@ export default function PlatformTools() {
     setCleaning(true);
     try {
       for (const plugin of orphanedPlugins) {
-        await base44.entities.Plugin.delete(plugin.id);
+        await entities.Plugin.delete(plugin.id);
       }
       queryClient.invalidateQueries({ queryKey: ['all-plugins'] });
       setOrphanedPlugins([]);
@@ -365,7 +365,7 @@ export default function PlatformTools() {
         const plugin = allPlugins.find(p => p.id === item.plugin_id);
         if (plugin) {
           const updatedVersions = (plugin.versions || []).filter(v => v.version !== item.version);
-          await base44.entities.Plugin.update(plugin.id, {
+          await entities.Plugin.update(plugin.id, {
             versions: updatedVersions,
             latest_version: updatedVersions.length > 0
               ? updatedVersions[updatedVersions.length - 1].version
