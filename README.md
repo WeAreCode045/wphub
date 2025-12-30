@@ -16,7 +16,7 @@ Server injects app-related data to `__app.config.js__`, which is used by `App.js
 - Migration scripts that referenced the legacy shim have been removed; restore any originals from git history if required.
 - A number of `.bak` backup files created during batch edits were removed; restore from VCS history if needed.
 
-If you run into issues with server functions, consider migrating individual functions to use a canonical server-side client implementation (see `src/api/supabaseClientDirect.js`) instead of the compatibility bridge.
+If you run into issues with server functions, consider migrating individual functions to use a canonical server-side client implementation (see `src/api/supabaseClient.js`) instead of the compatibility bridge.
 
 ## Production: Supabase Service Role Key
 

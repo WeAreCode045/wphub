@@ -1,5 +1,5 @@
 
-import { supabaseClientDirect } from './supabaseClientDirect';
+import { supabaseClientDirect } from './supabaseClient';
 
 // Re-export the canonical Supabase-backed API used across the app.
 export const Query = supabaseClientDirect.Query;
