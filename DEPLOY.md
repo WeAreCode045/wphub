@@ -164,3 +164,43 @@ Je zou moeten zien:
 ✅ **try_files directive** - Alle routes worden naar index.html gestuurd  
 
 Dit zorgt ervoor dat React Router alle routes kan afhandelen, inclusief `/login`!
+
+## Supabase Edge Functions Deployment
+
+### CORS Fix Deployment
+
+De edge functions bevatten nu CORS headers om cross-origin requests toe te staan. Deploy deze met:
+
+```bash
+# Install Supabase CLI indien nog niet geïnstalleerd
+npm install -g supabase
+
+# Login naar Supabase
+supabase login
+
+# Link project
+supabase link --project-ref ossyxxlplvqakowiwbok
+
+# Deploy alle edge functions
+supabase functions deploy
+
+# Of deploy een specifieke functie
+supabase functions deploy listSitePlugins
+```
+
+### Verificatie van Edge Functions
+
+Test of CORS correct werkt:
+```bash
+# Test OPTIONS preflight request
+curl -X OPTIONS https://ossyxxlplvqakowiwbok.supabase.co/functions/v1/listSitePlugins \
+  -H "Access-Control-Request-Method: POST" \
+  -H "Origin: https://www.wphub.pro" \
+  -v
+
+# Verwachte response headers:
+# Access-Control-Allow-Origin: *
+# Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type
+```
+
+Zie [supabase/CORS_CONFIGURATION.md](supabase/CORS_CONFIGURATION.md) voor meer details over de CORS implementatie.
