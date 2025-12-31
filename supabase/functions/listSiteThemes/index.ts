@@ -1,7 +1,13 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,19 +18,28 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { site_id } = await req.json();
 
     if (!site_id) {
-      return Response.json({ success: false, error: 'site_id is required' });
+      return new Response(
+        JSON.stringify({ success: false, error: 'site_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { data: site, error: siteError } = await supabase.from('sites').select().eq('id', site_id).single();
 
     if (!site) {
-      return Response.json({ success: false, error: 'Site not found' });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Site not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const response = await fetch(`${site.url}/wp-json/wphub/v1/listThemes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: site.api_key }) });
@@ -32,11 +47,20 @@ Deno.serve(async (req) => {
     const data = await response.json();
 
     if (data.success) {
-      return Response.json({ success: true, themes: data.themes || [], total: data.total || 0, active_theme: data.active_theme });
+      return new Response(
+        JSON.stringify({ success: true, themes: data.themes || [], total: data.total || 0, active_theme: data.active_theme }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     } else {
-      return Response.json({ success: false, error: data.message || 'Failed to list themes', themes: [] });
+      return new Response(
+        JSON.stringify({ success: false, error: data.message || 'Failed to list themes', themes: [] }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
   } catch (error) {
-    return Response.json({ success: false, error: error.message, themes: [] });
+    return new Response(
+      JSON.stringify({ success: false, error: error.message, themes: [] }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });

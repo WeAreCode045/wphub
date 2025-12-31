@@ -1,6 +1,11 @@
 import Stripe from 'npm:stripe@14.11.0';
+import { corsHeaders } from '../_helpers.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') || '';
     const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') || '';

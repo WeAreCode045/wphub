@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,19 +17,28 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { site_id, theme_slug, theme_id } = await req.json();
 
     if (!site_id || !theme_slug) {
-      return Response.json({ success: false, error: 'site_id and theme_slug are required' });
+      return new Response(
+        JSON.stringify({ success: false, error: 'site_id and theme_slug are required' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { data: site, error: siteError } = await supabase.from('sites').select().eq('id', site_id).single();
 
     if (!site) {
-      return Response.json({ success: false, error: 'Site not found' });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Site not found' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const response = await fetch(`${site.url}/wp-json/wphub/v1/uninstallTheme`, {
@@ -60,17 +74,26 @@ Deno.serve(async (req) => {
         details: theme_slug
       });
 
-      return Response.json({
+      return new Response(
+        JSON.stringify({
         success: true,
         message: 'Theme uninstalled successfully'
-      });
+      }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     } else {
-      return Response.json({
+      return new Response(
+        JSON.stringify({
         success: false,
         error: data.message || 'Failed to uninstall theme'
-      });
+      }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
   } catch (error) {
-    return Response.json({ success: false, error: error.message });
+    return new Response(
+        JSON.stringify({ success: false, error: error.message }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
   }
 });

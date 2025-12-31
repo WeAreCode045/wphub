@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,15 +17,21 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { site_id, site_url } = await req.json();
 
     if (!site_id && !site_url) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Site ID of URL is verplicht' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get the site
@@ -33,16 +44,22 @@ Deno.serve(async (req) => {
     }
 
     if (!site) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Site niet gevonden' 
-      }, { status: 404 });
+      }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Check if user is not already the owner
     if (site.owner_type === 'user' && site.owner_id === user.id) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Je bent al de eigenaar van deze site' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Check if there's already a pending transfer request
@@ -60,9 +77,12 @@ Deno.serve(async (req) => {
     );
 
     if (pendingRequest) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Er is al een openstaand overdrachtverzoek voor deze site' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get the owner
@@ -76,9 +96,12 @@ Deno.serve(async (req) => {
     }
 
     if (!ownerUser) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Eigenaar van de site niet gevonden' 
-      }, { status: 404 });
+      }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Create the transfer request message
@@ -126,16 +149,22 @@ Deno.serve(async (req) => {
       details: `Verzoek gericht aan ${ownerUser.full_name}`
     });
 
-    return Response.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Overdrachtverzoek succesvol verzonden',
       message_id: message.id
-    });
+    }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
   } catch (error) {
     console.error('Request site transfer error:', error);
-    return Response.json({ 
+    return new Response(
+        JSON.stringify({ 
       error: error.message || 'Failed to request site transfer' 
-    }, { status: 500 });
+    }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
   }
 });

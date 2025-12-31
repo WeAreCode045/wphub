@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,38 +17,53 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { site_id } = await req.json();
 
     if (!site_id) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Site ID is verplicht' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get the site
     const { data: site, error: siteError } = await supabase.from('sites').select().eq('id', site_id).single();
 
     if (!site) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Site niet gevonden' 
-      }, { status: 404 });
+      }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Verify user is the site owner
     if (site.owner_type !== 'user' || site.owner_id !== user.id) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Je bent niet gemachtigd om dit verzoek af te handelen' 
-      }, { status: 403 });
+      }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Check if there's a pending transfer request
     if (!site.transfer_request || site.transfer_request.status !== 'pending') {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Geen openstaand overdrachtverzoek gevonden' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { requested_by_user_id, requested_by_user_email, requested_by_user_name } = site.transfer_request;
@@ -90,15 +110,21 @@ Deno.serve(async (req) => {
       details: `Verzoek van ${requested_by_user_name} afgewezen`
     });
 
-    return Response.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Overdrachtverzoek afgewezen'
-    });
+    }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
   } catch (error) {
     console.error('Decline site transfer error:', error);
-    return Response.json({ 
+    return new Response(
+        JSON.stringify({ 
       error: error.message || 'Failed to decline site transfer' 
-    }, { status: 500 });
+    }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
   }
 });

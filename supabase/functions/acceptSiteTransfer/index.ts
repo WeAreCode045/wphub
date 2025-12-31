@@ -1,7 +1,13 @@
 import { authMeWithToken, extractBearerFromReq, uploadToStorage, jsonResponse } from '../_helpers.ts';
+import { corsHeaders } from '../_helpers.ts';
 
 // Converts the acceptSiteTransfer function to Supabase Edge Function
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',

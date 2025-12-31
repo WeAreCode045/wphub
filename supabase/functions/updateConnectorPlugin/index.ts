@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
     try {
         const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,7 +17,10 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+            return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const { site_id } = await req.json();
@@ -21,15 +29,24 @@ Deno.serve(async (req) => {
         console.log('[updateConnectorPlugin] Site ID:', site_id);
 
         if (!site_id) {
-            return Response.json({ error: 'Missing required parameters' }, { status: 400 });
+            return new Response(
+        JSON.stringify({ error: 'Missing required parameters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
                 if (sitesError || !sites) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (sites.length === 0) {
-            return Response.json({ error: 'Site not found' }, { status: 404 });
+            return new Response(
+        JSON.stringify({ error: 'Site not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         const site = sites[0];
 
@@ -37,14 +54,20 @@ Deno.serve(async (req) => {
         const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
 
         if (!activeVersion) {
-            return Response.json({ error: 'No active connector version found' }, { status: 404 });
+            return new Response(
+        JSON.stringify({ error: 'No active connector version found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const { data: connectors, error: connectorsError } = await supabase.from('connectors').select();
         const activeConnector = connectors.find(c => c.version === activeVersion);
 
         if (!activeConnector) {
-            return Response.json({ error: 'Active connector not found' }, { status: 404 });
+            return new Response(
+        JSON.stringify({ error: 'Active connector not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         console.log('[updateConnectorPlugin] Active connector version:', activeVersion);
@@ -58,7 +81,10 @@ Deno.serve(async (req) => {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('[updateConnectorPlugin] Connector error:', errorText);
-            return Response.json({ success: false, error: `Connector error: ${response.status} - ${errorText}` }, { status: 500 });
+            return new Response(
+        JSON.stringify({ success: false, error: `Connector error: ${response.status} - ${errorText}` }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const result = await response.json();
@@ -71,10 +97,16 @@ Deno.serve(async (req) => {
 
         console.log('[updateConnectorPlugin] === END ===');
 
-        return Response.json({ success: result.success, message: result.message, new_version: activeVersion });
+        return new Response(
+        JSON.stringify({ success: result.success, message: result.message, new_version: activeVersion }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[updateConnectorPlugin] ❌ ERROR:', error.message);
-        return Response.json({ success: false, error: error.message }, { status: 500 });
+        return new Response(
+        JSON.stringify({ success: false, error: error.message }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

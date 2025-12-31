@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
     try {
         const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,7 +17,10 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
         
         if (!user || user.role !== 'admin') {
-            return Response.json({ error: 'Unauthorized - Admin access required' }, { status: 401 });
+            return new Response(
+        JSON.stringify({ error: 'Unauthorized - Admin access required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const { data: settings, error: settingsError } = await supabase.from('sitesettingss').select();
@@ -62,10 +70,16 @@ Deno.serve(async (req) => {
             projectsUpdated++;
         }
 
-        return Response.json({ success: true, message: 'Mailboxes successfully initialized', stats: { admin_global_inbox_id: adminGlobalInboxId, users_updated: usersUpdated, admins_updated: adminsUpdated, teams_updated: teamsUpdated, projects_updated: projectsUpdated } });
+        return new Response(
+        JSON.stringify({ success: true, message: 'Mailboxes successfully initialized', stats: { admin_global_inbox_id: adminGlobalInboxId, users_updated: usersUpdated, admins_updated: adminsUpdated, teams_updated: teamsUpdated, projects_updated: projectsUpdated } }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('Error initializing mailboxes:', error);
-        return Response.json({ success: false, error: error.message }, { status: 500 });
+        return new Response(
+        JSON.stringify({ success: false, error: error.message }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

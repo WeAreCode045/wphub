@@ -1,5 +1,6 @@
 import JSZip from 'npm:jszip@3.10.1';
 import { authMeWithToken, extractBearerFromReq, uploadToStorage, jsonResponse } from '../_helpers.ts';
+import { corsHeaders } from '../_helpers.ts';
 
 function generateConnectorPluginCode(apiKey: string, hubUrl: string, version: string) {
   return `<?php
@@ -12,6 +13,11 @@ function generateConnectorPluginCode(apiKey: string, hubUrl: string, version: st
 }
 
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',

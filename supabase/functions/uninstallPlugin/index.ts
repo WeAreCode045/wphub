@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
     try {
         const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,7 +17,10 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+            return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const { site_id, plugin_slug, plugin_id } = await req.json();
@@ -23,16 +31,25 @@ Deno.serve(async (req) => {
         console.log('[uninstallPlugin] Plugin ID:', plugin_id);
 
         if (!site_id || !plugin_slug) {
-            return Response.json({ success: false, error: 'Missing required parameters: site_id and plugin_slug are required' }, { status: 400 });
+            return new Response(
+        JSON.stringify({ success: false, error: 'Missing required parameters: site_id and plugin_slug are required' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
                 if (sitesError || !sites) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (sites.length === 0) {
             console.log('[uninstallPlugin] Site not found');
-            return Response.json({ success: false, error: 'Site not found' }, { status: 404 });
+            return new Response(
+        JSON.stringify({ success: false, error: 'Site not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         const site = sites[0];
 
@@ -46,7 +63,10 @@ Deno.serve(async (req) => {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('[uninstallPlugin] Connector error:', response.status, errorText);
-            return Response.json({ success: false, error: `Connector error: ${response.status} - ${errorText}` }, { status: 500 });
+            return new Response(
+        JSON.stringify({ success: false, error: `Connector error: ${response.status} - ${errorText}` }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const result = await response.json();
@@ -54,7 +74,10 @@ Deno.serve(async (req) => {
 
         if (!result.success) {
             console.log('[uninstallPlugin] Uninstall failed:', result.message);
-            return Response.json({ success: false, error: result.message || 'Uninstall failed' });
+            return new Response(
+        JSON.stringify({ success: false, error: result.message || 'Uninstall failed' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         if (plugin_id) {
@@ -81,11 +104,17 @@ Deno.serve(async (req) => {
 
         console.log('[uninstallPlugin] === END ===');
 
-        return Response.json({ success: true, message: result.message || 'Plugin successfully uninstalled' });
+        return new Response(
+        JSON.stringify({ success: true, message: result.message || 'Plugin successfully uninstalled' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[uninstallPlugin] ❌ ERROR:', error.message);
         console.error('[uninstallPlugin] Stack:', error.stack);
-        return Response.json({ success: false, error: error.message, stack: error.stack }, { status: 500 });
+        return new Response(
+        JSON.stringify({ success: false, error: error.message, stack: error.stack }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

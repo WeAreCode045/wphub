@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
     try {
         const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,10 +17,13 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Unauthorized' 
-            }, { status: 401 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Parse request body
@@ -23,10 +31,13 @@ Deno.serve(async (req) => {
         const { team_id } = body;
 
         if (!team_id) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'team_id is required' 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Check if default roles already exist for this team
@@ -37,15 +48,21 @@ Deno.serve(async (req) => {
             .eq('type', 'default');
 
         if (rolesError || !existingRoles) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         if (existingRoles.length >= 4) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: true,
                 message: 'Default roles already exist',
                 roles: existingRoles
-            });
+            }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Define the 4 default roles (Owner + 3 existing)
@@ -223,17 +240,23 @@ Deno.serve(async (req) => {
             createdRoles.push(role);
         }
 
-        return Response.json({
+        return new Response(
+        JSON.stringify({
             success: true,
             message: 'Default team roles created successfully',
             roles: createdRoles
-        });
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[createDefaultTeamRoles] Error:', error.message);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             success: false,
             error: error.message 
-        }, { status: 500 });
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

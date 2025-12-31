@@ -1,24 +1,46 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_helpers.ts';
+
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+
     try {
         const { site_id } = await req.json();
 
         console.log(`[simulatePluginSync] Triggered for site_id: ${site_id}`);
 
         if (!site_id) {
-            return Response.json({ error: 'Site ID is required' }, { status: 400 });
+            return new Response(
+        JSON.stringify({ error: 'Site ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Get site details
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
         
                 if (sitesError || !sites) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (sites.length === 0) {
             console.log(`[simulatePluginSync] Site not found: ${site_id}`);
-            return Response.json({ error: 'Site not found' }, { status: 404 });
+            return new Response(
+        JSON.stringify({ error: 'Site not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const site = sites[0];
@@ -45,38 +67,50 @@ Deno.serve(async (req) => {
             console.log(`[simulatePluginSync] WordPress response body:`, responseText);
 
             if (response.ok) {
-                return Response.json({ 
+                return new Response(
+        JSON.stringify({ 
                     success: true,
                     message: 'Sync triggered successfully on WordPress site',
                     site_name: site.name,
                     wp_response: responseText
-                });
+                }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
             } else {
                 console.log(`[simulatePluginSync] WordPress sync failed, will sync on next cron`);
-                return Response.json({ 
+                return new Response(
+        JSON.stringify({ 
                     success: true,
                     message: 'Sync will be executed on next scheduled check',
                     site_name: site.name,
                     note: 'Direct trigger not available, changes marked as pending',
                     wp_status: response.status,
                     wp_response: responseText
-                });
+                }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
             }
         } catch (wpError) {
             console.error(`[simulatePluginSync] WordPress connection error:`, wpError);
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: true,
                 message: 'Changes marked as pending, will sync on next scheduled check',
                 site_name: site.name,
                 error: wpError.message
-            });
+            }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
     } catch (error) {
         console.error('[simulatePluginSync] Error:', error);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             error: error.message,
             stack: error.stack
-        }, { status: 500 });
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

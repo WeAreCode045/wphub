@@ -1,19 +1,41 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_helpers.ts';
+
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+
     try {
         const { site_id } = await req.json();
 
         if (!site_id) {
-            return Response.json({ error: 'Missing site_id' }, { status: 400 });
+            return new Response(
+        JSON.stringify({ error: 'Missing site_id' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Get site details
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
                 if (sitesError || !sites) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (sites.length === 0) {
-            return Response.json({ error: 'Site not found' }, { status: 404 });
+            return new Response(
+        JSON.stringify({ error: 'Site not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         const site = sites[0];
 
@@ -31,19 +53,25 @@ Deno.serve(async (req) => {
         });
 
         if (!response.ok) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Failed to get plugins from site' 
-            }, { status: 500 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const result = await response.json();
         
         if (!result.success || !result.plugins) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Invalid response from connector' 
-            }, { status: 500 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Find connector plugin in the list
@@ -53,28 +81,37 @@ Deno.serve(async (req) => {
         );
 
         if (!connectorPlugin) {
-            return Response.json({
+            return new Response(
+        JSON.stringify({
                 success: false,
                 error: 'Connector plugin not found on site'
-            }, { status: 404 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Get active connector version from settings
         const { data: settings, error: settingsError } = await supabase.from('sitesettingss').select();
         const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
 
-        return Response.json({
+        return new Response(
+        JSON.stringify({
             success: true,
             current_version: connectorPlugin.version,
             latest_version: activeVersion,
             update_available: activeVersion && connectorPlugin.version !== activeVersion
-        });
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[getConnectorVersion] ERROR:', error.message);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             success: false,
             error: error.message 
-        }, { status: 500 });
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

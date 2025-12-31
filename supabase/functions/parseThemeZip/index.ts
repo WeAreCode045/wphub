@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import JSZip from 'npm:jszip@3.10.1';
+import { corsHeaders } from '../_helpers.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,19 +17,28 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { file_url } = await req.json();
 
     if (!file_url) {
-      return Response.json({ success: false, error: 'No file URL provided' });
+      return new Response(
+        JSON.stringify({ success: false, error: 'No file URL provided' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Download the ZIP file
     const response = await fetch(file_url);
     if (!response.ok) {
-      return Response.json({ success: false, error: 'Failed to download file' });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to download file' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -47,10 +61,13 @@ Deno.serve(async (req) => {
     }
 
     if (!styleContent) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         success: false, 
         error: 'Could not find style.css. Please ensure this is a valid WordPress theme.' 
-      });
+      }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Parse theme header from style.css
@@ -141,7 +158,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    return Response.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       theme: {
         name: themeData.name,
@@ -153,13 +171,18 @@ Deno.serve(async (req) => {
         theme_uri: themeData.theme_uri,
         screenshot_url: screenshotUrl
       }
-    });
+    }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
   } catch (error) {
     console.error('Parse theme error:', error);
-    return Response.json({ 
+    return new Response(
+        JSON.stringify({ 
       success: false, 
       error: error.message || 'Failed to parse theme' 
-    });
+    }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
   }
 });

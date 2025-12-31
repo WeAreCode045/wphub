@@ -1,9 +1,15 @@
 import Stripe from 'npm:stripe';
 import { authMeWithToken, extractBearerFromReq, jsonResponse } from '../_helpers.ts';
+import { corsHeaders } from '../_helpers.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '');
 
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',

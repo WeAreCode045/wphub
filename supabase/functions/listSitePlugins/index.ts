@@ -1,5 +1,17 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_helpers.ts';
+
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+);
 
 Deno.serve(async (req) => {
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+        return new Response('ok', { headers: corsHeaders });
+    }
+
     try {
         const { site_id } = await req.json();
 
@@ -7,17 +19,26 @@ Deno.serve(async (req) => {
         console.log('[listSitePlugins] Site ID:', site_id);
 
         if (!site_id) {
-            return Response.json({ error: 'Site ID is required' }, { status: 400 });
+            return new Response(
+                JSON.stringify({ error: 'Site ID is required' }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
         }
 
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
         
-                if (sitesError || !sites) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+        if (sitesError || !sites) {
+            return new Response(
+                JSON.stringify({ error: 'Database error' }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
         }
         if (sites.length === 0) {
             console.log('[listSitePlugins] Site not found');
-            return Response.json({ error: 'Site not found' }, { status: 404 });
+            return new Response(
+                JSON.stringify({ error: 'Site not found' }),
+                { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
         }
 
         const site = sites[0];
@@ -31,14 +52,20 @@ Deno.serve(async (req) => {
         if (!wpResponse.ok) {
             const errorText = await wpResponse.text();
             console.error('[listSitePlugins] WordPress API error:', wpResponse.status, errorText);
-            return Response.json({ error: 'Failed to connect to WordPress site', details: errorText, status: wpResponse.status }, { status: 502 });
+            return new Response(
+                JSON.stringify({ error: 'Failed to connect to WordPress site', details: errorText, status: wpResponse.status }),
+                { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
         }
 
         const result = await wpResponse.json();
         console.log('[listSitePlugins] WordPress returned', result.plugins?.length || 0, 'plugins');
 
         if (!result.success || !result.plugins) {
-            return Response.json({ error: 'Failed to get plugins from WordPress', details: result.message || 'Unknown error' }, { status: 500 });
+            return new Response(
+                JSON.stringify({ error: 'Failed to get plugins from WordPress', details: result.message || 'Unknown error' }),
+                { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
         }
 
         await supabase.from('sites').update({ connection_status: 'active', connection_checked_at: new Date().toISOString() });
@@ -85,11 +112,17 @@ Deno.serve(async (req) => {
         console.log('[listSitePlugins] Reconciliation complete');
         console.log('[listSitePlugins] === END ===');
 
-        return Response.json({ success: true, plugins: result.plugins, total: result.plugins.length });
+        return new Response(
+            JSON.stringify({ success: true, plugins: result.plugins, total: result.plugins.length }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
 
     } catch (error) {
         console.error('[listSitePlugins] ❌ ERROR:', error.message);
         console.error('[listSitePlugins] Stack:', error.stack);
-        return Response.json({ error: error.message, stack: error.stack }, { status: 500 });
+        return new Response(
+            JSON.stringify({ error: error.message, stack: error.stack }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
     }
 });

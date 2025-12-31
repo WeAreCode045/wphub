@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
     try {
         const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,7 +17,10 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
         if (!user || user.role !== 'admin') {
-            return Response.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
+            return new Response(
+        JSON.stringify({ error: 'Unauthorized - Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         console.log('[syncAllSitesPlugins] === START ===');
@@ -83,11 +91,17 @@ Deno.serve(async (req) => {
 
         console.log('[syncAllSitesPlugins] === END ===');
 
-        return Response.json({ success: true, message: `Sync voltooid: ${results.successful_sites}/${results.total_sites} sites succesvol`, results: results });
+        return new Response(
+        JSON.stringify({ success: true, message: `Sync voltooid: ${results.successful_sites}/${results.total_sites} sites succesvol`, results: results }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[syncAllSitesPlugins] ❌ FATAL ERROR:', error.message);
         console.error('[syncAllSitesPlugins] Stack:', error.stack);
-        return Response.json({ success: false, error: error.message, stack: error.stack }, { status: 500 });
+        return new Response(
+        JSON.stringify({ success: false, error: error.message, stack: error.stack }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });
