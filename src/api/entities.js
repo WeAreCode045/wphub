@@ -24,19 +24,24 @@ export const User = {
 	logout: async () => (await getDirect()).auth.logout(),
 };
 
+// Proxy that lazily loads the direct client and forwards entity methods transparently
 export const entities = new Proxy({}, {
-	get(_, prop) {
-		return async function proxyEntityMethod(...args) {
-			const direct = await getDirect();
-			const entity = direct.entities[prop];
-			if (!entity) throw new Error(`Unknown entity ${String(prop)}`);
-			// If called as entity.method, forward accordingly
-			if (args.length === 1 && typeof args[0] === 'object' && entity.list) {
-				return entity.list(...args);
+	get(_, entityName) {
+		// Return a proxy for the specific entity (e.g., User, Site)
+		return new Proxy({}, {
+			get(__, methodName) {
+				return async (...args) => {
+					const direct = await getDirect();
+					const entity = direct.entities[entityName];
+					if (!entity) throw new Error(`Unknown entity ${String(entityName)}`);
+					const method = entity[methodName];
+					if (typeof method !== 'function') {
+						throw new Error(`Unknown method ${String(methodName)} on entity ${String(entityName)}`);
+					}
+					return method.apply(entity, args);
+				};
 			}
-			// For specific methods, assume caller will access the method on returned object
-			return entity;
-		};
+		});
 	}
 });
 

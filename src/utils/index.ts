@@ -2,7 +2,8 @@
 
 
 export function createPageUrl(pageName: string) {
-    return '/' + pageName.toLowerCase().replace(/ /g, '-');
+    if (!pageName) return '/';
+    return pageName.startsWith('/') ? pageName : `/${pageName}`;
 }
 
 // Re-export the supabase client for convenience
