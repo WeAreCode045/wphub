@@ -109,9 +109,9 @@ export default function UserMessages() {
           to_user_id: isReplyToAdmin ? null : originalMessage.sender_id,
           to_platform_admin: isReplyToAdmin,
           reply_to_message_id: originalMessage.id,
+          thread_id: originalMessage.thread_id || originalMessage.id,
+          context: originalMessage.context || {}
         }
-        thread_id: originalMessage.thread_id || originalMessage.id,
-        context: originalMessage.context || {}
       });
       return response.data;
     },
