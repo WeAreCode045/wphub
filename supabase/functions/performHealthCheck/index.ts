@@ -1,8 +1,7 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { site_id } = await req.json();
 
         console.log('[performHealthCheck] Starting health check for site:', site_id);
@@ -12,7 +11,10 @@ Deno.serve(async (req) => {
         }
 
         // Get site details
-        const sites = await base44.asServiceRole.entities.Site.filter({ id: site_id });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
@@ -141,7 +143,7 @@ Deno.serve(async (req) => {
         }
 
         // Update site with health check data
-        await base44.asServiceRole.entities.Site.update(site_id, {
+        await supabase.from('sites').update({
             health_check: healthData
         });
 
@@ -149,7 +151,7 @@ Deno.serve(async (req) => {
 
         // Create notification if status is critical or warning and alerts are enabled
         if ((healthData.status === 'critical' || healthData.status === 'warning') && site.health_alerts_enabled !== false) {
-            await base44.asServiceRole.entities.Notification.create({
+            await supabase.from('notifications').insert({
                 recipient_id: site.owner_id,
                 title: `Health Alert: ${site.name}`,
                 message: `Health check detected issues on ${site.name}. Status: ${healthData.status}`,

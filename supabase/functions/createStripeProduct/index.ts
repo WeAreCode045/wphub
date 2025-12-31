@@ -1,4 +1,5 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 import Stripe from 'npm:stripe@14.11.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
@@ -7,8 +8,13 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await User.me();
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
     if (!user || user.role !== 'admin') {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -30,7 +36,7 @@ Deno.serve(async (req) => {
       }
     });
 
-    await base44.asServiceRole.entities.ActivityLog.create({
+    await supabase.from('activitylogs').insert({
       user_email: user.email,
       action: `Stripe product aangemaakt: ${name}`,
       entity_type: 'subscription',

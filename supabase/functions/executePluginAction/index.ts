@@ -1,8 +1,7 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { site_id, installation_id, action, file_url, plugin_slug } = await req.json();
 
         console.log('[executePluginAction] === START ===');
@@ -17,8 +16,11 @@ Deno.serve(async (req) => {
         }
 
         // Get site details
-        const sites = await base44.asServiceRole.entities.Site.filter({ id: site_id });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
         
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
@@ -84,12 +86,12 @@ Deno.serve(async (req) => {
                 updateData.is_active = true;
             }
 
-            await base44.asServiceRole.entities.PluginInstallation.update(installation_id, updateData);
+            await supabase.from('plugininstallations').update(updateData);
             
             console.log('[executePluginAction] ✅ Database updated');
         } else {
             // Update status to error
-            await base44.asServiceRole.entities.PluginInstallation.update(installation_id, {
+            await supabase.from('plugininstallations').update({
                 status: 'error',
                 last_sync: new Date().toISOString()
             });

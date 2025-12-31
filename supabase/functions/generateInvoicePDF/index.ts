@@ -1,10 +1,16 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await User.me();
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -17,7 +23,7 @@ Deno.serve(async (req) => {
     }
 
     // Get invoice
-    const invoice = await entities.Invoice.get(invoice_id);
+    const { data: invoice, error: invoiceError } = await supabase.from('invoices').select().eq('id', invoice_id).single();
 
     if (!invoice) {
       return Response.json({ error: 'Invoice not found' }, { status: 404 });
@@ -29,7 +35,7 @@ Deno.serve(async (req) => {
     }
 
     // Load invoice settings
-    const allSettings = await entities.SiteSettings.list();
+    const { data: allSettings, error: allSettingsError } = await supabase.from('sitesettingss').select();
     const getSetting = (key, defaultValue) => {
       const setting = allSettings.find(s => s.setting_key === key);
       return setting?.setting_value || defaultValue;

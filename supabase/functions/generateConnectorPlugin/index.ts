@@ -13,8 +13,13 @@ function generateConnectorPluginCode(apiKey: string, hubUrl: string, version: st
 
 Deno.serve(async (req: Request) => {
   try {
-    const token = extractBearerFromReq(req);
-    const user = await authMeWithToken(token);
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
     if (!user || user.role !== 'admin') return jsonResponse({ error: 'Unauthorized - Admin required' }, 403);
 
     const { api_key, hub_url, version, description, custom_code } = await req.json();

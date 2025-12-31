@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await User.me();
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -29,7 +35,7 @@ Deno.serve(async (req) => {
     }
 
     // Get the transfer request message
-    const message = await base44.asServiceRole.entities.Message.get(message_id);
+    const { data: message, error: messageError } = await supabase.from('messages').select().eq('id', message_id).single();
 
     if (!message || message.category !== 'site_transfer_request') {
       return Response.json({ 
@@ -53,8 +59,8 @@ Deno.serve(async (req) => {
     const { site_id, requesting_user_id, requesting_user_name, requesting_user_email } = message.context;
 
     // Get site and requesting user
-    const site = await base44.asServiceRole.entities.Site.get(site_id);
-    const requestingUser = await base44.asServiceRole.entities.User.get(requesting_user_id);
+    const { data: site, error: siteError } = await supabase.from('sites').select().eq('id', site_id).single();
+    const { data: requestingUser, error: requestingUserError } = await supabase.from('users').select().eq('id', requesting_user_id).single();
 
     if (!site || !requestingUser) {
       return Response.json({ 
@@ -64,12 +70,12 @@ Deno.serve(async (req) => {
 
     if (action === 'reject') {
       // Reject the transfer
-      await base44.asServiceRole.entities.Message.update(message_id, {
+      await supabase.from('messages').update({
         status: 'resolved'
       });
 
       // Send rejection message to requester
-      await base44.asServiceRole.entities.Message.create({
+      await supabase.from('messages').insert({
         subject: `Overdrachtverzoek afgewezen: ${site.name}`,
         message: `Je overdrachtverzoek voor site "${site.name}" is afgewezen door ${user.full_name}.`,
         sender_id: user.id,
@@ -85,7 +91,7 @@ Deno.serve(async (req) => {
       });
 
       // Log activity
-      await base44.asServiceRole.entities.ActivityLog.create({
+      await supabase.from('activitylogs').insert({
         user_email: user.email,
         action: `Overdrachtverzoek afgewezen voor site: ${site.name}`,
         entity_type: 'site',
@@ -101,7 +107,7 @@ Deno.serve(async (req) => {
 
     // Accept the transfer
     // Get all plugins installed on this site
-    const allPlugins = await base44.asServiceRole.entities.Plugin.list();
+    const { data: allPlugins, error: allPluginsError } = await supabase.from('plugins').select();
     const sitePlugins = allPlugins.filter(p => 
       p.installed_on?.some(install => install.site_id === site_id)
     );
@@ -146,14 +152,14 @@ Deno.serve(async (req) => {
     }
 
     // Transfer the site
-    await base44.asServiceRole.entities.Site.update(site_id, {
+    await supabase.from('sites').update({
       owner_type: 'user',
       owner_id: requesting_user_id
     });
 
     // Transfer selected plugins
     for (const plugin of pluginsToTransfer) {
-      await base44.asServiceRole.entities.Plugin.update(plugin.id, {
+      await supabase.from('plugins').update({
         owner_type: 'user',
         owner_id: requesting_user_id
       });
@@ -166,14 +172,14 @@ Deno.serve(async (req) => {
         install => install.site_id !== site_id
       );
       
-      await base44.asServiceRole.entities.Plugin.update(plugin.id, {
+      await supabase.from('plugins').update({
         installed_on: updatedInstalledOn
       });
 
       // If uninstall is requested, call uninstall function
       if (non_transfer_action === 'uninstall') {
         try {
-          await base44.asServiceRole.functions.invoke('uninstallPlugin', {
+          await base44.functions.invoke('uninstallPlugin', {
             site_id: site_id,
             plugin_slug: plugin.slug,
             plugin_id: plugin.id
@@ -187,12 +193,12 @@ Deno.serve(async (req) => {
     }
 
     // Update message status
-    await base44.asServiceRole.entities.Message.update(message_id, {
+    await supabase.from('messages').update({
       status: 'resolved'
     });
 
     // Send confirmation to requester
-    await base44.asServiceRole.entities.Message.create({
+    await supabase.from('messages').insert({
       subject: `Site succesvol overgedragen: ${site.name}`,
       message: `Goed nieuws! ${user.full_name} heeft je overdrachtverzoek geaccepteerd. De site "${site.name}" is nu van jou.${
         pluginsToTransfer.length > 0 
@@ -212,7 +218,7 @@ Deno.serve(async (req) => {
     });
 
     // Send confirmation to original owner
-    await base44.asServiceRole.entities.Message.create({
+    await supabase.from('messages').insert({
       subject: `Site overgedragen: ${site.name}`,
       message: `Je hebt de site "${site.name}" succesvol overgedragen aan ${requesting_user_name}.${
         pluginsToTransfer.length > 0 
@@ -236,7 +242,7 @@ Deno.serve(async (req) => {
     });
 
     // Log activity
-    await base44.asServiceRole.entities.ActivityLog.create({
+    await supabase.from('activitylogs').insert({
       user_email: user.email,
       action: `Site overgedragen: ${site.name}`,
       entity_type: 'site',

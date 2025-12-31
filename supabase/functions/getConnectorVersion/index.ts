@@ -1,8 +1,6 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { site_id } = await req.json();
 
         if (!site_id) {
@@ -10,7 +8,10 @@ Deno.serve(async (req) => {
         }
 
         // Get site details
-        const sites = await base44.asServiceRole.entities.Site.filter({ id: site_id });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
@@ -59,7 +60,7 @@ Deno.serve(async (req) => {
         }
 
         // Get active connector version from settings
-        const settings = await base44.asServiceRole.entities.SiteSettings.list();
+        const { data: settings, error: settingsError } = await supabase.from('sitesettingss').select();
         const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
 
         return Response.json({

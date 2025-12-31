@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await User.me();
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -18,7 +24,7 @@ Deno.serve(async (req) => {
     }
 
     // Get the site
-    const site = await base44.asServiceRole.entities.Site.get(site_id);
+    const { data: site, error: siteError } = await supabase.from('sites').select().eq('id', site_id).single();
 
     if (!site) {
       return Response.json({ 
@@ -43,7 +49,7 @@ Deno.serve(async (req) => {
     const { requested_by_user_id, requested_by_user_email, requested_by_user_name } = site.transfer_request;
 
     // Update site to remove transfer request
-    await base44.asServiceRole.entities.Site.update(site_id, {
+    await supabase.from('sites').update({
       transfer_request: {
         ...site.transfer_request,
         status: 'declined'
@@ -51,7 +57,7 @@ Deno.serve(async (req) => {
     });
 
     // Send rejection message to requester
-    await base44.asServiceRole.entities.Message.create({
+    await supabase.from('messages').insert({
       subject: `Overdrachtverzoek afgewezen: ${site.name}`,
       message: `Je overdrachtverzoek voor site "${site.name}" is afgewezen door ${user.full_name}.`,
       sender_id: user.id,
@@ -67,7 +73,7 @@ Deno.serve(async (req) => {
     });
 
     // Send notification to requester
-    await base44.asServiceRole.entities.Notification.create({
+    await supabase.from('notifications').insert({
       recipient_id: requested_by_user_id,
       recipient_email: requested_by_user_email,
       title: `Overdrachtverzoek afgewezen: ${site.name}`,
@@ -76,7 +82,7 @@ Deno.serve(async (req) => {
     });
 
     // Log activity
-    await base44.asServiceRole.entities.ActivityLog.create({
+    await supabase.from('activitylogs').insert({
       user_email: user.email,
       action: `Overdrachtverzoek afgewezen voor site: ${site.name}`,
       entity_type: 'site',

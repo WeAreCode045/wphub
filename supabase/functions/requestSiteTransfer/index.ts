@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await User.me();
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,9 +26,9 @@ Deno.serve(async (req) => {
     // Get the site
     let site;
     if (site_id) {
-      site = await base44.asServiceRole.entities.Site.get(site_id);
+      site = await supabase.from('sites').select().eq('id', site_id).single();
     } else {
-      const sites = await base44.asServiceRole.entities.Site.filter({ url: site_url });
+      const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('url', site_url);
       site = sites[0];
     }
 
@@ -40,14 +46,15 @@ Deno.serve(async (req) => {
     }
 
     // Check if there's already a pending transfer request
-    const existingRequests = await base44.asServiceRole.entities.Message.filter({
-      recipient_type: 'user',
-      recipient_id: site.owner_type === 'user' ? site.owner_id : null,
-      category: 'site_transfer_request',
-      status: 'open'
-    });
+    const { data: existingRequests, error: requestsError } = await supabase
+      .from('messages')
+      .select()
+      .eq('recipient_type', 'user')
+      .eq('recipient_id', site.owner_type === 'user' ? site.owner_id : null)
+      .eq('category', 'site_transfer_request')
+      .eq('status', 'open');
 
-    const pendingRequest = existingRequests.find(msg => 
+    const pendingRequest = existingRequests?.find(msg => 
       msg.context?.site_id === site.id && 
       msg.context?.requesting_user_id === user.id
     );
@@ -61,11 +68,11 @@ Deno.serve(async (req) => {
     // Get the owner
     let ownerUser = null;
     if (site.owner_type === 'user') {
-      ownerUser = await base44.asServiceRole.entities.User.get(site.owner_id);
+      ownerUser = await supabase.from('users').select().eq('id', site.owner_id).single();
     } else {
       // Team-owned site
-      const team = await base44.asServiceRole.entities.Team.get(site.owner_id);
-      ownerUser = await base44.asServiceRole.entities.User.get(team.owner_id);
+      const { data: team, error: teamError } = await supabase.from('teams').select().eq('id', site.owner_id).single();
+      ownerUser = await supabase.from('users').select().eq('id', team.owner_id).single();
     }
 
     if (!ownerUser) {
@@ -75,7 +82,7 @@ Deno.serve(async (req) => {
     }
 
     // Create the transfer request message
-    const message = await base44.asServiceRole.entities.Message.create({
+    const message = await supabase.from('messages').insert({
       subject: `Overdrachtverzoek voor site: ${site.name}`,
       message: `${user.full_name} (${user.email}) verzoekt om overdracht van de site "${site.name}" (${site.url}). Klik op "Accepteren" om de overdracht te starten, of "Weigeren" om het verzoek af te wijzen.`,
       sender_id: user.id,
@@ -102,7 +109,7 @@ Deno.serve(async (req) => {
     });
 
     // Send notification to owner
-    await base44.asServiceRole.entities.Notification.create({
+    await supabase.from('notifications').insert({
       recipient_id: ownerUser.id,
       recipient_email: ownerUser.email,
       title: `Overdrachtverzoek voor site: ${site.name}`,
@@ -111,7 +118,7 @@ Deno.serve(async (req) => {
     });
 
     // Log activity
-    await base44.asServiceRole.entities.ActivityLog.create({
+    await supabase.from('activitylogs').insert({
       user_email: user.email,
       action: `Overdrachtverzoek ingediend voor site: ${site.name}`,
       entity_type: 'site',

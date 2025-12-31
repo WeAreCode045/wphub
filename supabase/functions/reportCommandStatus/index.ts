@@ -1,8 +1,7 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { api_key, installation_id, status, error_message, version } = await req.json();
 
         console.log(`[reportCommandStatus] Received: installation_id=${installation_id}, status=${status}, version=${version}`);
@@ -13,8 +12,11 @@ Deno.serve(async (req) => {
         }
 
         // Verify API key
-        const sites = await base44.asServiceRole.entities.Site.filter({ api_key });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('api_key');
         
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             console.log(`[reportCommandStatus] Invalid API key`);
             return Response.json({ error: 'Invalid API key' }, { status: 401 });
@@ -73,12 +75,12 @@ Deno.serve(async (req) => {
 
         console.log(`[reportCommandStatus] Updating installation ${installation_id} with:`, updateData);
 
-        await base44.asServiceRole.entities.PluginInstallation.update(installation_id, updateData);
+        await supabase.from('plugininstallations').update(updateData);
 
         // Log activity
-        const installation = await base44.asServiceRole.entities.PluginInstallation.filter({ id: installation_id });
+        const { data: installation, error: installationError } = await supabase.from('plugininstallations').select().eq('id', installation_id);
         if (installation.length > 0) {
-            const plugins = await base44.asServiceRole.entities.Plugin.list();
+            const { data: plugins, error: pluginsError } = await supabase.from('plugins').select();
             const plugin = plugins.find(p => p.id === installation[0].plugin_id);
             
             if (plugin) {
@@ -103,7 +105,7 @@ Deno.serve(async (req) => {
                         action = `Plugin ${status} op ${site.name}: ${plugin.name}`;
                 }
                 
-                await base44.asServiceRole.entities.ActivityLog.create({
+                await supabase.from('activitylogs').insert({
                     user_email: 'system',
                     action: action,
                     entity_type: 'installation',

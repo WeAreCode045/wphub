@@ -2,8 +2,13 @@ import { authMeWithToken, extractBearerFromReq, jsonResponse } from '../_helpers
 
 Deno.serve(async (req: Request) => {
   try {
-    const token = extractBearerFromReq(req);
-    const user = await authMeWithToken(token);
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
     if (!user) return jsonResponse({ error: 'Unauthorized' }, 401);
 
     const { site_id, theme_slug } = await req.json();

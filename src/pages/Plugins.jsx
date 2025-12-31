@@ -139,11 +139,18 @@ export default function Plugins() {
         file_url: fileUrl
       });
       
+      if (!parseResponse || !parseResponse.data) {
+        throw new Error('Failed to parse plugin: No response from server');
+      }
+
       if (!parseResponse.data.success) {
         throw new Error(parseResponse.data.error || 'Failed to parse plugin');
       }
 
       const plugin_data = parseResponse.data.plugin;
+      if (!plugin_data) {
+        throw new Error('Failed to parse plugin: Invalid plugin data');
+      }
 
       const allExistingPlugins = await entities.Plugin.list();
       const existingPlugin = allExistingPlugins.find(p =>

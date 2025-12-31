@@ -1,8 +1,6 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { api_key } = await req.json();
 
         console.log('[getPluginCommands] === START ===');
@@ -13,10 +11,13 @@ Deno.serve(async (req) => {
         }
 
         // Find site by API key
-        const sites = await base44.asServiceRole.entities.Site.filter({ api_key });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('api_key');
         
         console.log('[getPluginCommands] Sites found:', sites.length);
         
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             return Response.json({ error: 'Invalid API key' }, { status: 401 });
         }
@@ -25,18 +26,23 @@ Deno.serve(async (req) => {
         console.log('[getPluginCommands] Site:', site.name, '(ID:', site.id, ')');
 
         // Get all plugin installations for this site
-        const allInstallations = await base44.asServiceRole.entities.PluginInstallation.filter({ 
-            site_id: site.id
-        });
+        const { data: allInstallations, error: installationsError } = await supabase
+            .from('plugininstallations')
+            .select()
+            .eq('site_id', site.id);
+
+        if (installationsError || !allInstallations) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
 
         console.log('[getPluginCommands] Found', allInstallations.length, 'total installations');
         
         // Get all plugins
-        const allPlugins = await base44.asServiceRole.entities.Plugin.list();
+        const { data: allPlugins, error: allPluginsError } = await supabase.from('plugins').select();
         console.log('[getPluginCommands] Total plugins in system:', allPlugins.length);
         
         // Get all versions
-        const allVersions = await base44.asServiceRole.entities.PluginVersion.list();
+        const { data: allVersions, error: allVersionsError } = await supabase.from('pluginversions').select();
         console.log('[getPluginCommands] Total versions in system:', allVersions.length);
 
         const commands = [];

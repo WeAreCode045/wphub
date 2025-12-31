@@ -1,8 +1,7 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+
 
 Deno.serve(async (req) => {
     try {
-    const base44 = createClientFromRequest(req);
     const { api_key, wp_version, plugins, site_url } = await req.json();
 
         console.log('[syncSiteData] === START ===');
@@ -14,8 +13,11 @@ Deno.serve(async (req) => {
         }
 
         // Find site by API key using service role
-        const sites = await base44.asServiceRole.entities.Site.filter({ api_key });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('api_key');
         
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             console.log('[syncSiteData] Invalid API key');
             return Response.json({ error: 'Invalid API key' }, { status: 401 });
@@ -25,7 +27,7 @@ Deno.serve(async (req) => {
         console.log('[syncSiteData] Site found:', site.name, '(ID:', site.id, ')');
 
         // Update site data
-        await base44.asServiceRole.entities.Site.update(site.id, {
+        await supabase.from('sites').update({
             last_connection: new Date().toISOString(),
             wp_version: wp_version || site.wp_version,
             status: 'active'
@@ -37,9 +39,14 @@ Deno.serve(async (req) => {
         if (plugins && Array.isArray(plugins)) {
             console.log('[syncSiteData] Processing', plugins.length, 'plugins');
 
-            const installations = await base44.asServiceRole.entities.PluginInstallation.filter({ 
-                site_id: site.id 
-            });
+            const { data: installations, error: installationsError } = await supabase
+                .from('plugininstallations')
+                .select()
+                .eq('site_id', site.id);
+
+            if (installationsError || !installations) {
+                return Response.json({ error: 'Database error' }, { status: 500 });
+            }
 
             console.log('[syncSiteData] Found', installations.length, 'installations for this site');
 
@@ -75,7 +82,7 @@ Deno.serve(async (req) => {
 
                     console.log('[syncSiteData] - new status will be:', newStatus);
 
-                    await base44.asServiceRole.entities.PluginInstallation.update(installation.id, {
+                    await supabase.from('plugininstallations').update({
                         is_active: pluginData.is_active,
                         status: newStatus,
                         installed_version: pluginData.version || null,

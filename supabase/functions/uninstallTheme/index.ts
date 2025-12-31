@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await User.me();
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -15,7 +21,7 @@ Deno.serve(async (req) => {
       return Response.json({ success: false, error: 'site_id and theme_slug are required' });
     }
 
-    const site = await entities.Site.get(site_id);
+    const { data: site, error: siteError } = await supabase.from('sites').select().eq('id', site_id).single();
 
     if (!site) {
       return Response.json({ success: false, error: 'Site not found' });
@@ -36,17 +42,17 @@ Deno.serve(async (req) => {
 
     if (data.success) {
       if (theme_id) {
-        const theme = await entities.Theme.get(theme_id);
+        const { data: theme, error: themeError } = await supabase.from('themes').select().eq('id', theme_id).single();
         if (theme) {
           const installedOn = theme.installed_on || [];
           const updatedInstalledOn = installedOn.filter(i => i.site_id !== site_id);
-          await entities.Theme.update(theme_id, {
+          await supabase.from('themes').update({
             installed_on: updatedInstalledOn
           });
         }
       }
 
-      await entities.ActivityLog.create({
+      await supabase.from('activitylogs').insert({
         user_email: user.email,
         action: `Theme verwijderd van ${site.name}`,
         entity_type: 'site',

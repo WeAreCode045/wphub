@@ -1,23 +1,29 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
+        const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
         
-        const user = await User.me();
         if (!user || user.role !== 'admin') {
             return Response.json({ error: 'Unauthorized - Admin access required' }, { status: 401 });
         }
 
-        const settings = await base44.asServiceRole.entities.SiteSettings.list();
+        const { data: settings, error: settingsError } = await supabase.from('sitesettingss').select();
         let adminGlobalInboxId = settings.find(s => s.setting_key === 'admin_global_inbox_id')?.setting_value;
 
         if (!adminGlobalInboxId) {
             adminGlobalInboxId = `admin_inbox_${crypto.randomUUID()}`;
-            await base44.asServiceRole.entities.SiteSettings.create({ setting_key: 'admin_global_inbox_id', setting_value: adminGlobalInboxId, description: 'Globale inbox ID voor alle platform admins' });
+            await supabase.from('sitesettingss').insert({ setting_key: 'admin_global_inbox_id', setting_value: adminGlobalInboxId, description: 'Globale inbox ID voor alle platform admins' });
         }
 
-        const allUsers = await base44.asServiceRole.entities.User.list();
+        const { data: allUsers, error: allUsersError } = await supabase.from('users').select();
         let usersUpdated = 0;
         let adminsUpdated = 0;
 
@@ -32,27 +38,27 @@ Deno.serve(async (req) => {
                 adminsUpdated++;
             }
 
-            await base44.asServiceRole.entities.User.update(existingUser.id, { mailboxes });
+            await supabase.from('users').update({ mailboxes });
             usersUpdated++;
         }
 
-        const allTeams = await base44.asServiceRole.entities.Team.list();
+        const { data: allTeams, error: allTeamsError } = await supabase.from('teams').select();
         let teamsUpdated = 0;
 
         for (const team of allTeams) {
             if (team.inbox_id) continue;
             const inboxId = `teaminbox_${team.id}_${crypto.randomUUID()}`;
-            await base44.asServiceRole.entities.Team.update(team.id, { inbox_id: inboxId });
+            await supabase.from('teams').update({ inbox_id: inboxId });
             teamsUpdated++;
         }
 
-        const allProjects = await base44.asServiceRole.entities.Project.list();
+        const { data: allProjects, error: allProjectsError } = await supabase.from('projects').select();
         let projectsUpdated = 0;
 
         for (const project of allProjects) {
             if (project.inbox_id) continue;
             const inboxId = `projectinbox_${project.id}_${crypto.randomUUID()}`;
-            await base44.asServiceRole.entities.Project.update(project.id, { inbox_id: inboxId });
+            await supabase.from('projects').update({ inbox_id: inboxId });
             projectsUpdated++;
         }
 

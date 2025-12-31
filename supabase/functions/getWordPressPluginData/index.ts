@@ -1,8 +1,6 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { site_id } = await req.json();
 
         console.log('[getWordPressPluginData] === START ===');
@@ -13,8 +11,11 @@ Deno.serve(async (req) => {
         }
 
         // Get site details
-        const sites = await base44.asServiceRole.entities.Site.filter({ id: site_id });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
         
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             console.log('[getWordPressPluginData] Site not found');
             return Response.json({ error: 'Site not found' }, { status: 404 });

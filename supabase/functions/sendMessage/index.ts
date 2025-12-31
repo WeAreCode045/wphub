@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await User.me();
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -38,20 +44,20 @@ Deno.serve(async (req) => {
     // Admin can send to any context
     if (isAdmin && context) {
       if (context.type === 'user' && to_user_id) {
-        const targetUser = await base44.asServiceRole.entities.User.get(to_user_id);
+        const { data: targetUser, error: targetUserError } = await supabase.from('users').select().eq('id', to_user_id).single();
         recipient_type = 'user';
         recipient_id = to_user_id;
         recipient_email = targetUser.email;
       } else if (context.type === 'plugin' && context.id) {
         // Get plugin owner
-        const plugin = await base44.asServiceRole.entities.Plugin.get(context.id);
+        const { data: plugin, error: pluginError } = await supabase.from('plugins').select().eq('id', context.id).single();
         if (plugin.owner_type === 'user') {
-          const owner = await base44.asServiceRole.entities.User.get(plugin.owner_id);
+          const { data: owner, error: ownerError } = await supabase.from('users').select().eq('id', plugin.owner_id).single();
           recipient_type = 'user';
           recipient_id = plugin.owner_id;
           recipient_email = owner.email;
         } else if (plugin.owner_type === 'team') {
-          const team = await base44.asServiceRole.entities.Team.get(plugin.owner_id);
+          const { data: team, error: teamError } = await supabase.from('teams').select().eq('id', plugin.owner_id).single();
           recipient_type = 'team';
           recipient_id = team.id;
           recipient_email = null;
@@ -59,22 +65,22 @@ Deno.serve(async (req) => {
         }
       } else if (context.type === 'site' && context.id) {
         // Get site owner
-        const site = await base44.asServiceRole.entities.Site.get(context.id);
+        const { data: site, error: siteError } = await supabase.from('sites').select().eq('id', context.id).single();
         if (site.owner_type === 'user') {
-          const owner = await base44.asServiceRole.entities.User.get(site.owner_id);
+          const { data: owner, error: ownerError } = await supabase.from('users').select().eq('id', site.owner_id).single();
           recipient_type = 'user';
           recipient_id = site.owner_id;
           recipient_email = owner.email;
         } else if (site.owner_type === 'team') {
-          const team = await base44.asServiceRole.entities.Team.get(site.owner_id);
+          const { data: team, error: teamError } = await supabase.from('teams').select().eq('id', site.owner_id).single();
           recipient_type = 'team';
           recipient_id = team.id;
           recipient_email = null;
           team_id = team.id;
         }
       } else if (context.type === 'team' && to_team_id) {
-        const team = await base44.asServiceRole.entities.Team.get(to_team_id);
-        const owner = await base44.asServiceRole.entities.User.get(team.owner_id);
+        const { data: team, error: teamError } = await supabase.from('teams').select().eq('id', to_team_id).single();
+        const { data: owner, error: ownerError } = await supabase.from('users').select().eq('id', team.owner_id).single();
         recipient_type = 'user';
         recipient_id = team.owner_id;
         recipient_email = owner.email;
@@ -84,13 +90,16 @@ Deno.serve(async (req) => {
     else if (!isAdmin) {
       // Verify user is part of the team/project
       if (is_team_inbox && to_team_id) {
-        const team = await base44.asServiceRole.entities.Team.filter({ id: to_team_id });
-        if (team.length === 0) {
+        const { data: teams, error: teamsError } = await supabase.from('teams').select().eq('id', to_team_id);
+                if (teamsError || !teams) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
+        if (teams.length === 0) {
           return Response.json({ error: 'Team not found' }, { status: 404 });
         }
         
-        const isMember = team[0].owner_id === user.id || 
-          team[0].members?.some(m => m.user_id === user.id && m.status === 'active');
+        const isMember = teams[0].owner_id === user.id || 
+          teams[0].members?.some(m => m.user_id === user.id && m.status === 'active');
         
         if (!isMember) {
           return Response.json({ error: 'You are not a member of this team' }, { status: 403 });
@@ -100,13 +109,19 @@ Deno.serve(async (req) => {
         recipient_id = to_team_id;
         team_id = to_team_id;
       } else if (is_project_inbox && project_id) {
-        const projects = await base44.asServiceRole.entities.Project.filter({ id: project_id });
+        const { data: projects, error: projectsError } = await supabase.from('projects').select().eq('id', project_id);
+                if (projectsError || !projects) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (projects.length === 0) {
           return Response.json({ error: 'Project not found' }, { status: 404 });
         }
         
         const project = projects[0];
-        const teams = await base44.asServiceRole.entities.Team.filter({ id: project.team_id });
+        const { data: teams, error: teamsError } = await supabase.from('teams').select().eq('id', project.team_id);
+                if (teamsError || !teams) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (teams.length === 0) {
           return Response.json({ error: 'Project team not found' }, { status: 404 });
         }
@@ -124,7 +139,10 @@ Deno.serve(async (req) => {
         team_id = project.team_id;
       } else if (to_team_member_id && to_team_id) {
         // Sending to specific team member
-        const teams = await base44.asServiceRole.entities.Team.filter({ id: to_team_id });
+        const { data: teams, error: teamsError } = await supabase.from('teams').select().eq('id', to_team_id);
+                if (teamsError || !teams) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (teams.length === 0) {
           return Response.json({ error: 'Team not found' }, { status: 404 });
         }
@@ -144,13 +162,16 @@ Deno.serve(async (req) => {
           return Response.json({ error: 'Recipient is not a member of this team' }, { status: 403 });
         }
         
-        const targetUser = await base44.asServiceRole.entities.User.get(to_team_member_id);
+        const { data: targetUser, error: targetUserError } = await supabase.from('users').select().eq('id', to_team_member_id).single();
         recipient_type = 'user';
         recipient_id = to_team_member_id;
         recipient_email = targetUser.email;
       } else if (to_user_id && to_team_id) {
         // Sending to team owner
-        const teams = await base44.asServiceRole.entities.Team.filter({ id: to_team_id });
+        const { data: teams, error: teamsError } = await supabase.from('teams').select().eq('id', to_team_id);
+                if (teamsError || !teams) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (teams.length === 0) {
           return Response.json({ error: 'Team not found' }, { status: 404 });
         }
@@ -167,7 +188,7 @@ Deno.serve(async (req) => {
           return Response.json({ error: 'Invalid recipient' }, { status: 403 });
         }
         
-        const targetUser = await base44.asServiceRole.entities.User.get(to_user_id);
+        const { data: targetUser, error: targetUserError } = await supabase.from('users').select().eq('id', to_user_id).single();
         recipient_type = 'user';
         recipient_id = to_user_id;
         recipient_email = targetUser.email;
@@ -201,10 +222,10 @@ Deno.serve(async (req) => {
       context: context || {}
     };
 
-    const createdMessage = await base44.asServiceRole.entities.Message.create(messageData);
+    const { data: createdMessage, error: createdMessageError } = await supabase.from('messages').insert(messageData);
 
     // Create activity log
-    await base44.asServiceRole.entities.ActivityLog.create({
+    await supabase.from('activitylogs').insert({
       user_email: user.email,
       action: `Bericht verzonden: ${subject}`,
       entity_type: 'user',
@@ -221,7 +242,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Send message error:', error);
     return Response.json({ 
-      error: error.message || 'Failed to send message' 
+      error: (error as any).message || 'Failed to send message' 
     }, { status: 500 });
   }
 });

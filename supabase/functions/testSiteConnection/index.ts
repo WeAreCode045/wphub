@@ -1,8 +1,7 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { site_id, api_key } = await req.json();
 
         console.log('[testSiteConnection] Testing connection with:', { 
@@ -18,10 +17,10 @@ Deno.serve(async (req) => {
 
         // Try to find site by ID or API key
         if (site_id) {
-            const sites = await base44.asServiceRole.entities.Site.filter({ id: site_id });
+            const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
             site = sites[0];
         } else if (api_key) {
-            const sites = await base44.asServiceRole.entities.Site.filter({ api_key });
+            const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('api_key');
             site = sites[0];
         }
         
@@ -57,7 +56,7 @@ Deno.serve(async (req) => {
                 console.log('[testSiteConnection] Response data:', responseData);
                 
                 // Update site status and WordPress version
-                await base44.asServiceRole.entities.Site.update(site.id, {
+                await supabase.from('sites').update({
                     last_connection: new Date().toISOString(),
                     status: 'active',
                     wp_version: responseData.wp_version || site.wp_version
@@ -77,7 +76,7 @@ Deno.serve(async (req) => {
                 console.error('[testSiteConnection] Error response:', errorText);
                 
                 // Update site status to error
-                await base44.asServiceRole.entities.Site.update(site.id, {
+                await supabase.from('sites').update({
                     status: 'error'
                 });
 
@@ -106,7 +105,7 @@ Deno.serve(async (req) => {
             console.error('[testSiteConnection] Fetch error:', fetchError);
             
             // Update site status to error
-            await base44.asServiceRole.entities.Site.update(site.id, {
+            await supabase.from('sites').update({
                 status: 'error'
             });
 

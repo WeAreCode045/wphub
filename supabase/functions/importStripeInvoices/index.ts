@@ -1,12 +1,13 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 import Stripe from 'npm:stripe@14.11.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2023-10-16' });
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const admin = await User.me();
+    const token = extractBearerFromReq(req);
+    const admin = await authMeWithToken(token);
 
     if (!admin || admin.role !== 'admin') {
       return Response.json({ error: 'Unauthorized - Admin only' }, { status: 403 });
@@ -18,9 +19,12 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing user_id' }, { status: 400 });
     }
 
-    const subscriptions = await base44.asServiceRole.entities.UserSubscription.filter({ user_id: user_id });
+    const { data: subscriptions, error: subscriptionsError } = await supabase.from('usersubscriptions').select().eq('user_id', user_id);
 
-    if (subscriptions.length === 0) {
+            if (subscriptionsError || !subscriptions) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
+        if (subscriptions.length === 0) {
       return Response.json({ error: 'No subscription found for user' }, { status: 404 });
     }
 
@@ -30,8 +34,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'No Stripe customer ID found' }, { status: 400 });
     }
 
-    const user = await base44.asServiceRole.entities.User.get(user_id);
-    const plan = await base44.asServiceRole.entities.SubscriptionPlan.get(subscription.plan_id);
+    const { data: user, error: userError } = await supabase.from('users').select().eq('id', user_id).single();
+    const { data: plan, error: planError } = await supabase.from('subscriptionplans').select().eq('id', subscription.plan_id).single();
 
     const stripeInvoices = await stripe.invoices.list({ customer: subscription.stripe_customer_id, limit: 100 });
 
@@ -39,12 +43,12 @@ Deno.serve(async (req) => {
     let skipped = 0;
 
     for (const stripeInvoice of stripeInvoices.data) {
-      const existingInvoices = await base44.asServiceRole.entities.Invoice.filter({ stripe_invoice_id: stripeInvoice.id });
+      const { data: existingInvoices, error: existingInvoicesError } = await supabase.from('invoices').select().eq('stripe_invoice_id', stripeInvoice.id);
 
       if (existingInvoices.length > 0) { skipped++; continue; }
       if (stripeInvoice.status !== 'paid' && stripeInvoice.status !== 'open') { skipped++; continue; }
 
-      const allInvoices = await base44.asServiceRole.entities.Invoice.list();
+      const { data: allInvoices, error: allInvoicesError } = await supabase.from('invoices').select();
       const invoiceNumber = `INV-${new Date().getFullYear()}-${String(allInvoices.length + imported + 1).padStart(6, '0')}`;
 
       const subtotal = stripeInvoice.subtotal;
@@ -54,7 +58,7 @@ Deno.serve(async (req) => {
 
       const billingPeriod = stripeInvoice.lines.data[0]?.price?.recurring?.interval || subscription.interval;
 
-      await base44.asServiceRole.entities.Invoice.create({
+      await supabase.from('invoices').insert({
         invoice_number: invoiceNumber,
         user_id: user_id,
         user_email: user.email,
@@ -81,7 +85,7 @@ Deno.serve(async (req) => {
       imported++;
     }
 
-    await base44.asServiceRole.entities.ActivityLog.create({
+    await supabase.from('activitylogs').insert({
       user_email: admin.email,
       action: `Geïmporteerde Stripe facturen voor gebruiker`,
       entity_type: 'subscription',

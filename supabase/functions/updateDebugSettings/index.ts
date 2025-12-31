@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -18,7 +24,10 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Site ID is required' }, { status: 400 });
         }
 
-        const sites = await entities.Site.filter({ id: site_id });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
@@ -57,11 +66,11 @@ Deno.serve(async (req) => {
             wp_debug_display: wp_debug_display
         };
 
-        await entities.Site.update(site_id, {
+        await supabase.from('sites').update({
             health_check: healthCheck
         });
 
-        await entities.ActivityLog.create({
+        await supabase.from('activitylogs').insert({
             user_email: user.email,
             action: `Debug instellingen bijgewerkt voor site: ${site.name}`,
             entity_type: 'site',

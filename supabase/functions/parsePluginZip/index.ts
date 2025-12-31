@@ -1,11 +1,17 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 Deno.serve(async (req) => {
     console.log('[parsePluginZip] === REQUEST RECEIVED ===');
     
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
             console.error('[parsePluginZip] No user authenticated');
@@ -91,6 +97,9 @@ Deno.serve(async (req) => {
         console.log('[parsePluginZip] Decoded entries count:', decodedEntries.length);
         console.log('[parsePluginZip] First 10 decoded files:', decodedEntries.slice(0, 10));
 
+                if (decodedEntriesError || !decodedEntries) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (decodedEntries.length === 0) {
             return Response.json({ 
                 success: false,
@@ -110,6 +119,9 @@ Deno.serve(async (req) => {
         console.log('[parsePluginZip] Found', phpFiles.length, 'eligible PHP files (root or 1 level deep)');
         console.log('[parsePluginZip] PHP files:', phpFiles);
 
+                if (phpFilesError || !phpFiles) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (phpFiles.length === 0) {
             return Response.json({ 
                 success: false,

@@ -1,9 +1,14 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const supabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+        )
+        
+        const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -19,8 +24,8 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Missing required parameters' }, { status: 400 });
         }
 
-        const sites = await entities.Site.filter({ id: site_id });
-        if (sites.length === 0) {
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
+        if (sitesError || !sites || sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
         const site = sites[0];

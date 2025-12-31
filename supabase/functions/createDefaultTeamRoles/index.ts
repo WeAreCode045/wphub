@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
             return Response.json({ 
@@ -24,10 +30,15 @@ Deno.serve(async (req) => {
         }
 
         // Check if default roles already exist for this team
-        const existingRoles = await entities.TeamRole.filter({ 
-            team_id: team_id,
-            type: "default"
-        });
+        const { data: existingRoles, error: rolesError } = await supabase
+            .from('teamroles')
+            .select()
+            .eq('team_id', team_id)
+            .eq('type', 'default');
+
+        if (rolesError || !existingRoles) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
 
         if (existingRoles.length >= 4) {
             return Response.json({ 
@@ -208,7 +219,7 @@ Deno.serve(async (req) => {
         // Create the roles
         const createdRoles = [];
         for (const roleData of defaultRoles) {
-            const role = await entities.TeamRole.create(roleData);
+            const { data: role, error: roleError } = await supabase.from('teamroles').insert(roleData);
             createdRoles.push(role);
         }
 

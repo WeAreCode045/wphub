@@ -1,4 +1,5 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 import Stripe from 'npm:stripe@14.11.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
@@ -7,8 +8,13 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await User.me();
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -23,9 +29,13 @@ Deno.serve(async (req) => {
     }
 
     // Get the subscription plan
-    const plan = await base44.asServiceRole.entities.SubscriptionPlan.get(plan_id);
+    const { data: plan, error: planError } = await supabase
+      .from('subscriptionplans')
+      .select()
+      .eq('id', plan_id)
+      .single();
     
-    if (!plan) {
+    if (planError || !plan) {
       return Response.json({ error: 'Plan not found' }, { status: 404 });
     }
 
@@ -40,7 +50,7 @@ Deno.serve(async (req) => {
 
     // Get or create Stripe customer
     let customerId;
-    const existingUser = await base44.asServiceRole.entities.User.get(user.id);
+    const existingUser = await client.entities.User.get(user.id);
     
     if (existingUser.stripe_customer_id) {
       customerId = existingUser.stripe_customer_id;
@@ -56,7 +66,7 @@ Deno.serve(async (req) => {
       customerId = customer.id;
       
       // Save customer ID to user
-      await base44.asServiceRole.auth.updateUser(user.id, {
+      await client.entities.User.update(user.id, {
         stripe_customer_id: customerId
       });
     }
@@ -95,7 +105,7 @@ Deno.serve(async (req) => {
 
     // Add discount code if provided
     if (discount_code) {
-      const discounts = await base44.asServiceRole.entities.DiscountCode.filter({
+      const discounts = await client.entities.DiscountCode.filter({
         code: discount_code,
         is_active: true
       });
@@ -135,7 +145,7 @@ Deno.serve(async (req) => {
     // Create checkout session
     const session = await stripe.checkout.sessions.create(sessionParams);
 
-    await base44.asServiceRole.entities.ActivityLog.create({
+    await client.entities.ActivityLog.create({
       user_email: user.email,
       action: `Checkout session aangemaakt voor plan: ${plan.name}`,
       entity_type: 'subscription',

@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,7 +26,10 @@ Deno.serve(async (req) => {
             return Response.json({ success: false, error: 'Missing required parameters: site_id and plugin_slug are required' }, { status: 400 });
         }
 
-        const sites = await entities.Site.filter({ id: site_id });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             console.log('[uninstallPlugin] Site not found');
             return Response.json({ success: false, error: 'Site not found' }, { status: 404 });
@@ -50,13 +59,13 @@ Deno.serve(async (req) => {
 
         if (plugin_id) {
             try {
-                const plugins = await entities.Plugin.filter({ id: plugin_id });
+                const { data: plugins, error: pluginsError } = await supabase.from('plugins').select().eq('id', plugin_id);
                 if (plugins.length > 0) {
                     const plugin = plugins[0];
                     const currentInstalledOn = plugin.installed_on || [];
                     const updatedInstalledOn = currentInstalledOn.filter(entry => entry.site_id !== site_id);
                     
-                    await entities.Plugin.update(plugin_id, { installed_on: updatedInstalledOn });
+                    await supabase.from('plugins').update({ installed_on: updatedInstalledOn });
                     console.log('[uninstallPlugin] ✅ Removed site from installed_on array');
                 }
             } catch (dbError) {
@@ -65,7 +74,7 @@ Deno.serve(async (req) => {
         }
 
         try {
-            await entities.ActivityLog.create({ user_email: user.email, action: `Plugin gedeïnstalleerd van ${site.name}`, entity_type: "site", details: `Plugin slug: ${plugin_slug}` });
+            await supabase.from('activitylogs').insert({ user_email: user.email, action: `Plugin gedeïnstalleerd van ${site.name}`, entity_type: "site", details: `Plugin slug: ${plugin_slug}` });
         } catch (logError) {
             console.error('[uninstallPlugin] Activity log error:', logError);
         }

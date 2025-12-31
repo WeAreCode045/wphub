@@ -1,8 +1,6 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { site_id } = await req.json();
 
         console.log('[listSitePlugins] === START ===');
@@ -12,8 +10,11 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Site ID is required' }, { status: 400 });
         }
 
-        const sites = await base44.asServiceRole.entities.Site.filter({ id: site_id });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
         
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             console.log('[listSitePlugins] Site not found');
             return Response.json({ error: 'Site not found' }, { status: 404 });
@@ -40,9 +41,9 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Failed to get plugins from WordPress', details: result.message || 'Unknown error' }, { status: 500 });
         }
 
-        await base44.asServiceRole.entities.Site.update(site_id, { connection_status: 'active', connection_checked_at: new Date().toISOString() });
+        await supabase.from('sites').update({ connection_status: 'active', connection_checked_at: new Date().toISOString() });
 
-        const allPlatformPlugins = await base44.asServiceRole.entities.Plugin.list();
+        const { data: allPlatformPlugins, error: allPlatformPluginsError } = await supabase.from('plugins').select();
         console.log('[listSitePlugins] Found', allPlatformPlugins.length, 'platform plugins');
 
         const wpPluginSlugs = result.plugins.map(p => p.slug);
@@ -76,7 +77,7 @@ Deno.serve(async (req) => {
             }
 
             if (needsUpdate) {
-                await base44.asServiceRole.entities.Plugin.update(platformPlugin.id, { installed_on: updatedInstalledOn });
+                await supabase.from('plugins').update({ installed_on: updatedInstalledOn });
                 console.log('[listSitePlugins] ✅ Updated installed_on for plugin:', platformPlugin.slug);
             }
         }

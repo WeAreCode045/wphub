@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
         if (!user || user.role !== 'admin') {
             return Response.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
@@ -12,7 +18,7 @@ Deno.serve(async (req) => {
         console.log('[syncAllSitesPlugins] === START ===');
         console.log('[syncAllSitesPlugins] Started by:', user.email);
 
-        const allSites = await base44.asServiceRole.entities.Site.list();
+        const { data: allSites, error: allSitesError } = await supabase.from('sites').select();
         console.log('[syncAllSitesPlugins] Found', allSites.length, 'sites');
 
         const results = { total_sites: allSites.length, successful_sites: 0, failed_sites: 0, total_plugins_synced: 0, new_plugins_created: 0, site_results: [] };
@@ -37,7 +43,7 @@ Deno.serve(async (req) => {
                 console.log(`[syncAllSitesPlugins] Found ${wpData.plugins.length} plugins on ${site.name}`);
                 siteResult.plugins_found = wpData.plugins.length;
 
-                const allPlatformPlugins = await base44.asServiceRole.entities.Plugin.list();
+                const { data: allPlatformPlugins, error: allPlatformPluginsError } = await supabase.from('plugins').select();
 
                 const sitePluginsArray = [];
                 
@@ -46,7 +52,7 @@ Deno.serve(async (req) => {
 
                     if (!platformPlugin) {
                         console.log(`[syncAllSitesPlugins] Creating new external plugin: ${wpPlugin.name}`);
-                        platformPlugin = await base44.asServiceRole.entities.Plugin.create({ name: wpPlugin.name, slug: wpPlugin.slug, description: wpPlugin.description || '', owner_type: site.owner_type, owner_id: site.owner_id, latest_version: wpPlugin.version, is_external: true, manage_from_hub: true, versions: [], shared_with_teams: site.shared_with_teams || [] });
+                        platformPlugin = await supabase.from('plugins').insert({ name: wpPlugin.name, slug: wpPlugin.slug, description: wpPlugin.description || '', owner_type: site.owner_type, owner_id: site.owner_id, latest_version: wpPlugin.version, is_external: true, manage_from_hub: true, versions: [], shared_with_teams: site.shared_with_teams || [] });
                         siteResult.new_plugins++;
                         results.new_plugins_created++;
                     }
@@ -55,7 +61,7 @@ Deno.serve(async (req) => {
                     siteResult.plugins_synced++;
                 }
 
-                await base44.asServiceRole.entities.Site.update(site.id, { plugins: sitePluginsArray, last_connection: new Date().toISOString(), status: 'active' });
+                await supabase.from('sites').update({ plugins: sitePluginsArray, last_connection: new Date().toISOString(), status: 'active' });
 
                 siteResult.status = 'success';
                 results.successful_sites++;
@@ -73,7 +79,7 @@ Deno.serve(async (req) => {
             results.site_results.push(siteResult);
         }
 
-        await base44.asServiceRole.entities.ActivityLog.create({ user_email: user.email, action: 'Platform-wide plugin sync uitgevoerd', entity_type: 'site', details: `${results.successful_sites} sites succesvol, ${results.failed_sites} gefaald, ${results.new_plugins_created} nieuwe plugins` });
+        await supabase.from('activitylogs').insert({ user_email: user.email, action: 'Platform-wide plugin sync uitgevoerd', entity_type: 'site', details: `${results.successful_sites} sites succesvol, ${results.failed_sites} gefaald, ${results.new_plugins_created} nieuwe plugins` });
 
         console.log('[syncAllSitesPlugins] === END ===');
 

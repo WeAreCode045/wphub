@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -18,20 +24,23 @@ Deno.serve(async (req) => {
             return Response.json({ error: 'Missing required parameters' }, { status: 400 });
         }
 
-        const sites = await entities.Site.filter({ id: site_id });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             return Response.json({ error: 'Site not found' }, { status: 404 });
         }
         const site = sites[0];
 
-        const settings = await base44.asServiceRole.entities.SiteSettings.list();
+        const { data: settings, error: settingsError } = await supabase.from('sitesettingss').select();
         const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
 
         if (!activeVersion) {
             return Response.json({ error: 'No active connector version found' }, { status: 404 });
         }
 
-        const connectors = await base44.asServiceRole.entities.Connector.list();
+        const { data: connectors, error: connectorsError } = await supabase.from('connectors').select();
         const activeConnector = connectors.find(c => c.version === activeVersion);
 
         if (!activeConnector) {
@@ -56,7 +65,7 @@ Deno.serve(async (req) => {
         console.log('[updateConnectorPlugin] Connector response:', result);
 
         if (result.success) {
-            await entities.ActivityLog.create({ user_email: user.email, action: `Connector plugin geüpdatet op site ${site.name}`, entity_type: "site", details: `Nieuwe versie: ${activeVersion}` });
+            await supabase.from('activitylogs').insert({ user_email: user.email, action: `Connector plugin geüpdatet op site ${site.name}`, entity_type: "site", details: `Nieuwe versie: ${activeVersion}` });
             console.log('[updateConnectorPlugin] ✅ Success');
         }
 

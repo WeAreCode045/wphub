@@ -1,8 +1,6 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
         const { api_key, plugin_id, version_id } = await req.json();
 
         if (!api_key) {
@@ -10,18 +8,25 @@ Deno.serve(async (req) => {
         }
 
         // Verify API key
-        const sites = await base44.asServiceRole.entities.Site.filter({ api_key });
+        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('api_key');
         
+                if (sitesError || !sites) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (sites.length === 0) {
             return Response.json({ error: 'Invalid API key' }, { status: 401 });
         }
 
         // Get the plugin version
-        const versions = await base44.asServiceRole.entities.PluginVersion.filter({ 
-            id: version_id,
-            plugin_id: plugin_id
-        });
+        const { data: versions, error: versionsError } = await supabase
+            .from('pluginversions')
+            .select()
+            .eq('id', version_id)
+            .eq('plugin_id', plugin_id);
 
+                if (versionsError || !versions) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (versions.length === 0) {
             return Response.json({ error: 'Plugin version not found' }, { status: 404 });
         }

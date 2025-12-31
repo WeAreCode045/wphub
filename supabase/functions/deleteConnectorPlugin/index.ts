@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
             return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -23,8 +29,11 @@ Deno.serve(async (req) => {
         console.log('[deleteConnectorPlugin] Deleting connector:', connector_id);
 
         // Get connector
-        const connectors = await entities.Connector.filter({ id: connector_id });
+        const { data: connectors, error: connectorsError } = await supabase.from('connectors').select().eq('id', connector_id);
         
+                if (connectorsError || !connectors) {
+            return Response.json({ error: 'Database error' }, { status: 500 });
+        }
         if (connectors.length === 0) {
             return Response.json({ error: 'Connector not found' }, { status: 404 });
         }
@@ -32,12 +41,12 @@ Deno.serve(async (req) => {
         const connector = connectors[0];
 
         // Delete from database
-        await entities.Connector.delete(connector_id);
+        await supabase.from('connectors').delete(connector_id);
 
         console.log('[deleteConnectorPlugin] Deleted from database');
 
         // Log activity
-        await entities.ActivityLog.create({
+        await supabase.from('activitylogs').insert({
             user_email: user.email,
             action: `Connector Plugin v${connector.version} verwijderd`,
             entity_type: 'connector',

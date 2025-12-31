@@ -1,11 +1,12 @@
 import { createClientFromRequest } from '../supabaseClientServer.js';
+import { authMeWithToken, extractBearerFromReq } from '../_helpers.ts';
 
 Deno.serve(async (req) => {
     console.log('[parsePluginZip] === REQUEST RECEIVED ===');
     
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const token = extractBearerFromReq(req);
+        const user = await authMeWithToken(token);
 
         if (!user) {
             console.error('[parsePluginZip] No user authenticated');

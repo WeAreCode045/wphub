@@ -1,9 +1,15 @@
-import { createClientFromRequest } from '../supabaseClientServer.js';
+import { createClient } from 'jsr:@supabase/supabase-js@2'
+
 
 Deno.serve(async (req) => {
     try {
-        const base44 = createClientFromRequest(req);
-        const user = await User.me();
+        const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
+      
+      const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
             return Response.json({ 
@@ -19,11 +25,11 @@ Deno.serve(async (req) => {
             }, { status: 400 });
         }
 
-        await base44.asServiceRole.entities.User.update(user.id, {
+        await supabase.from('users').update({
             two_fa_verified_session: null
         });
 
-        await base44.asServiceRole.entities.ActivityLog.create({
+        await supabase.from('activitylogs').insert({
             user_email: user.email,
             action: '2FA status gereset',
             entity_type: "user",
