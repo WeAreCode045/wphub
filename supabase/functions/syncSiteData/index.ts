@@ -6,13 +6,14 @@ import { corsHeaders } from '../_helpers.ts';
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders }
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
-);
-  }
+
     try {
     const { api_key, wp_version, plugins, site_url } = await req.json();
 
