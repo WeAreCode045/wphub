@@ -12,11 +12,34 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envFile = path.join(__dirname, '..', '.env.production');
 
+console.log('Environment variable setup for Vite build');
+console.log('=========================================');
+
+// Check what SUPABASE variables are available
+const availableSupabaseVars = Object.entries(process.env)
+  .filter(([key]) => key.startsWith('SUPABASE'))
+  .reduce((acc, [key, val]) => {
+    acc[key] = val ? `${val.substring(0, 20)}...` : 'EMPTY';
+    return acc;
+  }, {});
+
+console.log('Available SUPABASE variables:', Object.keys(availableSupabaseVars).join(', '));
+if (Object.keys(availableSupabaseVars).length > 0) {
+  Object.entries(availableSupabaseVars).forEach(([key, val]) => {
+    console.log(`  ${key}: ${val}`);
+  });
+}
+
 // Map environment variables
 const mappings = {
-  'VITE_SUPABASE_URL': process.env.SUPABASE_URL,
-  'VITE_SUPABASE_ANON_KEY': process.env.SUPABASE_ANON_KEY,
+  'VITE_SUPABASE_URL': process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+  'VITE_SUPABASE_ANON_KEY': process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY,
 };
+
+console.log('\nMapping variables:');
+Object.entries(mappings).forEach(([key, val]) => {
+  console.log(`  ${key}: ${val ? 'SET' : 'NOT SET'}`);
+});
 
 // Create .env file with available variables
 const envLines = Object.entries(mappings)
@@ -25,10 +48,14 @@ const envLines = Object.entries(mappings)
 
 if (envLines.length > 0) {
   fs.writeFileSync(envFile, envLines.join('\n') + '\n');
-  console.log(`✓ Created ${envFile} with ${envLines.length} variable(s)`);
-  console.log('Variables:', envLines.map(line => line.split('=')[0]).join(', '));
+  console.log(`\n✓ Created ${envFile} with ${envLines.length} variable(s)`);
+  console.log('Variables set:', envLines.map(line => line.split('=')[0]).join(', '));
 } else {
-  console.error('✗ Warning: No Supabase environment variables found');
-  console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('SUPABASE')).join(', ') || 'none');
+  console.error('\n✗ FATAL: Missing required Supabase environment variables!');
+  console.error('Expected: SUPABASE_URL, SUPABASE_ANON_KEY');
+  console.error('\nVerify in Vercel:');
+  console.error('1. Go to Project Settings → Integrations');
+  console.error('2. Check if Supabase integration is connected');
+  console.error('3. Ensure environment variables are added to your deployment');
   process.exit(1);
 }
