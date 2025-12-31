@@ -5,9 +5,11 @@
  * This ensures VITE_* variables are available during build
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envFile = path.join(__dirname, '..', '.env.local');
 
 // Get values from process.env (set by Vercel)
