@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { SearchWordPressPluginsRequestSchema, z } from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -33,10 +34,24 @@ Deno.serve(async (req) => {
             page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
             per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
         } else {
-            const body = await req.json().catch(() => ({}));
-            search = body.search;
-            page = body.page || 1;
-            per_page = body.per_page || 20;
+            // Parse and validate request body with Zod
+            try {
+                const bodyText = await req.text();
+                const parsed = JSON.parse(bodyText);
+                const validated = SearchWordPressPluginsRequestSchema.parse(parsed);
+                search = validated.search;
+                page = validated.page || 1;
+                per_page = validated.per_page || 20;
+            } catch (parseError) {
+                console.error('[searchWordPressPlugins] Validation error:', parseError);
+                const error = parseError instanceof z.ZodError
+                    ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+                    : `Invalid request: ${parseError.message}`;
+                return new Response(
+                    JSON.stringify({ error }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+            }
         }
 
         if (!search) {

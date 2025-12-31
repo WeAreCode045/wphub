@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { UpdatePluginRequestSchema, z } from '../_shared/types.ts';
 
 
 Deno.serve(async (req) => {
@@ -23,20 +24,30 @@ Deno.serve(async (req) => {
       );
         }
 
-        const { site_id, plugin_slug, plugin_id, download_url } = await req.json();
+        // Parse and validate request body with Zod
+        let body;
+        try {
+            const bodyText = await req.text();
+            const parsed = JSON.parse(bodyText);
+            body = UpdatePluginRequestSchema.parse(parsed);
+        } catch (parseError) {
+            console.error('[updatePlugin] Validation error:', parseError);
+            const error = parseError instanceof z.ZodError
+                ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+                : `Invalid request: ${parseError.message}`;
+            return new Response(
+                JSON.stringify({ error }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
+        const { site_id, plugin_slug, plugin_id, download_url } = body;
 
         console.log('[updatePlugin] === START ===');
         console.log('[updatePlugin] Site ID:', site_id);
         console.log('[updatePlugin] Plugin slug:', plugin_slug);
         console.log('[updatePlugin] Plugin ID:', plugin_id);
         console.log('[updatePlugin] Download URL:', download_url);
-
-        if (!site_id || !plugin_slug) {
-            return new Response(
-        JSON.stringify({ error: 'Site ID and plugin slug are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-        }
 
         // Get site details
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);

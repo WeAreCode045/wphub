@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_helpers.ts';
+import { TestSiteConnectionRequestSchema, z } from '../_shared/types.ts';
 
 
 
@@ -15,19 +16,24 @@ Deno.serve(async (req) => {
   );
 
     try {
-        const { site_id, api_key } = await req.json();
-
-        console.log('[testSiteConnection] Testing connection with:', { 
-            has_site_id: !!site_id, 
-            has_api_key: !!api_key 
-        });
-
-        if (!site_id && !api_key) {
+        // Parse and validate request body with Zod
+        let body;
+        try {
+            const bodyText = await req.text();
+            const parsed = JSON.parse(bodyText);
+            body = TestSiteConnectionRequestSchema.parse(parsed);
+        } catch (parseError) {
+            console.error('[testSiteConnection] Validation error:', parseError);
+            const error = parseError instanceof z.ZodError
+                ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+                : `Invalid request: ${parseError.message}`;
             return new Response(
-        JSON.stringify({ error: 'Site ID or API key is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+                JSON.stringify({ error }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
         }
+
+        const { site_id, api_key } = body;
 
         let site;
 

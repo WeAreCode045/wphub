@@ -2,6 +2,9 @@
 import { useState, useEffect } from "react";
 import { entities, User, integrations } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { TeamInviteFormSchema } from "@wphub/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -307,8 +310,6 @@ export default function TeamDetail() {
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showEditMemberDialog, setShowEditMemberDialog] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteTeamRoleId, setInviteTeamRoleId] = useState("Member");
   const [user, setUser] = useState(null);
   const [teamNotificationsOpen, setTeamNotificationsOpen] = useState(false);
   // const [teamInboxOpen, setTeamInboxOpen] = useState(false); // Removed as Popover is replaced
@@ -322,6 +323,15 @@ export default function TeamDetail() {
     type: "team_announcement"
   });
   const [activeTab, setActiveTab] = useState("overview"); // Added activeTab state
+
+  // Form validation with Zod for team invite
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
+    resolver: zodResolver(TeamInviteFormSchema),
+    defaultValues: {
+      email: "",
+      team_role_id: "Member",
+    },
+  });
 
   useEffect(() => {
     if (!teamId) {
@@ -428,8 +438,8 @@ export default function TeamDetail() {
   });
 
   const inviteMemberMutation = useMutation({
-    mutationFn: async () => {
-      const users = await entities.User.filter({ email: inviteEmail });
+    mutationFn: async (inviteData) => {
+      const users = await entities.User.filter({ email: inviteData.email });
 
       if (users.length === 0) {
         throw new Error('Alleen reeds geregistreerde gebruikers kunnen worden uitgenodigd.');
@@ -447,7 +457,7 @@ export default function TeamDetail() {
         {
           user_id: existingUser.id,
           email: existingUser.email,
-          team_role_id: inviteTeamRoleId,
+          team_role_id: inviteData.team_role_id,
           status: "pending",
           joined_at: new Date().toISOString()
         }
@@ -458,10 +468,10 @@ export default function TeamDetail() {
       const invite = await entities.TeamInvite.create({
         team_id: teamId,
         team_name: team.name,
-        invited_email: inviteEmail,
+        invited_email: inviteData.email,
         invited_by_id: user.id,
         invited_by_name: user.full_name,
-        team_role_id: inviteTeamRoleId,
+        team_role_id: inviteData.team_role_id,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       });
 
@@ -485,8 +495,7 @@ export default function TeamDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['team'] });
       setShowInviteDialog(false);
-      setInviteEmail("");
-      setInviteTeamRoleId("Member");
+      reset();
     },
     onError: (error) => {
       alert('❌ Fout bij uitnodigen: ' + error.message);
@@ -1304,23 +1313,25 @@ export default function TeamDetail() {
             <DialogHeader>
               <DialogTitle>Teamlid Uitnodigen</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-4">
+            <form onSubmit={handleSubmit((data) => inviteMemberMutation.mutate(data))} className="space-y-4 mt-4">
               <div>
                 <Label htmlFor="email">E-mailadres *</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="naam@voorbeeld.nl"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
+                  {...register("email")}
                 />
+                {errors.email && (
+                  <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
+                )}
                 <p className="text-xs text-gray-500 mt-1">
                   Alleen reeds geregistreerde gebruikers kunnen worden uitgenodigd.
                 </p>
               </div>
               <div>
                 <Label htmlFor="team_role">Team Rol *</Label>
-                <Select value={inviteTeamRoleId} onValueChange={setInviteTeamRoleId}>
+                <Select value={watch("team_role_id")} onValueChange={(value) => setValue("team_role_id", value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecteer een rol" />
                   </SelectTrigger>
@@ -1335,24 +1346,30 @@ export default function TeamDetail() {
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.team_role_id && (
+                  <p className="text-sm text-red-500 mt-1">{errors.team_role_id.message}</p>
+                )}
                 <p className="text-xs text-gray-500 mt-1">
-                  {DEFAULT_ROLES[inviteTeamRoleId]?.description ||
-                    customRoles.find(r => r.id === inviteTeamRoleId)?.description}
+                  {DEFAULT_ROLES[watch("team_role_id")]?.description ||
+                    customRoles.find(r => r.id === watch("team_role_id"))?.description}
                 </p>
               </div>
               <div className="flex gap-2">
                 <Button
-                  onClick={() => inviteMemberMutation.mutate()}
-                  disabled={!inviteEmail || !inviteTeamRoleId || inviteMemberMutation.isPending}
+                  type="submit"
+                  disabled={inviteMemberMutation.isPending}
                   className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
                 >
                   {inviteMemberMutation.isPending ? "Uitnodigen..." : "Uitnodiging Versturen"}
                 </Button>
-                <Button variant="outline" onClick={() => setShowInviteDialog(false)}>
+                <Button type="button" variant="outline" onClick={() => {
+                  setShowInviteDialog(false);
+                  reset();
+                }}>
                   Annuleren
                 </Button>
               </div>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
 

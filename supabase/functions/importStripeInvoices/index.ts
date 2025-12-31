@@ -2,6 +2,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 import Stripe from 'npm:stripe@14.11.0';
 import { corsHeaders } from '../_helpers.ts';
+import { ImportStripeInvoicesRequestSchema, z } from '../_shared/types.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2023-10-16' });
 
@@ -21,14 +22,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { user_id } = await req.json();
-
-    if (!user_id) {
+    // Parse and validate request body with Zod
+    let body;\n    try {
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = ImportStripeInvoicesRequestSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[importStripeInvoices] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
       return new Response(
-        JSON.stringify({ error: 'Missing user_id' }),
+        JSON.stringify({ error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { user_id } = body;
 
     const { data: subscriptions, error: subscriptionsError } = await supabase.from('usersubscriptions').select().eq('user_id', user_id);
 

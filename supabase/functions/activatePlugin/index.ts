@@ -1,5 +1,6 @@
 import { authMeWithToken, extractBearerFromReq, jsonResponse } from '../_helpers.ts';
 import { corsHeaders } from '../_helpers.ts';
+import { ActivatePluginRequestSchema, z } from '../_shared/types.ts';
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -17,8 +18,21 @@ Deno.serve(async (req: Request) => {
       const { data: { user } } = await supabase.auth.getUser()
     if (!user) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-    const { site_id, plugin_id } = await req.json();
-    if (!site_id || !plugin_id) return jsonResponse({ error: 'Missing required parameters' }, 400);
+    // Parse and validate request body with Zod
+    let body;
+    try {
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = ActivatePluginRequestSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[activatePlugin] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
+      return jsonResponse({ error }, 400);
+    }
+
+    const { site_id, plugin_id } = body;
 
     const supa = Deno.env.get('SUPABASE_URL')?.replace(/\/$/, '') || '';
     const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');

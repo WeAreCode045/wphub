@@ -1,0 +1,22 @@
+{
+  "name": "@wphub/edge-utils",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./cors": "./src/cors.ts",
+    "./auth": "./src/auth.ts",
+    "./response": "./src/response.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wphub/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

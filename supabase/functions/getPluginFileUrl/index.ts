@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_helpers.ts';
+import { GetPluginFileUrlRequestSchema, z } from '../_shared/schemas.ts';
 
 
 Deno.serve(async (req) => {
@@ -14,14 +15,23 @@ Deno.serve(async (req) => {
   );
 
     try {
-        const { api_key, plugin_id, version_id } = await req.json();
-
-        if (!api_key) {
-            return new Response(
-        JSON.stringify({ error: 'API key is required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        // Parse and validate request body
+        let body;
+        try {
+          const rawBody = await req.json();
+          body = GetPluginFileUrlRequestSchema.parse(rawBody);
+        } catch (parseError) {
+          console.error('[getPluginFileUrl] Validation error:', parseError);
+          const error = parseError instanceof z.ZodError
+            ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+            : `Invalid request: ${parseError.message}`;
+          return new Response(
+            JSON.stringify({ error }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
+
+        const { api_key, plugin_id, version_id } = body;
 
         // Verify API key
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('api_key');

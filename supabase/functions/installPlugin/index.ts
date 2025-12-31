@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { InstallPluginRequestSchema, z } from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -19,12 +20,21 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'content-type': 'application/json' } });
     }
 
-    const body = await req.json();
-    const { site_id, plugin_slug, plugin_id } = body || {};
-
-    if (!site_id || (!plugin_slug && !plugin_id)) {
-      return new Response(JSON.stringify({ error: 'Missing required params: site_id and plugin_slug or plugin_id' }), { status: 400, headers: { 'content-type': 'application/json' } });
+    // Parse and validate request body with Zod
+    let body;
+    try {
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = InstallPluginRequestSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[installPlugin] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
+      return new Response(JSON.stringify({ error }), { status: 400, headers: { 'content-type': 'application/json' } });
     }
+
+    const { site_id, plugin_slug, plugin_id } = body;
 
     try {
       // Call executePluginAction directly via Supabase Functions HTTP endpoint using service role key

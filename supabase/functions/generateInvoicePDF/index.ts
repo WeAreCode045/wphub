@@ -24,14 +24,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { invoice_id } = await req.json();
-
-    if (!invoice_id) {
+    // Parse and validate request body with Zod
+    let body;
+    try {
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = GenerateInvoicePDFRequestSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[generateInvoicePDF] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
       return new Response(
-        JSON.stringify({ error: 'Missing invoice_id' }),
+        JSON.stringify({ error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { invoice_id } = body;
 
     // Get invoice
     const { data: invoice, error: invoiceError } = await supabase.from('invoices').select().eq('id', invoice_id).single();

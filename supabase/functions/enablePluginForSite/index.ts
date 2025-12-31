@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { EnablePluginForSiteRequestSchema, z } from '../_shared/types.ts';
 
 
 Deno.serve(async (req) => {
@@ -23,18 +24,28 @@ Deno.serve(async (req) => {
       );
         }
 
-        const { site_id, plugin_id, enabled } = await req.json();
+        // Parse and validate request body with Zod
+        let body;
+        try {
+            const bodyText = await req.text();
+            const parsed = JSON.parse(bodyText);
+            body = EnablePluginForSiteRequestSchema.parse(parsed);
+        } catch (parseError) {
+            console.error('[enablePluginForSite] Validation error:', parseError);
+            const error = parseError instanceof z.ZodError
+                ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+                : `Invalid request: ${parseError.message}`;
+            return new Response(
+                JSON.stringify({ error }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
+        const { site_id, plugin_id, enabled } = body;
 
         console.log('[enablePluginForSite] Site ID:', site_id);
         console.log('[enablePluginForSite] Plugin ID:', plugin_id);
         console.log('[enablePluginForSite] Enabled:', enabled);
-
-        if (!site_id || !plugin_id || enabled === undefined) {
-            return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-        }
 
         // Get site
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);

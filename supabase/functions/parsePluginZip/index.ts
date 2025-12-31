@@ -1,53 +1,59 @@
-
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { ParsePluginZipRequestSchema, ParsePluginZipResponse, z } from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
-    console.log('[parsePluginZip] === REQUEST RECEIVED ===');
+
+  console.log('[parsePluginZip] === REQUEST RECEIVED ===');
+  
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+    )
     
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      console.error('[parsePluginZip] No user authenticated');
+      const response: ParsePluginZipResponse = { 
+        success: false,
+        error: 'Unauthorized' 
+      };
+      return new Response(
+        JSON.stringify(response),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('[parsePluginZip] User:', user.email);
+
+    // Parse and validate request body with Zod
+    let body;
     try {
-        const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-      )
-      
-      const { data: { user } } = await supabase.auth.getUser()
-
-        if (!user) {
-            console.error('[parsePluginZip] No user authenticated');
-            return new Response(
-        JSON.stringify({ 
-                success: false,
-                error: 'Unauthorized' 
-            }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = ParsePluginZipRequestSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[parsePluginZip] Validation error:', parseError);
+      const response: ParsePluginZipResponse = {
+        success: false,
+        error: parseError instanceof z.ZodError 
+          ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+          : `Invalid request: ${parseError.message}`
+      };
+      return new Response(
+        JSON.stringify(response),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-        }
+    }
 
-        console.log('[parsePluginZip] User:', user.email);
-
-        // Parse request body
-        let body;
-        try {
-            const bodyText = await req.text();
-            body = JSON.parse(bodyText);
-        } catch (parseError) {
-            console.error('[parsePluginZip] Failed to parse JSON body:', parseError.message);
-            return new Response(
-        JSON.stringify({ 
-                success: false,
-                error: 'Invalid JSON in request body: ' + parseError.message 
-            }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-        }
-
-        const { file_url } = body;
+    const { file_url } = body;
 
         if (!file_url) {
             console.error('[parsePluginZip] No file_url in body');

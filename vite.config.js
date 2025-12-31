@@ -68,6 +68,8 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@wphub/types': path.resolve(__dirname, './packages/types/src/index.ts'),
+        '@wphub/api-client': path.resolve(__dirname, './packages/api-client/src/index.ts'),
       },
       extensions: ['.mjs', '.js', '.jsx', '.ts', '.tsx', '.json'],
       dedupe: ['@supabase/supabase-js'],

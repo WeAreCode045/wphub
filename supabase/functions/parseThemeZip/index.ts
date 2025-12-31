@@ -23,14 +23,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { file_url } = await req.json();
-
-    if (!file_url) {
+    // Parse and validate request body with Zod
+    let body;
+    try {
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = ParseThemeZipRequestSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[parseThemeZip] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
       return new Response(
-        JSON.stringify({ success: false, error: 'No file URL provided' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { file_url } = body;
 
     // Download the ZIP file
     const response = await fetch(file_url);

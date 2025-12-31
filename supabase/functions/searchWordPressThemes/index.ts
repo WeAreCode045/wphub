@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { SearchWordPressThemesRequestSchema, z } from '../_shared/types.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -22,7 +23,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { search, page = 1, per_page = 20 } = await req.json();
+    // Parse and validate request body with Zod
+    let body;
+    try {
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = SearchWordPressThemesRequestSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[searchWordPressThemes] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
+      return new Response(
+        JSON.stringify({ error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { search, page = 1, per_page = 20 } = body;
 
     if (!search) {
       return new Response(

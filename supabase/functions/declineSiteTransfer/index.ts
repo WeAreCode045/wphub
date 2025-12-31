@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { DeclineSiteTransferRequestSchema, z } from '../_shared/schemas.ts';
 
 
 Deno.serve(async (req) => {
@@ -23,16 +24,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { site_id } = await req.json();
-
-    if (!site_id) {
+    // Parse and validate request body
+    let body;
+    try {
+      const rawBody = await req.json();
+      body = DeclineSiteTransferRequestSchema.parse(rawBody);
+    } catch (parseError) {
+      console.error('[declineSiteTransfer] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
       return new Response(
-        JSON.stringify({ 
-        error: 'Site ID is verplicht' 
-      }),
+        JSON.stringify({ error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { site_id } = body;
 
     // Get the site
     const { data: site, error: siteError } = await supabase.from('sites').select().eq('id', site_id).single();

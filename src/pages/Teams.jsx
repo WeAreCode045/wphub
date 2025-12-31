@@ -3,6 +3,9 @@ import { useState, useEffect } from "react";
 import { entities, User, integrations } from "@/api/entities";
 import { supabase } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CreateTeamFormSchema } from "@wphub/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,11 +48,19 @@ import { useUser } from "../Layout";
 export default function Teams() {
   const user = useUser();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newTeam, setNewTeam] = useState({ name: "", description: "" });
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState("grid");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Form validation with Zod
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(CreateTeamFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+    },
+  });
 
   const { data: teams = [], isLoading } = useQuery({
     queryKey: ['teams', user?.id],
@@ -109,7 +120,7 @@ export default function Teams() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams'] });
       setShowCreateDialog(false);
-      setNewTeam({ name: "", description: "" });
+      reset();
       toast({
         title: "Team aangemaakt",
         description: "Het team is succesvol aangemaakt",
@@ -149,10 +160,8 @@ export default function Teams() {
     },
   });
 
-  const handleCreateTeam = () => {
-    if (newTeam.name) {
-      createTeamMutation.mutate(newTeam);
-    }
+  const onSubmitTeam = (formData) => {
+    createTeamMutation.mutate(formData);
   };
 
   const filteredTeams = teams.filter(team =>
@@ -429,41 +438,48 @@ export default function Teams() {
             <DialogHeader>
               <DialogTitle>Nieuw Team Aanmaken</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-4">
+            <form onSubmit={handleSubmit(onSubmitTeam)} className="space-y-4 mt-4">
               <div>
                 <Label htmlFor="team-name">Team Naam *</Label>
                 <Input
                   id="team-name"
                   placeholder="Bijv: Development Team"
-                  value={newTeam.name}
-                  onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
+                  {...register("name")}
                   className="mt-2"
                 />
+                {errors.name && (
+                  <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="team-description">Beschrijving</Label>
                 <Textarea
                   id="team-description"
                   placeholder="Wat doet dit team?"
-                  value={newTeam.description}
-                  onChange={(e) => setNewTeam({ ...newTeam, description: e.target.value })}
+                  {...register("description")}
                   className="mt-2"
                   rows={3}
                 />
+                {errors.description && (
+                  <p className="text-sm text-red-500 mt-1">{errors.description.message}</p>
+                )}
               </div>
               <DialogFooter className="mt-4">
                 <Button
-                  onClick={handleCreateTeam}
-                  disabled={createTeamMutation.isPending || !newTeam.name}
+                  type="submit"
+                  disabled={createTeamMutation.isPending}
                   className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
                 >
                   {createTeamMutation.isPending ? "Aanmaken..." : "Team Aanmaken"}
                 </Button>
-                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                <Button type="button" variant="outline" onClick={() => {
+                  setShowCreateDialog(false);
+                  reset();
+                }}>
                   Annuleren
                 </Button>
               </DialogFooter>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

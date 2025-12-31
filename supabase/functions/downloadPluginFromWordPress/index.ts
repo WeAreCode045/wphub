@@ -1,5 +1,6 @@
 import { authMeWithToken, extractBearerFromReq, uploadToStorage, jsonResponse } from '../_helpers.ts';
 import { corsHeaders } from '../_helpers.ts';
+import { DownloadPluginFromWordPressRequestSchema, z } from '../_shared/types.ts';
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -17,9 +18,24 @@ Deno.serve(async (req: Request) => {
       const { data: { user } } = await supabase.auth.getUser()
     if (!user) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-    const body = await req.json();
-    const { site_id, plugin_slug } = body;
-    if (!site_id || !plugin_slug) return jsonResponse({ error: 'Site ID and plugin slug are required' }, 400);
+    // Parse and validate request body with Zod
+    let body;
+    try {
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = DownloadPluginFromWordPressRequestSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[downloadPluginFromWordPress] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
+      return jsonResponse({ error }, 400);
+    }
+
+    const { slug, version } = body;
+    // Note: Original code had site_id and plugin_slug but schema uses slug
+    const site_id = body.site_id || (parsed as any).site_id;
+    const plugin_slug = slug;
 
     // Fetch site record from Supabase REST
     const supaUrl = Deno.env.get('SUPABASE_URL')?.replace(/\/$/, '') || '';

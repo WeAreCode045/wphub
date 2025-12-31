@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { SendMessageRequestSchema, z } from '../_shared/types.ts';
 
 
 Deno.serve(async (req) => {
@@ -23,6 +24,31 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Parse request body once
+    const bodyText = await req.text();
+    const rawBody = JSON.parse(bodyText);
+
+    // Validate core required fields with Zod (subject and message)
+    try {
+      SendMessageRequestSchema.parse({
+        subject: rawBody.subject,
+        message: rawBody.message,
+        recipient_id: rawBody.recipient_id,
+        recipient_email: rawBody.recipient_email,
+        type: rawBody.type,
+        metadata: rawBody.metadata
+      });
+    } catch (parseError) {
+      console.error('[sendMessage] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
+      return new Response(
+        JSON.stringify({ error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { 
       subject, 
       message, 
@@ -33,16 +59,7 @@ Deno.serve(async (req) => {
       is_team_inbox,
       is_project_inbox,
       project_id
-    } = await req.json();
-
-    if (!subject || !message) {
-      return new Response(
-        JSON.stringify({ 
-        error: 'Subject and message are required' 
-      }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    } = rawBody;
 
     const isAdmin = user.role === 'admin';
 

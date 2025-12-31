@@ -1,5 +1,6 @@
 import { authMeWithToken, extractBearerFromReq, jsonResponse } from '../_helpers.ts';
 import { corsHeaders } from '../_helpers.ts';
+import { UpdateUserAdminRequestSchema, z } from '../_shared/schemas.ts';
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -24,8 +25,19 @@ Deno.serve(async (req: Request) => {
     const admin = adminArr?.[0];
     if (!admin || admin.role !== 'admin') return jsonResponse({ error: 'Admin access required' }, 403);
 
-    const { user_id, updates } = await req.json();
-    if (!user_id || !updates) return jsonResponse({ error: 'user_id and updates are required' }, 400);
+    // Parse and validate request body
+    let body;
+    try {
+      const rawBody = await req.json();
+      body = UpdateUserAdminRequestSchema.parse(rawBody);
+    } catch (parseError) {
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
+      return jsonResponse({ error }, 400);
+    }
+
+    const { user_id, updates } = body;
 
     // Validate updates - only allow certain fields
     const allowedFields = ['full_name', 'avatar_url', 'company', 'phone', 'role', 'status', 'email_notifications', 'two_factor_enabled', 'disabled'];

@@ -1,5 +1,6 @@
 import { authMeWithToken, extractBearerFromReq, uploadToStorage, jsonResponse } from '../_helpers.ts';
 import { corsHeaders } from '../_helpers.ts';
+import { AcceptSiteTransferRequestSchema, z } from '../_shared/schemas.ts';
 
 // Converts the acceptSiteTransfer function to Supabase Edge Function
 Deno.serve(async (req: Request) => {
@@ -18,9 +19,19 @@ Deno.serve(async (req: Request) => {
       const { data: { user } } = await supabase.auth.getUser()
     if (!user) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-    const body = await req.json();
+    // Parse and validate request body
+    let body;
+    try {
+      const rawBody = await req.json();
+      body = AcceptSiteTransferRequestSchema.parse(rawBody);
+    } catch (parseError) {
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
+      return jsonResponse({ error }, 400);
+    }
+
     const { site_id, scheduled_transfer_date = null, transfer_plugins = [], non_transfer_action = 'disconnect' } = body;
-    if (!site_id) return jsonResponse({ error: 'Site ID is required' }, 400);
 
     const supa = Deno.env.get('SUPABASE_URL')?.replace(/\/$/, '') || '';
     const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');

@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { UpdateDebugSettingsRequestSchema, z } from '../_shared/schemas.ts';
 
 
 Deno.serve(async (req) => {
@@ -23,17 +24,26 @@ Deno.serve(async (req) => {
       );
         }
 
-        const { site_id, wp_debug, wp_debug_log, wp_debug_display } = await req.json();
+        // Parse and validate request body
+        let body;
+        try {
+          const rawBody = await req.json();
+          body = UpdateDebugSettingsRequestSchema.parse(rawBody);
+        } catch (parseError) {
+          console.error('[updateDebugSettings] Validation error:', parseError);
+          const error = parseError instanceof z.ZodError
+            ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+            : `Invalid request: ${parseError.message}`;
+          return new Response(
+            JSON.stringify({ error }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { site_id, wp_debug, wp_debug_log, wp_debug_display } = body;
 
         console.log('[updateDebugSettings] Site ID:', site_id);
         console.log('[updateDebugSettings] Settings:', { wp_debug, wp_debug_log, wp_debug_display });
-
-        if (!site_id) {
-            return new Response(
-        JSON.stringify({ error: 'Site ID is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-        }
 
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
                 if (sitesError || !sites) {

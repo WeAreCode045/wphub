@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_helpers.ts';
+import { ExecutePluginActionRequestSchema, z } from '../_shared/schemas.ts';
 
 
 
@@ -15,7 +16,23 @@ Deno.serve(async (req) => {
   );
 
     try {
-        const { site_id, installation_id, action, file_url, plugin_slug } = await req.json();
+        // Parse and validate request body
+        let body;
+        try {
+          const rawBody = await req.json();
+          body = ExecutePluginActionRequestSchema.parse(rawBody);
+        } catch (parseError) {
+          console.error('[executePluginAction] Validation error:', parseError);
+          const error = parseError instanceof z.ZodError
+            ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+            : `Invalid request: ${parseError.message}`;
+          return new Response(
+            JSON.stringify({ error }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { site_id, installation_id, action, file_url, plugin_slug } = body;
 
         console.log('[executePluginAction] === START ===');
         console.log('[executePluginAction] Site ID:', site_id);
@@ -23,13 +40,6 @@ Deno.serve(async (req) => {
         console.log('[executePluginAction] Action:', action);
         console.log('[executePluginAction] Plugin Slug:', plugin_slug);
         console.log('[executePluginAction] File URL:', file_url);
-
-        if (!site_id || !installation_id || !action) {
-            return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-        }
 
         // Get site details
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);

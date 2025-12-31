@@ -3,6 +3,9 @@ import { useState, useEffect } from "react";
 import { entities, User, integrations } from "@/api/entities";
 import { supabase } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CreateSiteFormSchema } from "@wphub/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +70,6 @@ import { nl } from "date-fns/locale";
 export default function Sites() {
   const user = useUser();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newSite, setNewSite] = useState({ name: "", url: "" });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("grid");
@@ -78,6 +80,15 @@ export default function Sites() {
   const [activeTab, setActiveTab] = useState("my-sites");
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Form validation with Zod
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(CreateSiteFormSchema),
+    defaultValues: {
+      name: "",
+      url: "",
+    },
+  });
 
   const isAdmin = user?.role === "admin";
 
@@ -163,7 +174,7 @@ export default function Sites() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transfer-sites'] });
       setExistingSite(null);
-      setNewSite({ name: "", url: "" });
+      reset();
       setShowCreateDialog(false);
       toast({
         title: "Overdrachtverzoek verzonden",
@@ -228,7 +239,7 @@ export default function Sites() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sites'] });
       setShowCreateDialog(false);
-      setNewSite({ name: "", url: "" });
+      reset();
       setExistingSite(null);
       toast({
         title: "Site toegevoegd",
@@ -272,10 +283,8 @@ export default function Sites() {
     },
   });
 
-  const handleCreateSite = () => {
-    if (newSite.name && newSite.url) {
-      createSiteMutation.mutate(newSite);
-    }
+  const onSubmitSite = (formData) => {
+    createSiteMutation.mutate(formData);
   };
 
   const handleRequestTransfer = () => {
@@ -853,7 +862,7 @@ export default function Sites() {
           setShowCreateDialog(open);
           if (!open) {
             setExistingSite(null);
-            setNewSite({ name: "", url: "" });
+            reset();
             createSiteMutation.reset();
           }
         }}>
@@ -899,7 +908,7 @@ export default function Sites() {
                     onClick={() => {
                       setShowCreateDialog(false);
                       setExistingSite(null);
-                      setNewSite({ name: "", url: "" });
+                      reset();
                       createSiteMutation.reset();
                     }}
                   >
@@ -925,43 +934,48 @@ export default function Sites() {
                 </DialogFooter>
               </div>
             ) : (
-              <div className="space-y-4 mt-4">
+              <form onSubmit={handleSubmit(onSubmitSite)} className="space-y-4 mt-4">
                 <div>
                   <Label htmlFor="site-name">Site Naam *</Label>
                   <Input
                     id="site-name"
                     placeholder="Mijn WordPress Site"
-                    value={newSite.name}
-                    onChange={(e) => setNewSite({ ...newSite, name: e.target.value })}
+                    {...register("name")}
                     className="mt-2"
                   />
+                  {errors.name && (
+                    <p className="text-sm text-red-500 mt-1">{errors.name.message}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="site-url">Site URL *</Label>
                   <Input
                     id="site-url"
                     placeholder="https://example.com"
-                    value={newSite.url}
-                    onChange={(e) => setNewSite({ ...newSite, url: e.target.value })}
+                    {...register("url")}
                     className="mt-2"
                   />
+                  {errors.url && (
+                    <p className="text-sm text-red-500 mt-1">{errors.url.message}</p>
+                  )}
                 </div>
                 <DialogFooter className="mt-4">
                   <Button
-                    onClick={handleCreateSite}
-                    disabled={createSiteMutation.isPending || !newSite.name || !newSite.url}
+                    type="submit"
+                    disabled={createSiteMutation.isPending}
                     className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
                   >
                     {createSiteMutation.isPending ? "Toevoegen..." : "Site Toevoegen"}
                   </Button>
-                  <Button variant="outline" onClick={() => {
+                  <Button type="button" variant="outline" onClick={() => {
                     setShowCreateDialog(false);
+                    reset();
                     createSiteMutation.reset();
                   }}>
                     Annuleren
                   </Button>
                 </DialogFooter>
-              </div>
+              </form>
             )}
           </DialogContent>
         </Dialog>

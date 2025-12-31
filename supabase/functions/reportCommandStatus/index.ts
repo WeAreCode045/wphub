@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_helpers.ts';
+import { ReportCommandStatusRequestSchema, z } from '../_shared/types.ts';
 
 
 
@@ -15,7 +16,24 @@ Deno.serve(async (req) => {
   );
 
     try {
-        const { api_key, installation_id, status, error_message, version } = await req.json();
+        // Parse and validate request body with Zod
+        let body;
+        try {
+            const bodyText = await req.text();
+            const parsed = JSON.parse(bodyText);
+            body = ReportCommandStatusRequestSchema.parse(parsed);
+        } catch (parseError) {
+            console.error('[reportCommandStatus] Validation error:', parseError);
+            const error = parseError instanceof z.ZodError
+                ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+                : `Invalid request: ${parseError.message}`;
+            return new Response(
+                JSON.stringify({ error }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
+        const { api_key, installation_id, status, error_message, version } = body;
 
         console.log(`[reportCommandStatus] Received: installation_id=${installation_id}, status=${status}, version=${version}`);
         console.log(`[reportCommandStatus] Error message:`, error_message);

@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
+import { Verify2FACodeRequestSchema, z } from '../_shared/schemas.ts';
 
 
 Deno.serve(async (req) => {
@@ -26,18 +27,23 @@ Deno.serve(async (req) => {
       );
         }
 
-        const body = await req.json();
-        const { code } = body;
-
-        if (!code) {
-            return new Response(
-        JSON.stringify({ 
-                success: false,
-                error: 'Code is required' 
-            }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        // Parse and validate request body
+        let body;
+        try {
+          const rawBody = await req.json();
+          body = Verify2FACodeRequestSchema.parse(rawBody);
+        } catch (parseError) {
+          console.error('[verify2FACode] Validation error:', parseError);
+          const error = parseError instanceof z.ZodError
+            ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+            : `Invalid request: ${parseError.message}`;
+          return new Response(
+            JSON.stringify({ success: false, error }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
+
+        const { code } = body;
 
         if (!user.two_fa_enabled) {
             return new Response(

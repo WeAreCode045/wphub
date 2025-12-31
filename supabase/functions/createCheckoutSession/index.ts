@@ -2,6 +2,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import Stripe from 'npm:stripe@14.11.0';
 import { corsHeaders } from '../_helpers.ts';
+import { CreateCheckoutSessionRequestSchema, z } from '../_shared/types.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
   apiVersion: '2023-10-16',
@@ -28,16 +29,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { plan_id, billing_cycle, discount_code, success_url, cancel_url } = await req.json();
-
-    if (!plan_id || !billing_cycle) {
+    // Parse and validate request body with Zod
+    let body;
+    try {
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = CreateCheckoutSessionRequestSchema.parse(parsed);
+    } catch (parseError) {
+      console.error('[createCheckoutSession] Validation error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
       return new Response(
-        JSON.stringify({
-        error: 'plan_id and billing_cycle are required'
-      }),
+        JSON.stringify({ error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { plan_id, billing_cycle, discount_code, success_url, cancel_url } = body;
 
     // Get the subscription plan
     const { data: plan, error: planError } = await supabase

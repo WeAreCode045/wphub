@@ -1,6 +1,7 @@
 import Stripe from 'npm:stripe';
 import { authMeWithToken, extractBearerFromReq, jsonResponse } from '../_helpers.ts';
 import { corsHeaders } from '../_helpers.ts';
+import { ChangeSubscriptionRequestSchema, z } from '../_shared/schemas.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '');
 
@@ -20,9 +21,19 @@ Deno.serve(async (req: Request) => {
       const { data: { user } } = await supabase.auth.getUser()
     if (!user) return jsonResponse({ error: 'Unauthorized' }, 401);
 
-    const body = await req.json().catch(() => ({}));
+    // Parse and validate request body
+    let body;
+    try {
+      const rawBody = await req.json();
+      body = ChangeSubscriptionRequestSchema.parse(rawBody);
+    } catch (parseError) {
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
+      return jsonResponse({ error }, 400);
+    }
+
     const { new_plan_id, action } = body;
-    if (!new_plan_id || !action) return jsonResponse({ error: 'Missing required parameters: new_plan_id and action' }, 400);
 
     const supa = Deno.env.get('SUPABASE_URL')?.replace(/\/$/, '') || '';
     const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');

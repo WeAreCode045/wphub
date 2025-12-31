@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { UserAuthSchema } from "@wphub/types";
 import { getSupabase } from '@/api/getSupabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,24 +15,30 @@ import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState("login"); // 'login' or 'signup'
 
   const from = location.state?.from?.pathname || "/dashboard";
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  // Use react-hook-form with Zod validation
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(UserAuthSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const onLoginSubmit = async (formData) => {
     setLoading(true);
     setError("");
 
     try {
       const { supabase } = await getSupabase();
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: formData.email,
+        password: formData.password,
       });
 
       if (authError) throw authError;
@@ -44,17 +53,16 @@ export default function Login() {
     }
   };
 
-  const handleSignup = async (e) => {
-    e.preventDefault();
+  const onSignupSubmit = async (formData) => {
     setLoading(true);
     setError("");
 
     try {
       const { signUpWithProfile } = await import('@/api/auth');
       const result = await signUpWithProfile({
-        email,
-        password,
-        profile: { full_name: email.split('@')[0], role: 'user' }
+        email: formData.email,
+        password: formData.password,
+        profile: { full_name: formData.email.split('@')[0], role: 'user' }
       });
 
       if (result.error) throw result.error;
@@ -135,7 +143,7 @@ export default function Login() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={mode === "login" ? handleLogin : handleSignup} className="space-y-4">
+          <form onSubmit={handleSubmit(mode === "login" ? onLoginSubmit : onSignupSubmit)} className="space-y-4">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -151,13 +159,14 @@ export default function Login() {
                   id="email"
                   type="email"
                   placeholder="naam@voorbeeld.nl"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  {...register("email")}
                   className="pl-10"
-                  required
                   disabled={loading}
                 />
               </div>
+              {errors.email && (
+                <p className="text-sm text-red-500">{errors.email.message}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -168,14 +177,14 @@ export default function Login() {
                   id="password"
                   type="password"
                   placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  {...register("password")}
                   className="pl-10"
-                  required
                   disabled={loading}
-                  minLength={6}
                 />
               </div>
+              {errors.password && (
+                <p className="text-sm text-red-500">{errors.password.message}</p>
+              )}
             </div>
 
             <Button 
