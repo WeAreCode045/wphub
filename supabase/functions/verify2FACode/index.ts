@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
     try {
         const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,42 +17,57 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Unauthorized' 
-            }, { status: 401 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const body = await req.json();
         const { code } = body;
 
         if (!code) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Code is required' 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         if (!user.two_fa_enabled) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: '2FA is not enabled' 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         if (!user.two_fa_code) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'No 2FA code found. Please request a new code.' 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const expiresAt = new Date(user.two_fa_code_expires_at);
         if (expiresAt < new Date()) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Code has expired. Please request a new code.' 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         if (user.two_fa_code !== code) {
@@ -58,10 +78,13 @@ Deno.serve(async (req) => {
                 entity_id: user.id
             });
 
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Invalid code' 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const sessionId = crypto.randomUUID();
@@ -79,17 +102,23 @@ Deno.serve(async (req) => {
             entity_id: user.id
         });
 
-        return Response.json({
+        return new Response(
+        JSON.stringify({
             success: true,
             message: '2FA verification successful',
             session_id: sessionId
-        });
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[verify2FACode] Error:', error.message);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             success: false,
             error: error.message 
-        }, { status: 500 });
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

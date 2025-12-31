@@ -1,37 +1,57 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 import Stripe from 'npm:stripe@14.11.0';
+import { corsHeaders } from '../_helpers.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2023-10-16' });
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const token = extractBearerFromReq(req);
     const admin = await authMeWithToken(token);
 
     if (!admin || admin.role !== 'admin') {
-      return Response.json({ error: 'Unauthorized - Admin only' }, { status: 403 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - Admin only' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { user_id } = await req.json();
 
     if (!user_id) {
-      return Response.json({ error: 'Missing user_id' }, { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'Missing user_id' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { data: subscriptions, error: subscriptionsError } = await supabase.from('usersubscriptions').select().eq('user_id', user_id);
 
             if (subscriptionsError || !subscriptions) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (subscriptions.length === 0) {
-      return Response.json({ error: 'No subscription found for user' }, { status: 404 });
+      return new Response(
+        JSON.stringify({ error: 'No subscription found for user' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const subscription = subscriptions[0];
 
     if (!subscription.stripe_customer_id) {
-      return Response.json({ error: 'No Stripe customer ID found' }, { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'No Stripe customer ID found' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { data: user, error: userError } = await supabase.from('users').select().eq('id', user_id).single();
@@ -92,10 +112,16 @@ Deno.serve(async (req) => {
       details: `User: ${user.email}, Imported: ${imported}, Skipped: ${skipped}`
     });
 
-    return Response.json({ success: true, imported, skipped, total: stripeInvoices.data.length, message: `${imported} facturen geïmporteerd, ${skipped} overgeslagen` });
+    return new Response(
+        JSON.stringify({ success: true, imported, skipped, total: stripeInvoices.data.length, message: `${imported} facturen geïmporteerd, ${skipped} overgeslagen` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
   } catch (error) {
     console.error('Import invoices error:', error);
-    return Response.json({ error: error.message || 'Failed to import invoices' }, { status: 500 });
+    return new Response(
+        JSON.stringify({ error: error.message || 'Failed to import invoices' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
   }
 });

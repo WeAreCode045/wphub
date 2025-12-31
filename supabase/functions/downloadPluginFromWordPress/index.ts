@@ -1,4 +1,5 @@
 import { authMeWithToken, extractBearerFromReq, uploadToStorage, jsonResponse } from '../_helpers.ts';
+import { corsHeaders } from '../_helpers.ts';
 
 Deno.serve(async (req: Request) => {
   try {

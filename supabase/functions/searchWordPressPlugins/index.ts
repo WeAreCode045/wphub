@@ -1,6 +1,11 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
     try {
         const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -11,7 +16,10 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+            return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Support both POST (JSON body) and GET (query params) to avoid 405 on production invoke
@@ -32,7 +40,10 @@ Deno.serve(async (req) => {
         }
 
         if (!search) {
-            return Response.json({ error: 'Search query is required' }, { status: 400 });
+            return new Response(
+        JSON.stringify({ error: 'Search query is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         console.log('[searchWordPressPlugins] === START ===');

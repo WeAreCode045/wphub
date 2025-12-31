@@ -1,5 +1,6 @@
 import Stripe from 'npm:stripe';
 import { authMeWithToken, extractBearerFromReq, jsonResponse } from '../_helpers.ts';
+import { corsHeaders } from '../_helpers.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '');
 

@@ -1,5 +1,6 @@
 import JSZip from 'npm:jszip@3.10.1';
 import { authMeWithToken, extractBearerFromReq, uploadToStorage, jsonResponse } from '../_helpers.ts';
+import { corsHeaders } from '../_helpers.ts';
 
 function generateConnectorPluginCode(apiKey: string, hubUrl: string, version: string) {
   return `<?php

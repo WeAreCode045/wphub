@@ -1,7 +1,12 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
     console.log('[parsePluginZip] === REQUEST RECEIVED ===');
     
     try {
@@ -15,10 +20,13 @@ Deno.serve(async (req) => {
 
         if (!user) {
             console.error('[parsePluginZip] No user authenticated');
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Unauthorized' 
-            }, { status: 401 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         console.log('[parsePluginZip] User:', user.email);
@@ -30,20 +38,26 @@ Deno.serve(async (req) => {
             body = JSON.parse(bodyText);
         } catch (parseError) {
             console.error('[parsePluginZip] Failed to parse JSON body:', parseError.message);
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Invalid JSON in request body: ' + parseError.message 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const { file_url } = body;
 
         if (!file_url) {
             console.error('[parsePluginZip] No file_url in body');
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'File URL is required' 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         console.log('[parsePluginZip] File URL:', file_url);
@@ -54,10 +68,13 @@ Deno.serve(async (req) => {
         
         if (!response.ok) {
             console.error('[parsePluginZip] Download failed:', response.status);
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: `Failed to download file: ${response.status}` 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const arrayBuffer = await response.arrayBuffer();
@@ -98,13 +115,19 @@ Deno.serve(async (req) => {
         console.log('[parsePluginZip] First 10 decoded files:', decodedEntries.slice(0, 10));
 
                 if (decodedEntriesError || !decodedEntries) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (decodedEntries.length === 0) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'ZIP file is empty' 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Find PHP files only in root or 1 level deep
@@ -120,13 +143,19 @@ Deno.serve(async (req) => {
         console.log('[parsePluginZip] PHP files:', phpFiles);
 
                 if (phpFilesError || !phpFiles) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (phpFiles.length === 0) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'No PHP files found in root or first-level directory of ZIP' 
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Search through PHP files for the one with "Plugin Name:" header
@@ -186,10 +215,13 @@ Deno.serve(async (req) => {
         if (!pluginFile || !pluginContent) {
             console.error('[parsePluginZip] ❌ No plugin file with "Plugin Name:" header found');
             console.error('[parsePluginZip] Checked', phpFiles.length, 'PHP files:', phpFiles);
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Could not find WordPress plugin file with "Plugin Name:" header in root or first-level directory. Make sure your ZIP contains a valid WordPress plugin.'
-            }, { status: 400 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Extract slug from the path
@@ -229,18 +261,24 @@ Deno.serve(async (req) => {
         console.log('[parsePluginZip] === SUCCESS ===');
         console.log('[parsePluginZip] Final header:', header);
 
-        return Response.json({
+        return new Response(
+        JSON.stringify({
             success: true,
             plugin: header
-        });
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[parsePluginZip] ❌ UNEXPECTED ERROR:', error.message);
         console.error('[parsePluginZip] Stack:', error.stack);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             success: false,
             error: 'Unexpected error: ' + error.message,
             stack: error.stack
-        }, { status: 500 });
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

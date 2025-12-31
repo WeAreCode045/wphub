@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,7 +17,10 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { 
@@ -28,9 +36,12 @@ Deno.serve(async (req) => {
     } = await req.json();
 
     if (!subject || !message) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Subject and message are required' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const isAdmin = user.role === 'admin';
@@ -92,17 +103,26 @@ Deno.serve(async (req) => {
       if (is_team_inbox && to_team_id) {
         const { data: teams, error: teamsError } = await supabase.from('teams').select().eq('id', to_team_id);
                 if (teamsError || !teams) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (teams.length === 0) {
-          return Response.json({ error: 'Team not found' }, { status: 404 });
+          return new Response(
+        JSON.stringify({ error: 'Team not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         const isMember = teams[0].owner_id === user.id || 
           teams[0].members?.some(m => m.user_id === user.id && m.status === 'active');
         
         if (!isMember) {
-          return Response.json({ error: 'You are not a member of this team' }, { status: 403 });
+          return new Response(
+        JSON.stringify({ error: 'You are not a member of this team' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         recipient_type = 'team';
@@ -111,19 +131,31 @@ Deno.serve(async (req) => {
       } else if (is_project_inbox && project_id) {
         const { data: projects, error: projectsError } = await supabase.from('projects').select().eq('id', project_id);
                 if (projectsError || !projects) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (projects.length === 0) {
-          return Response.json({ error: 'Project not found' }, { status: 404 });
+          return new Response(
+        JSON.stringify({ error: 'Project not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         const project = projects[0];
         const { data: teams, error: teamsError } = await supabase.from('teams').select().eq('id', project.team_id);
                 if (teamsError || !teams) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (teams.length === 0) {
-          return Response.json({ error: 'Project team not found' }, { status: 404 });
+          return new Response(
+        JSON.stringify({ error: 'Project team not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         const team = teams[0];
@@ -131,7 +163,10 @@ Deno.serve(async (req) => {
           team.members?.some(m => m.user_id === user.id && m.status === 'active');
         
         if (!isMember) {
-          return Response.json({ error: 'You are not a member of this project team' }, { status: 403 });
+          return new Response(
+        JSON.stringify({ error: 'You are not a member of this project team' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         recipient_type = 'team';
@@ -141,10 +176,16 @@ Deno.serve(async (req) => {
         // Sending to specific team member
         const { data: teams, error: teamsError } = await supabase.from('teams').select().eq('id', to_team_id);
                 if (teamsError || !teams) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (teams.length === 0) {
-          return Response.json({ error: 'Team not found' }, { status: 404 });
+          return new Response(
+        JSON.stringify({ error: 'Team not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         const team = teams[0];
@@ -152,14 +193,20 @@ Deno.serve(async (req) => {
           team.members?.some(m => m.user_id === user.id && m.status === 'active');
         
         if (!isSenderMember) {
-          return Response.json({ error: 'You are not a member of this team' }, { status: 403 });
+          return new Response(
+        JSON.stringify({ error: 'You are not a member of this team' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         const isRecipientMember = team.owner_id === to_team_member_id || 
           team.members?.some(m => m.user_id === to_team_member_id && m.status === 'active');
         
         if (!isRecipientMember) {
-          return Response.json({ error: 'Recipient is not a member of this team' }, { status: 403 });
+          return new Response(
+        JSON.stringify({ error: 'Recipient is not a member of this team' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         const { data: targetUser, error: targetUserError } = await supabase.from('users').select().eq('id', to_team_member_id).single();
@@ -170,10 +217,16 @@ Deno.serve(async (req) => {
         // Sending to team owner
         const { data: teams, error: teamsError } = await supabase.from('teams').select().eq('id', to_team_id);
                 if (teamsError || !teams) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (teams.length === 0) {
-          return Response.json({ error: 'Team not found' }, { status: 404 });
+          return new Response(
+        JSON.stringify({ error: 'Team not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         const team = teams[0];
@@ -181,11 +234,17 @@ Deno.serve(async (req) => {
           team.members?.some(m => m.user_id === user.id && m.status === 'active');
         
         if (!isMember) {
-          return Response.json({ error: 'You are not a member of this team' }, { status: 403 });
+          return new Response(
+        JSON.stringify({ error: 'You are not a member of this team' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         if (team.owner_id !== to_user_id) {
-          return Response.json({ error: 'Invalid recipient' }, { status: 403 });
+          return new Response(
+        JSON.stringify({ error: 'Invalid recipient' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         
         const { data: targetUser, error: targetUserError } = await supabase.from('users').select().eq('id', to_user_id).single();
@@ -193,14 +252,20 @@ Deno.serve(async (req) => {
         recipient_id = to_user_id;
         recipient_email = targetUser.email;
       } else {
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
           error: 'Invalid recipient configuration for regular user' 
-        }, { status: 403 });
+        }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
       }
     } else {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Invalid message configuration' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Create the message
@@ -233,16 +298,22 @@ Deno.serve(async (req) => {
       details: `Naar ${recipient_type}: ${recipient_email || recipient_id}`
     });
 
-    return Response.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Bericht succesvol verzonden',
       message_id: createdMessage.id
-    });
+    }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
   } catch (error) {
     console.error('Send message error:', error);
-    return Response.json({ 
+    return new Response(
+        JSON.stringify({ 
       error: (error as any).message || 'Failed to send message' 
-    }, { status: 500 });
+    }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
   }
 });

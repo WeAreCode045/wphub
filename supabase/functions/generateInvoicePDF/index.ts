@@ -1,8 +1,13 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 import { jsPDF } from 'npm:jspdf@2.5.1';
+import { corsHeaders } from '../_helpers.ts';
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -13,25 +18,37 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { invoice_id } = await req.json();
 
     if (!invoice_id) {
-      return Response.json({ error: 'Missing invoice_id' }, { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'Missing invoice_id' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get invoice
     const { data: invoice, error: invoiceError } = await supabase.from('invoices').select().eq('id', invoice_id).single();
 
     if (!invoice) {
-      return Response.json({ error: 'Invoice not found' }, { status: 404 });
+      return new Response(
+        JSON.stringify({ error: 'Invoice not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Check if user owns this invoice (or is admin)
     if (invoice.user_id !== user.id && user.role !== 'admin') {
-      return Response.json({ error: 'Unauthorized' }, { status: 403 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Load invoice settings
@@ -241,8 +258,11 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Generate invoice PDF error:', error);
-    return Response.json({ 
+    return new Response(
+        JSON.stringify({ 
       error: error.message || 'Failed to generate PDF' 
-    }, { status: 500 });
+    }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
   }
 });

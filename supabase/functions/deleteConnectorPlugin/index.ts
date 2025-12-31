@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
     try {
         const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,18 +17,27 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
-            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+            return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Check if user is admin
         if (user.role !== 'admin') {
-            return Response.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+            return new Response(
+        JSON.stringify({ error: 'Forbidden - Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const { connector_id } = await req.json();
 
         if (!connector_id) {
-            return Response.json({ error: 'Connector ID is required' }, { status: 400 });
+            return new Response(
+        JSON.stringify({ error: 'Connector ID is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         console.log('[deleteConnectorPlugin] Deleting connector:', connector_id);
@@ -32,10 +46,16 @@ Deno.serve(async (req) => {
         const { data: connectors, error: connectorsError } = await supabase.from('connectors').select().eq('id', connector_id);
         
                 if (connectorsError || !connectors) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (connectors.length === 0) {
-            return Response.json({ error: 'Connector not found' }, { status: 404 });
+            return new Response(
+        JSON.stringify({ error: 'Connector not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const connector = connectors[0];
@@ -53,15 +73,21 @@ Deno.serve(async (req) => {
             details: connector.file_url
         });
 
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             success: true,
             message: `Connector Plugin v${connector.version} succesvol verwijderd`
-        });
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[deleteConnectorPlugin] ❌ ERROR:', error.message);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             error: error.message 
-        }, { status: 500 });
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

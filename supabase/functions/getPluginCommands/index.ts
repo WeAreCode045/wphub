@@ -1,5 +1,17 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_helpers.ts';
+
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders }
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+);
+  }
     try {
         const { api_key } = await req.json();
 
@@ -7,7 +19,10 @@ Deno.serve(async (req) => {
         console.log('[getPluginCommands] Received API key:', api_key ? 'YES' : 'NO');
 
         if (!api_key) {
-            return Response.json({ error: 'API key is required' }, { status: 401 });
+            return new Response(
+        JSON.stringify({ error: 'API key is required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Find site by API key
@@ -16,10 +31,16 @@ Deno.serve(async (req) => {
         console.log('[getPluginCommands] Sites found:', sites.length);
         
                 if (sitesError || !sites) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (sites.length === 0) {
-            return Response.json({ error: 'Invalid API key' }, { status: 401 });
+            return new Response(
+        JSON.stringify({ error: 'Invalid API key' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const site = sites[0];
@@ -32,7 +53,10 @@ Deno.serve(async (req) => {
             .eq('site_id', site.id);
 
         if (installationsError || !allInstallations) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         console.log('[getPluginCommands] Found', allInstallations.length, 'total installations');
@@ -114,7 +138,8 @@ Deno.serve(async (req) => {
         console.log('[getPluginCommands] Total commands:', commands.length);
         console.log('[getPluginCommands] === END ===');
 
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             success: true,
             commands: commands,
             debug: {
@@ -123,14 +148,19 @@ Deno.serve(async (req) => {
                 total_installations: allInstallations.length,
                 total_commands: commands.length
             }
-        });
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[getPluginCommands] ❌ ERROR:', error.message);
         console.error('[getPluginCommands] Stack:', error.stack);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             error: error.message,
             stack: error.stack
-        }, { status: 500 });
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

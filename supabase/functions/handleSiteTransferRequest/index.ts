@@ -1,7 +1,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { corsHeaders } from '../_helpers.ts';
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -12,7 +17,10 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { 
@@ -23,37 +31,52 @@ Deno.serve(async (req) => {
     } = await req.json();
 
     if (!message_id || !action) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Message ID en actie zijn verplicht' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (!['accept', 'reject'].includes(action)) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Ongeldige actie. Gebruik "accept" of "reject"' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get the transfer request message
     const { data: message, error: messageError } = await supabase.from('messages').select().eq('id', message_id).single();
 
     if (!message || message.category !== 'site_transfer_request') {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Overdrachtverzoek niet gevonden' 
-      }, { status: 404 });
+      }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (message.status !== 'open') {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Dit overdrachtverzoek is al afgehandeld' 
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Verify user is the recipient (site owner)
     if (message.recipient_id !== user.id) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Je bent niet gemachtigd om dit verzoek af te handelen' 
-      }, { status: 403 });
+      }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { site_id, requesting_user_id, requesting_user_name, requesting_user_email } = message.context;
@@ -63,9 +86,12 @@ Deno.serve(async (req) => {
     const { data: requestingUser, error: requestingUserError } = await supabase.from('users').select().eq('id', requesting_user_id).single();
 
     if (!site || !requestingUser) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Site of aanvragende gebruiker niet gevonden' 
-      }, { status: 404 });
+      }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (action === 'reject') {
@@ -99,10 +125,13 @@ Deno.serve(async (req) => {
         details: `Verzoek van ${requesting_user_name} afgewezen`
       });
 
-      return Response.json({
+      return new Response(
+        JSON.stringify({
         success: true,
         message: 'Overdrachtverzoek afgewezen'
-      });
+      }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Accept the transfer
@@ -138,10 +167,13 @@ Deno.serve(async (req) => {
 
     // If there are validation errors, return them
     if (errors.length > 0) {
-      return Response.json({ 
+      return new Response(
+        JSON.stringify({ 
         error: 'Validatiefouten gevonden',
         errors 
-      }, { status: 400 });
+      }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Determine which plugins to disconnect (not transfer)
@@ -250,17 +282,23 @@ Deno.serve(async (req) => {
       details: `Site overgedragen aan ${requesting_user_name}. ${pluginsToTransfer.length} plugin(s) mee overgedragen, ${pluginsToDisconnect.length} plugin(s) ontkoppeld`
     });
 
-    return Response.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       message: 'Site succesvol overgedragen',
       transferred_plugins: pluginsToTransfer.length,
       disconnected_plugins: pluginsToDisconnect.length
-    });
+    }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
   } catch (error) {
     console.error('Handle site transfer request error:', error);
-    return Response.json({ 
+    return new Response(
+        JSON.stringify({ 
       error: error.message || 'Failed to handle site transfer request' 
-    }, { status: 500 });
+    }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
   }
 });

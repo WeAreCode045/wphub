@@ -1,6 +1,18 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_helpers.ts';
+
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders }
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+);
+  }
     try {
         const { site_id, installation_id, action, file_url, plugin_slug } = await req.json();
 
@@ -12,17 +24,26 @@ Deno.serve(async (req) => {
         console.log('[executePluginAction] File URL:', file_url);
 
         if (!site_id || !installation_id || !action) {
-            return Response.json({ error: 'Missing required parameters' }, { status: 400 });
+            return new Response(
+        JSON.stringify({ error: 'Missing required parameters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Get site details
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
         
                 if (sitesError || !sites) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (sites.length === 0) {
-            return Response.json({ error: 'Site not found' }, { status: 404 });
+            return new Response(
+        JSON.stringify({ error: 'Site not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const site = sites[0];
@@ -57,7 +78,10 @@ Deno.serve(async (req) => {
                 }
                 break;
             default:
-                return Response.json({ error: 'Invalid action' }, { status: 400 });
+                return new Response(
+        JSON.stringify({ error: 'Invalid action' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Update installation status in database
@@ -101,20 +125,26 @@ Deno.serve(async (req) => {
 
         console.log('[executePluginAction] === END ===');
 
-        return Response.json({
+        return new Response(
+        JSON.stringify({
             success: result.success,
             message: result.message,
             error: result.error,
             version: result.version
-        });
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[executePluginAction] ❌ ERROR:', error.message);
         console.error('[executePluginAction] Stack:', error.stack);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             success: false,
             error: error.message 
-        }, { status: 500 });
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });
 

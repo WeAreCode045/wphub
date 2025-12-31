@@ -1,6 +1,18 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_helpers.ts';
+
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders }
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+);
+  }
     try {
         const { site_id, api_key } = await req.json();
 
@@ -10,7 +22,10 @@ Deno.serve(async (req) => {
         });
 
         if (!site_id && !api_key) {
-            return Response.json({ error: 'Site ID or API key is required' }, { status: 400 });
+            return new Response(
+        JSON.stringify({ error: 'Site ID or API key is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         let site;
@@ -25,10 +40,13 @@ Deno.serve(async (req) => {
         }
         
         if (!site) {
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: site_id ? 'Site not found' : 'Invalid API key' 
-            }, { status: 404 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         console.log('[testSiteConnection] Site found:', site.name, '(ID:', site.id, ')');
@@ -62,7 +80,8 @@ Deno.serve(async (req) => {
                     wp_version: responseData.wp_version || site.wp_version
                 });
 
-                return Response.json({ 
+                return new Response(
+        JSON.stringify({ 
                     success: true,
                     message: 'Verbinding succesvol!',
                     site_id: site.id,
@@ -70,7 +89,9 @@ Deno.serve(async (req) => {
                     site_url: site.url,
                     wp_version: responseData.wp_version,
                     plugins_count: responseData.plugins_count || 0
-                });
+                }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
             } else {
                 const errorText = await wpResponse.text();
                 console.error('[testSiteConnection] Error response:', errorText);
@@ -93,13 +114,16 @@ Deno.serve(async (req) => {
                     errorMessage = errorText || errorMessage;
                 }
 
-                return Response.json({ 
+                return new Response(
+        JSON.stringify({ 
                     success: false,
                     error: errorMessage,
                     site_id: site.id,
                     status: wpResponse.status,
                     details: errorText
-                }, { status: wpResponse.status });
+                }, { status: wpResponse.status }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
             }
         } catch (fetchError) {
             console.error('[testSiteConnection] Fetch error:', fetchError);
@@ -109,18 +133,24 @@ Deno.serve(async (req) => {
                 status: 'error'
             });
 
-            return Response.json({ 
+            return new Response(
+        JSON.stringify({ 
                 success: false,
                 error: 'Kan geen verbinding maken met WordPress site. Controleer of de connector plugin is geïnstalleerd en geactiveerd.',
                 site_id: site.id,
                 details: fetchError.message
-            }, { status: 502 });
+            }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
     } catch (error) {
         console.error('[testSiteConnection] Error:', error);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             error: error.message 
-        }, { status: 500 });
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

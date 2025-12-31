@@ -1,6 +1,18 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { corsHeaders } from '../_helpers.ts';
+
 
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders }
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+);
+  }
     try {
         const { api_key, installation_id, status, error_message, version } = await req.json();
 
@@ -8,18 +20,27 @@ Deno.serve(async (req) => {
         console.log(`[reportCommandStatus] Error message:`, error_message);
 
         if (!api_key) {
-            return Response.json({ error: 'API key is required' }, { status: 401 });
+            return new Response(
+        JSON.stringify({ error: 'API key is required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Verify API key
         const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('api_key');
         
                 if (sitesError || !sites) {
-            return Response.json({ error: 'Database error' }, { status: 500 });
+            return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
         if (sites.length === 0) {
             console.log(`[reportCommandStatus] Invalid API key`);
-            return Response.json({ error: 'Invalid API key' }, { status: 401 });
+            return new Response(
+        JSON.stringify({ error: 'Invalid API key' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         const site = sites[0];
@@ -117,16 +138,22 @@ Deno.serve(async (req) => {
 
         console.log(`[reportCommandStatus] Successfully updated installation ${installation_id}`);
 
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             success: true,
             message: 'Status updated successfully'
-        });
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
     } catch (error) {
         console.error('[reportCommandStatus] Error:', error);
-        return Response.json({ 
+        return new Response(
+        JSON.stringify({ 
             error: error.message,
             stack: error.stack
-        }, { status: 500 });
+        }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 });

@@ -1,12 +1,17 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import Stripe from 'npm:stripe@14.11.0';
+import { corsHeaders } from '../_helpers.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
   apiVersion: '2023-10-16',
 });
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
@@ -17,15 +22,21 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { plan_id, billing_cycle, discount_code, success_url, cancel_url } = await req.json();
 
     if (!plan_id || !billing_cycle) {
-      return Response.json({
+      return new Response(
+        JSON.stringify({
         error: 'plan_id and billing_cycle are required'
-      }, { status: 400 });
+      }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get the subscription plan
@@ -36,11 +47,17 @@ Deno.serve(async (req) => {
       .single();
     
     if (planError || !plan) {
-      return Response.json({ error: 'Plan not found' }, { status: 404 });
+      return new Response(
+        JSON.stringify({ error: 'Plan not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     if (!plan.is_active) {
-      return Response.json({ error: 'This plan is not available' }, { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'This plan is not available' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Select the right price based on billing cycle
@@ -115,23 +132,32 @@ Deno.serve(async (req) => {
         
         // Check if code is expired
         if (discount.expires_at && new Date(discount.expires_at) < new Date()) {
-          return Response.json({
+          return new Response(
+        JSON.stringify({
             error: 'Discount code has expired'
-          }, { status: 400 });
+          }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Check max redemptions
         if (discount.max_redemptions && discount.times_redeemed >= discount.max_redemptions) {
-          return Response.json({
+          return new Response(
+        JSON.stringify({
             error: 'Discount code has reached maximum redemptions'
-          }, { status: 400 });
+          }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         // Check if applies to this plan
         if (discount.applies_to_plans.length > 0 && !discount.applies_to_plans.includes(plan_id)) {
-          return Response.json({
+          return new Response(
+        JSON.stringify({
             error: 'Discount code not valid for this plan'
-          }, { status: 400 });
+          }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
         }
 
         if (discount.stripe_coupon_id) {
@@ -152,17 +178,23 @@ Deno.serve(async (req) => {
       details: `Session ID: ${session.id}, Billing: ${billing_cycle}`
     });
 
-    return Response.json({
+    return new Response(
+        JSON.stringify({
       success: true,
       session_id: session.id,
       url: session.url
-    });
+    }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
 
   } catch (error) {
     console.error('Error creating checkout session:', error);
-    return Response.json({
+    return new Response(
+        JSON.stringify({
       success: false,
       error: error.message
-    }, { status: 500 });
+    }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
   }
 });
