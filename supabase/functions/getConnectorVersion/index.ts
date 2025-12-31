@@ -8,25 +8,27 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-  );
+  // This function doesn't require user auth, it's called from connectors with api_key
+  // But we still need to handle the request properly
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
 
-    try {
-        const { site_id } = await req.json();
+    const { site_id } = await req.json();
 
-        if (!site_id) {
-            return new Response(
+    if (!site_id) {
+      return new Response(
         JSON.stringify({ error: 'Missing site_id' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-        }
+    }
 
-        // Get site details
-        const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
-                if (sitesError || !sites) {
-            return new Response(
+    // Get site details
+    const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
+    if (sitesError || !sites) {
+      return new Response(
         JSON.stringify({ error: 'Database error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

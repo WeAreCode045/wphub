@@ -149,7 +149,7 @@ export default function SiteDetail() {
   const { data: connectorVersionInfo } = useQuery({
     queryKey: ['connector-version', siteId],
     queryFn: async () => {
-      const response = await supabase.functions.invoke('getConnectorVersion', { site_id: siteId });
+      const response = await supabase.functions.invoke('getConnectorVersion', { body: { site_id: siteId } });
       return response.data;
     },
     enabled: !!siteId,
