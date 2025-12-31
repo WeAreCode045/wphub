@@ -7,6 +7,8 @@ import { errorOverlayPlugin } from './vite-plugins/error-overlay-plugin.js'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   return {
+    // Load .env.production during build on Vercel
+    envPrefix: 'VITE_',
     plugins: [
       mode === 'development' && visualEditPlugin(),
       react(),

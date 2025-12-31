@@ -1,5 +1,5 @@
 {
-  "buildCommand": "VITE_SUPABASE_URL=$SUPABASE_URL VITE_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY pnpm build",
+  "buildCommand": "node scripts/setup-vite-env.js && pnpm build",
   "installCommand": "pnpm install --frozen-lockfile",
   "framework": "vite",
   "rewrites": [
