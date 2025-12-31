@@ -48,7 +48,13 @@ export function extractBearerFromReq(req: Request) {
 }
 
 export function jsonResponse(data: any, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
+  return new Response(JSON.stringify(data), { 
+    status, 
+    headers: { 
+      ...corsHeaders,
+      'Content-Type': 'application/json' 
+    } 
+  });
 }
 
 // CORS headers for edge functions

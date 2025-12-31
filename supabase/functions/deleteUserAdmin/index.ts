@@ -2,6 +2,11 @@ import { authMeWithToken, extractBearerFromReq, jsonResponse } from '../_helpers
 import { corsHeaders } from '../_helpers.ts';
 
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     const token = extractBearerFromReq(req);
     const caller = await authMeWithToken(token);

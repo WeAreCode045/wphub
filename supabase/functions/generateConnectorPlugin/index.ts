@@ -13,6 +13,11 @@ function generateConnectorPluginCode(apiKey: string, hubUrl: string, version: st
 }
 
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
