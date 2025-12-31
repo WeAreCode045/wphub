@@ -1,6 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { corsHeaders } from '../_helpers.ts';
-import { ListSitePluginsRequestSchema, z } from '../_shared/types.ts';
+import { ListSitePluginsRequestSchema, z } from '../_shared/schemas.ts';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',

@@ -136,7 +136,7 @@ export default function Plugins() {
       const fileUrl = uploadResult.file_url;
 
       const parseResponse = await supabase.functions.invoke('parsePluginZip', {
-        file_url: fileUrl
+        body: { file_url: fileUrl }
       });
       
       if (!parseResponse || !parseResponse.data) {

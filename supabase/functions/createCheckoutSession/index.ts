@@ -2,7 +2,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import Stripe from 'npm:stripe@14.11.0';
 import { corsHeaders } from '../_helpers.ts';
-import { CreateCheckoutSessionRequestSchema, z } from '../_shared/types.ts';
+import { CreateCheckoutSessionRequestSchema, z } from '../_shared/schemas.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'), {
   apiVersion: '2023-10-16',

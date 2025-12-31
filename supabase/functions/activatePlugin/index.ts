@@ -1,6 +1,6 @@
 import { authMeWithToken, extractBearerFromReq, jsonResponse } from '../_helpers.ts';
 import { corsHeaders } from '../_helpers.ts';
-import { ActivatePluginRequestSchema, z } from '../_shared/types.ts';
+import { ActivatePluginRequestSchema, z } from '../_shared/schemas.ts';
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests

@@ -1,6 +1,13 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
-import { ParsePluginZipRequestSchema, ParsePluginZipResponse, z } from '../_shared/types.ts';
+import { ParsePluginZipRequestSchema, z } from '../_shared/schemas.ts';
+
+// Type for the response (manually defined since we can't import from types with database dependencies)
+type ParsePluginZipResponse = {
+  success: boolean;
+  error?: string;
+  plugin?: any;
+};
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests

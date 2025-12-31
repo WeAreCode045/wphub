@@ -1,6 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders } from '../_helpers.ts';
-import { RequestSiteTransferRequestSchema, z } from '../_shared/types.ts';
+import { RequestSiteTransferRequestSchema, z } from '../_shared/schemas.ts';
 
 
 Deno.serve(async (req) => {

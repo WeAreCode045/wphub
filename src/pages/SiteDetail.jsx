@@ -127,7 +127,7 @@ export default function SiteDetail() {
   const { data: wpPlugins = [], isLoading: isLoadingWpPlugins, refetch: refetchWpPlugins } = useQuery({
     queryKey: ['wp-plugins', siteId],
     queryFn: async () => {
-      const response = await supabase.functions.invoke('listSitePlugins', { site_id: siteId });
+      const response = await supabase.functions.invoke('listSitePlugins', { body: { site_id: siteId } });
       return response.data.plugins || [];
     },
     enabled: !!siteId,
@@ -138,7 +138,7 @@ export default function SiteDetail() {
   const { data: wpThemes = [], isLoading: isLoadingWpThemes, refetch: refetchWpThemes } = useQuery({
     queryKey: ['wp-themes', siteId],
     queryFn: async () => {
-      const response = await supabase.functions.invoke('listSiteThemes', { site_id: siteId });
+      const response = await supabase.functions.invoke('listSiteThemes', { body: { site_id: siteId } });
       return response.data.themes || [];
     },
     enabled: !!siteId,

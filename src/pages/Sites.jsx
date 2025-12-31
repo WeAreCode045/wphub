@@ -167,7 +167,7 @@ export default function Sites() {
   const requestTransferMutation = useMutation({
     mutationFn: async (siteId) => {
       const response = await supabase.functions.invoke('requestSiteTransfer', {
-        site_id: siteId
+        body: { site_id: siteId }
       });
       return response.data;
     },

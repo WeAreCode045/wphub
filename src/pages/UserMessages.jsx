@@ -103,11 +103,13 @@ export default function UserMessages() {
       const isReplyToAdmin = originalMessage.from_admin_outbox;
       
         const response = await supabase.functions.invoke('sendMessage', {
-        subject: originalMessage.subject,
-        message: replyText,
-        to_user_id: isReplyToAdmin ? null : originalMessage.sender_id,
-        to_platform_admin: isReplyToAdmin,
-        reply_to_message_id: originalMessage.id,
+        body: {
+          subject: originalMessage.subject,
+          message: replyText,
+          to_user_id: isReplyToAdmin ? null : originalMessage.sender_id,
+          to_platform_admin: isReplyToAdmin,
+          reply_to_message_id: originalMessage.id,
+        }
         thread_id: originalMessage.thread_id || originalMessage.id,
         context: originalMessage.context || {}
       });

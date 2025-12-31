@@ -2,7 +2,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 import Stripe from 'npm:stripe@14.11.0';
 import { corsHeaders } from '../_helpers.ts';
-import { ImportStripeInvoicesRequestSchema, z } from '../_shared/types.ts';
+import { ImportStripeInvoicesRequestSchema, z } from '../_shared/schemas.ts';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', { apiVersion: '2023-10-16' });
 
@@ -23,7 +23,8 @@ Deno.serve(async (req) => {
     }
 
     // Parse and validate request body with Zod
-    let body;\n    try {
+    let body;
+    try {
       const bodyText = await req.text();
       const parsed = JSON.parse(bodyText);
       body = ImportStripeInvoicesRequestSchema.parse(parsed);

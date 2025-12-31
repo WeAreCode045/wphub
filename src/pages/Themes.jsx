@@ -133,12 +133,8 @@ export default function Themes() {
       const fileUrl = uploadResult.file_url;
 
         const parseResponse = await supabase.functions.invoke('parseThemeZip', {
-        file_url: fileUrl
-      });
-      
-      if (!parseResponse.data.success) {
-        throw new Error(parseResponse.data.error || 'Failed to parse theme');
-      }
+          body: { file_url: fileUrl }
+        });
 
       const theme_data = parseResponse.data.theme;
 
