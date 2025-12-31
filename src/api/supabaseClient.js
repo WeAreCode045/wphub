@@ -687,6 +687,334 @@ const entities = {
       const { error } = await supabase.from('site_settings').delete().eq('id', id);
       if (error) throw error;
     }
+  },
+
+  Connector: {
+    async list() {
+      const { data, error } = await supabase.from('connectors').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('connectors').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters) {
+      let query = supabase.from('connectors').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('connectors').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('connectors').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('connectors').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
+  TeamInvite: {
+    async list() {
+      const { data, error } = await supabase.from('team_invites').select('*');
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('team_invites').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters) {
+      let query = supabase.from('team_invites').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('team_invites').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('team_invites').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('team_invites').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
+  TeamRole: {
+    async list() {
+      const { data, error } = await supabase.from('team_roles').select('*');
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('team_roles').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters) {
+      let query = supabase.from('team_roles').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('team_roles').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('team_roles').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('team_roles').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
+  Role: {
+    async list(orderBy = '-created_date') {
+      const { data, error } = await supabase.from('roles').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('roles').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters) {
+      let query = supabase.from('roles').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('roles').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('roles').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('roles').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
+  SubscriptionPlan: {
+    async list() {
+      const { data, error } = await supabase.from('subscription_plans').select('*');
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('subscription_plans').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters) {
+      let query = supabase.from('subscription_plans').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('subscription_plans').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('subscription_plans').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('subscription_plans').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
+  UserSubscription: {
+    async list() {
+      const { data, error } = await supabase.from('user_subscriptions').select('*');
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('user_subscriptions').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters) {
+      let query = supabase.from('user_subscriptions').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('user_subscriptions').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('user_subscriptions').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('user_subscriptions').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
+  ProjectTemplate: {
+    async list(orderBy = '-updated_date') {
+      const { data, error } = await supabase.from('project_templates').select('*').order('updated_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('project_templates').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters, orderBy = '-updated_date') {
+      let query = supabase.from('project_templates').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query.order('updated_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('project_templates').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('project_templates').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('project_templates').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
+  PlanGroup: {
+    async list(orderBy = 'sort_order') {
+      const { data, error } = await supabase.from('plan_groups').select('*').order('sort_order', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('plan_groups').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters) {
+      let query = supabase.from('plan_groups').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('plan_groups').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('plan_groups').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('plan_groups').delete().eq('id', id);
+      if (error) throw error;
+    }
   }
 };
 
