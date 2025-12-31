@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,7 +93,7 @@ export default function Teams() {
         }]
       });
 
-      await functions.invoke('createDefaultTeamRoles', {
+      await supabase.functions.invoke('createDefaultTeamRoles', {
         team_id: newTeam.id
       });
 

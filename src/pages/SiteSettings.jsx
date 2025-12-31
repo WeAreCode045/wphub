@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,7 +126,7 @@ export default function SiteSettings() {
 
   const generateConnectorMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await functions.invoke('generateConnectorPlugin', data);
+      const response = await supabase.functions.invoke('generateConnectorPlugin', data);
       return response.data;
     },
     onSuccess: () => {
@@ -142,7 +143,7 @@ export default function SiteSettings() {
 
   const deleteConnectorMutation = useMutation({
     mutationFn: async (connector_id) => {
-      const response = await functions.invoke('deleteConnectorPlugin', { connector_id });
+      const response = await supabase.functions.invoke('deleteConnectorPlugin', { connector_id });
       return response.data;
     },
     onSuccess: () => {

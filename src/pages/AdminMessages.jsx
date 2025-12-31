@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -117,7 +118,7 @@ export default function AdminMessages() {
 
   const replyToMessageMutation = useMutation({
     mutationFn: async ({ originalMessage, replyText }) => {
-      const response = await functions.invoke('sendMessage', {
+      const response = await supabase.functions.invoke('sendMessage', {
         subject: originalMessage.subject,
         message: replyText,
         to_user_id: originalMessage.sender_id,

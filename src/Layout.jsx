@@ -1,8 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useState, useEffect, createContext, useContext } from "react";
-import { entities, User, functions } from "@/api/entities";
-import { supabase } from '@/api/supabaseClient';
+import { entities, User } from "@/api/entities";
+import { getSupabase } from '@/api/getSupabase';
+import { supabase } from '@/utils';
 import {
   LayoutDashboard,
   Globe,
@@ -417,12 +418,13 @@ export default function Layout({ children, currentPageName }) {
     sessionStorage.removeItem('admin_menu_active');
 
     if (user?.two_fa_enabled) {
-        functions.invoke('reset2FAStatus', {}).catch(err => {
+        supabase.functions.invoke('reset2FAStatus', {}).catch(err => {
           console.error('Error resetting 2FA status:', err);
         });
     }
 
     // Supabase logout
+    const { supabase } = await getSupabase();
     await supabase.auth.signOut();
     
     // Redirect naar login

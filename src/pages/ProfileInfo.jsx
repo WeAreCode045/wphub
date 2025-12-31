@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

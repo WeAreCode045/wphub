@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { entities, User, functions } from "@/api/entities";
+import { entities, User } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,7 +77,7 @@ export default function Pricing() {
 
     setIsCheckingOut(true);
     try {
-      const response = await functions.invoke('createCheckoutSession', {
+      const response = await supabase.functions.invoke('createCheckoutSession', {
         plan_id: plan.id,
         billing_cycle: billingCycle === "monthly" ? "month" : "year",
         discount_code: discountCode || null,

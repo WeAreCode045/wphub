@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -142,9 +143,8 @@ export default function Sites() {
     staleTime: 0,
     refetchOnMount: true,
     initialData: [],
-  });
-
-  const checkSiteExistsMutation = useMutation({
+    });
+    const checkSiteExistsMutation = useMutation({
     mutationFn: async (url) => {
       const normalizedUrl = url.replace(/\/$/, '');
       const allSites = await entities.Site.list();
@@ -155,7 +155,7 @@ export default function Sites() {
 
   const requestTransferMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await functions.invoke('requestSiteTransfer', {
+      const response = await supabase.functions.invoke('requestSiteTransfer', {
         site_id: siteId
       });
       return response.data;

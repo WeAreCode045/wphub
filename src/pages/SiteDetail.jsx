@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -126,7 +127,7 @@ export default function SiteDetail() {
   const { data: wpPlugins = [], isLoading: isLoadingWpPlugins, refetch: refetchWpPlugins } = useQuery({
     queryKey: ['wp-plugins', siteId],
     queryFn: async () => {
-      const response = await functions.invoke('listSitePlugins', { site_id: siteId });
+      const response = await supabase.functions.invoke('listSitePlugins', { site_id: siteId });
       return response.data.plugins || [];
     },
     enabled: !!siteId,
@@ -137,7 +138,7 @@ export default function SiteDetail() {
   const { data: wpThemes = [], isLoading: isLoadingWpThemes, refetch: refetchWpThemes } = useQuery({
     queryKey: ['wp-themes', siteId],
     queryFn: async () => {
-      const response = await functions.invoke('listSiteThemes', { site_id: siteId });
+      const response = await supabase.functions.invoke('listSiteThemes', { site_id: siteId });
       return response.data.themes || [];
     },
     enabled: !!siteId,
@@ -148,7 +149,7 @@ export default function SiteDetail() {
   const { data: connectorVersionInfo } = useQuery({
     queryKey: ['connector-version', siteId],
     queryFn: async () => {
-      const response = await functions.invoke('getConnectorVersion', { site_id: siteId });
+      const response = await supabase.functions.invoke('getConnectorVersion', { site_id: siteId });
       return response.data;
     },
     enabled: !!siteId,
@@ -242,7 +243,7 @@ export default function SiteDetail() {
 
   const acceptSiteTransferMutation = useMutation({
     mutationFn: async () => {
-      const response = await functions.invoke('acceptSiteTransfer', {
+      const response = await supabase.functions.invoke('acceptSiteTransfer', {
         site_id: siteId,
         scheduled_transfer_date: scheduledDate ? scheduledDate.toISOString() : null,
         transfer_plugins: selectedPluginsForTransfer,
@@ -265,7 +266,7 @@ export default function SiteDetail() {
 
   const declineSiteTransferMutation = useMutation({
     mutationFn: async () => {
-      const response = await functions.invoke('declineSiteTransfer', {
+      const response = await supabase.functions.invoke('declineSiteTransfer', {
         site_id: siteId
       });
       return response.data;
@@ -281,7 +282,7 @@ export default function SiteDetail() {
 
   const performHealthCheckMutation = useMutation({
     mutationFn: async () => {
-      const response = await functions.invoke('performHealthCheck', {
+      const response = await supabase.functions.invoke('performHealthCheck', {
         site_id: siteId
       });
       return response.data;
@@ -297,7 +298,7 @@ export default function SiteDetail() {
 
   const updateDebugSettingsMutation = useMutation({
     mutationFn: async (settings) => {
-      const response = await functions.invoke('updateDebugSettings', {
+      const response = await supabase.functions.invoke('updateDebugSettings', {
         site_id: siteId,
         ...settings
       });
@@ -314,7 +315,7 @@ export default function SiteDetail() {
 
   const testConnectionMutation = useMutation({
     mutationFn: async () => {
-      const response = await functions.invoke('testSiteConnection', {
+      const response = await supabase.functions.invoke('testSiteConnection', {
         site_id: siteId
       });
       return response.data;
@@ -333,7 +334,7 @@ export default function SiteDetail() {
 
   const updateConnectorMutation = useMutation({
     mutationFn: async () => {
-      const response = await functions.invoke('updateConnectorPlugin', {
+      const response = await supabase.functions.invoke('updateConnectorPlugin', {
         site_id: siteId
       });
       return response.data;
@@ -384,7 +385,7 @@ export default function SiteDetail() {
 
   const installPluginMutation = useMutation({
     mutationFn: async ({ plugin_id, download_url }) => {
-      const response = await functions.invoke('installPlugin', {
+      const response = await supabase.functions.invoke('installPlugin', {
         site_id: siteId,
         plugin_id,
         download_url
@@ -405,7 +406,7 @@ export default function SiteDetail() {
 
   const updatePluginMutation = useMutation({
     mutationFn: async ({ plugin_slug, plugin_id, download_url }) => {
-      const response = await functions.invoke('updatePlugin', {
+      const response = await supabase.functions.invoke('updatePlugin', {
         site_id: siteId,
         plugin_slug,
         plugin_id,
@@ -426,7 +427,7 @@ export default function SiteDetail() {
 
   const togglePluginStateMutation = useMutation({
     mutationFn: async (pluginSlug) => {
-      const response = await functions.invoke('togglePluginState', {
+      const response = await supabase.functions.invoke('togglePluginState', {
         site_id: siteId,
         plugin_slug: pluginSlug
       });
@@ -442,7 +443,7 @@ export default function SiteDetail() {
 
   const uninstallPluginMutation = useMutation({
     mutationFn: async ({ pluginSlug, pluginId }) => {
-      const response = await functions.invoke('uninstallPlugin', {
+      const response = await supabase.functions.invoke('uninstallPlugin', {
         site_id: siteId,
         plugin_slug: pluginSlug,
         plugin_id: pluginId
@@ -462,7 +463,7 @@ export default function SiteDetail() {
 
   const updatePlatformPluginMutation = useMutation({
     mutationFn: async ({ wpPlugin, platformPlugin }) => {
-      const response = await functions.invoke('downloadPluginFromWordPress', {
+      const response = await supabase.functions.invoke('downloadPluginFromWordPress', {
         site_id: siteId,
         plugin_slug: wpPlugin.slug
       });
@@ -547,7 +548,7 @@ export default function SiteDetail() {
 
     setIsSearchingWp(true);
     try {
-      const response = await functions.invoke('searchWordPressPlugins', {
+      const response = await supabase.functions.invoke('searchWordPressPlugins', {
         search: wpSearchQuery,
         page: 1,
         per_page: 20
@@ -567,7 +568,7 @@ export default function SiteDetail() {
 
     setIsSearchingWpThemes(true);
     try {
-      const response = await functions.invoke('searchWordPressThemes', {
+      const response = await supabase.functions.invoke('searchWordPressThemes', {
         search: wpThemeSearchQuery,
         page: 1,
         per_page: 20
@@ -605,7 +606,7 @@ export default function SiteDetail() {
   // Theme handlers
   const installThemeMutation = useMutation({
     mutationFn: async ({ theme_id, download_url }) => {
-      const response = await functions.invoke('installTheme', {
+      const response = await supabase.functions.invoke('installTheme', {
         site_id: siteId,
         theme_id,
         download_url
@@ -626,7 +627,7 @@ export default function SiteDetail() {
 
   const activateThemeMutation = useMutation({
     mutationFn: async (themeSlug) => {
-      const response = await functions.invoke('activateTheme', {
+      const response = await supabase.functions.invoke('activateTheme', {
         site_id: siteId,
         theme_slug: themeSlug
       });
@@ -643,7 +644,7 @@ export default function SiteDetail() {
 
   const uninstallThemeMutation = useMutation({
     mutationFn: async ({ themeSlug, themeId }) => {
-      const response = await functions.invoke('uninstallTheme', {
+      const response = await supabase.functions.invoke('uninstallTheme', {
         site_id: siteId,
         theme_slug: themeSlug,
         theme_id: themeId

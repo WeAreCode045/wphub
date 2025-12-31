@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -230,7 +231,7 @@ export default function SubscriptionPlans() {
 
     setIsCreatingProduct(true);
     try {
-      const productResponse = await functions.invoke('createStripeProduct', {
+      const productResponse = await supabase.functions.invoke('createStripeProduct', {
         name: formData.name,
         description: formData.description
       });
@@ -241,7 +242,7 @@ export default function SubscriptionPlans() {
 
       const productId = productResponse.data.product_id;
 
-      const monthlyPriceResponse = await functions.invoke('createStripePrice', {
+      const monthlyPriceResponse = await supabase.functions.invoke('createStripePrice', {
         product_id: productId,
         amount: formData.monthly_price_amount,
         currency: formData.currency,
@@ -252,7 +253,7 @@ export default function SubscriptionPlans() {
         throw new Error(monthlyPriceResponse.data.error);
       }
 
-      const annualPriceResponse = await functions.invoke('createStripePrice', {
+      const annualPriceResponse = await supabase.functions.invoke('createStripePrice', {
         product_id: productId,
         amount: formData.annual_price_amount,
         currency: formData.currency,

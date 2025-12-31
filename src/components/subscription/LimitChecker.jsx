@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
 
 /**
  * Check if user can perform an action based on their subscription limits

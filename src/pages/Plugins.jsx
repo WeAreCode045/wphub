@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { entities, functions, integrations } from "@/api/entities";
+import { entities, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -134,7 +135,7 @@ export default function Plugins() {
       const uploadResult = await integrations.Core.UploadFile({ file, bucket: 'Plugins' });
       const fileUrl = uploadResult.file_url;
 
-      const parseResponse = await functions.invoke('parsePluginZip', {
+      const parseResponse = await supabase.functions.invoke('parsePluginZip', {
         file_url: fileUrl
       });
       
@@ -317,7 +318,7 @@ export default function Plugins() {
     setIsSearchingWp(true);
     setWpSearchResults([]);
     try {
-      const response = await functions.invoke('searchWordPressPlugins', {
+      const response = await supabase.functions.invoke('searchWordPressPlugins', {
         search: wpSearchQuery,
         page: 1,
         per_page: 20

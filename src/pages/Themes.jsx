@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { entities, functions, integrations } from "@/api/entities";
+import { entities, integrations } from "@/api/entities";
+import { supabase } from "@/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -131,7 +132,7 @@ export default function Themes() {
       const uploadResult = await integrations.Core.UploadFile({ file, bucket: 'Themes' });
       const fileUrl = uploadResult.file_url;
 
-      const parseResponse = await functions.invoke('parseThemeZip', {
+        const parseResponse = await supabase.functions.invoke('parseThemeZip', {
         file_url: fileUrl
       });
       
@@ -316,7 +317,7 @@ export default function Themes() {
     setIsSearchingWp(true);
     setWpSearchResults([]);
     try {
-      const response = await functions.invoke('searchWordPressThemes', {
+          const response = await supabase.functions.invoke('searchWordPressThemes', {
         search: wpSearchQuery,
         page: 1,
         per_page: 20

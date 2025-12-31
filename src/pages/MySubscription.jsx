@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -164,7 +165,7 @@ export default function MySubscription() {
 
   const downloadInvoiceMutation = useMutation({
     mutationFn: async (invoiceId) => {
-      const response = await functions.invoke('generateInvoicePDF', {
+      const response = await supabase.functions.invoke('generateInvoicePDF', {
         invoice_id: invoiceId
       });
       return { data: response.data, invoiceId };
@@ -192,7 +193,7 @@ export default function MySubscription() {
 
   const changeSubscriptionMutation = useMutation({
     mutationFn: async ({ plan_id, action }) => {
-      const response = await functions.invoke('changeSubscription', {
+      const response = await supabase.functions.invoke('changeSubscription', {
         new_plan_id: plan_id,
         action: action
       });
@@ -222,7 +223,7 @@ export default function MySubscription() {
 
   const cancelSubscriptionMutation = useMutation({
     mutationFn: async () => {
-      const response = await functions.invoke('cancelSubscription');
+      const response = await supabase.functions.invoke('cancelSubscription');
       return response.data;
     },
     onSuccess: (data) => {

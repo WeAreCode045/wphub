@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { entities, functions } from "@/api/entities";
+import { entities } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { useUser } from "../Layout";
-import { supabase } from "@/api/supabaseClient";
+import { supabase } from "@/utils";
 
 import SendMessageDialog from "../components/messaging/SendMessageDialog";
 import SendNotificationDialog from "../components/messaging/SendNotificationDialog";
@@ -200,7 +200,7 @@ export default function UserDetail() {
   const assignManualSubMutation = useMutation({
     mutationFn: async (data) => {
       if (!targetUser) throw new Error("Target user not found.");
-      const response = await functions.invoke('assignManualSubscription', {
+      const response = await supabase.functions.invoke('assignManualSubscription', {
         user_id: targetUser.id,
         ...data,
         custom_amount: data.custom_amount,

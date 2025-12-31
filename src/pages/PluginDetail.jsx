@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -232,7 +233,7 @@ export default function PluginDetail() {
 
   const togglePluginForSiteMutation = useMutation({
     mutationFn: async ({ siteId, enabled }) => {
-      const response = await functions.invoke('enablePluginForSite', {
+      const response = await supabase.functions.invoke('enablePluginForSite', {
         site_id: siteId,
         plugin_id: pluginId,
         enabled
@@ -247,7 +248,7 @@ export default function PluginDetail() {
   const bulkToggleAvailabilityMutation = useMutation({
     mutationFn: async ({ siteIds, enabled }) => {
       const promises = siteIds.map(siteId =>
-        functions.invoke('enablePluginForSite', {
+        supabase.functions.invoke('enablePluginForSite', {
           site_id: siteId,
           plugin_id: pluginId,
           enabled
@@ -300,7 +301,7 @@ export default function PluginDetail() {
 
   const installPluginMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await functions.invoke('installPlugin', {
+      const response = await supabase.functions.invoke('installPlugin', {
         site_id: siteId,
         plugin_id: pluginId
       });
@@ -326,7 +327,7 @@ export default function PluginDetail() {
 
   const activatePluginMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await functions.invoke('activatePlugin', {
+      const response = await supabase.functions.invoke('activatePlugin', {
         site_id: siteId,
         plugin_id: pluginId
       });
@@ -351,7 +352,7 @@ export default function PluginDetail() {
 
   const deactivatePluginMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await functions.invoke('deactivatePlugin', {
+      const response = await supabase.functions.invoke('deactivatePlugin', {
         site_id: siteId,
         plugin_id: pluginId
       });
@@ -376,7 +377,7 @@ export default function PluginDetail() {
 
   const uninstallPluginMutation = useMutation({
     mutationFn: async ({ siteId }) => {
-      const response = await functions.invoke('uninstallPlugin', {
+      const response = await supabase.functions.invoke('uninstallPlugin', {
         site_id: siteId,
         plugin_slug: plugin.slug,
         plugin_id: plugin.id
@@ -450,7 +451,7 @@ export default function PluginDetail() {
 
   const downloadFromWordPressMutation = useMutation({
     mutationFn: async (siteId) => {
-      const response = await functions.invoke('downloadPluginFromWordPress', {
+      const response = await supabase.functions.invoke('downloadPluginFromWordPress', {
         site_id: siteId,
         plugin_slug: plugin.slug
       });

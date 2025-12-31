@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { entities, functions } from "@/api/entities";
+import { entities } from "@/api/entities";
+import { supabase } from '@/utils';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -79,7 +80,7 @@ export default function TeamInboxPopover({
     mutationFn: async ({ originalMessage, replyText }) => {
       const isReplyToAdmin = originalMessage.from_admin_outbox;
       
-      const response = await functions.invoke('sendMessage', {
+      const response = await supabase.functions.invoke('sendMessage', {
         subject: originalMessage.subject,
         message: replyText,
         to_user_id: isReplyToAdmin ? null : originalMessage.sender_id,

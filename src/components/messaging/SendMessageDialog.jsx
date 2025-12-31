@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import {
   Dialog,
   DialogContent,
@@ -40,7 +41,7 @@ export default function SendMessageDialog({
 
   const sendMessageMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await functions.invoke('sendMessage', data);
+      const response = await supabase.functions.invoke('sendMessage', data);
       return response.data;
     },
     onSuccess: () => {

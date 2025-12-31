@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '@/api/supabaseClient';
+import { getSupabase } from '@/api/getSupabase';
 import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
@@ -15,7 +15,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let authListener;
     (async () => {
-      await checkAuth();
+      const { supabase } = await getSupabase();
+      await checkAuth(supabase);
 
       // Subscribe to auth changes
       authListener = supabase.auth.onAuthStateChange((event, session) => {
@@ -33,10 +34,11 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const checkAuth = async () => {
+  const checkAuth = async (supabaseParam) => {
     try {
       setIsLoadingAuth(true);
       setAuthError(null);
+      const supabase = supabaseParam || (await getSupabase()).supabase;
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) throw error;
@@ -61,6 +63,7 @@ export const AuthProvider = ({ children }) => {
   const loadUserData = async (authUser) => {
     try {
       // Get user data from public.users table
+      const { supabase } = await getSupabase();
       const { data: userData, error } = await supabase
         .from('users')
         .select('*')

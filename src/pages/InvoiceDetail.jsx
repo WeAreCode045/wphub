@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from '@/utils';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,7 @@ export default function InvoiceDetail() {
 
   const downloadPDFMutation = useMutation({
     mutationFn: async () => {
-      const response = await functions.invoke('generateInvoicePDF', {
+      const response = await supabase.functions.invoke('generateInvoicePDF', {
         invoice_id: invoiceId
       });
       return response.data;

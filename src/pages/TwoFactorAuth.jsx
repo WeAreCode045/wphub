@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
-import { entities, User, functions, integrations } from "@/api/entities";
+import { entities, User, integrations } from "@/api/entities";
+import { supabase } from "@/utils";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,7 +53,7 @@ export default function TwoFactorAuth() {
     setSuccess("");
     
     try {
-      const response = await functions.invoke('generate2FACode', {});
+      const response = await supabase.functions.invoke('generate2FACode', {});
       
       if (response.data.success) {
         setCodeSent(true);
@@ -81,7 +82,7 @@ export default function TwoFactorAuth() {
     setSuccess("");
 
     try {
-      const response = await functions.invoke('verify2FACode', { code });
+      const response = await supabase.functions.invoke('verify2FACode', { code });
       
       if (response.data.success) {
         setSuccess('Verificatie succesvol! Je wordt doorgestuurd...');

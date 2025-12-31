@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient.js';
+import { getSupabase } from './getSupabase.js';
 
 /**
  * Sign up a new user using the publishable client.
@@ -9,6 +9,7 @@ import { supabase } from './supabaseClient.js';
  * service-role keys to the frontend.
  */
 export async function signUpWithProfile({ email, password, profile = {} }) {
+  const { supabase } = await getSupabase();
   const { data, error } = await supabase.auth.signUp(
     { email, password },
     { data: profile }
@@ -34,6 +35,7 @@ export async function signUpWithProfile({ email, password, profile = {} }) {
  * in a controlled flow if you require strict authorization.
  */
 export async function updateUserRoleIfAllowed(userId, newRole) {
+  const { supabase } = await getSupabase();
   const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId);
   return { error };
 }
@@ -43,6 +45,7 @@ export async function updateUserRoleIfAllowed(userId, newRole) {
  * This is useful when direct role updates from the frontend are not permitted.
  */
 export async function requestRoleChange(userId, requestedRole, note = '') {
+  const { supabase } = await getSupabase();
   const { data, error } = await supabase.from('role_change_requests').insert([
     { user_id: userId, requested_role: requestedRole, note }
   ]);
