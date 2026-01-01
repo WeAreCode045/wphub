@@ -866,20 +866,20 @@ class Connector {
 
         $email = sanitize_email($_POST['email']);
         $password = sanitize_text_field($_POST['password']);
-        $supabase_url = get_option('wphc_supabase_url');
-        $supabase_anon_key = get_option('wphc_supabase_anon_key');
+        
+        // Get platform URL from database (set during initial connection)
+        $platform_url = get_option('wphc_platform_url');
 
-        if (!$supabase_url || !$supabase_anon_key) {
-            wp_send_json_error('Supabase configuration not set. Please configure the connector plugin settings.');
+        if (!$platform_url) {
+            wp_send_json_error('Site is not connected to platform. Please contact your administrator.');
         }
-
-        // Authenticate with Supabase from server-side (credentials never exposed to browser)
+        
+        // Call platform's authentication endpoint
         $response = wp_remote_post(
-            rtrim($supabase_url, '/') . '/auth/v1/token?grant_type=password',
+            rtrim($platform_url, '/') . '/functions/v1/connectorAuthenticate',
             array(
                 'headers' => array(
                     'Content-Type' => 'application/json',
-                    'apikey' => $supabase_anon_key,
                 ),
                 'body' => json_encode(array(
                     'email' => $email,
@@ -897,13 +897,13 @@ class Connector {
         $body = json_decode(wp_remote_retrieve_body($response), true);
 
         if ($response_code !== 200 || !isset($body['access_token'])) {
-            $error_msg = isset($body['error_description']) ? $body['error_description'] : 'Invalid email or password';
+            $error_msg = isset($body['error']) ? $body['error'] : 'Invalid email or password';
             wp_send_json_error('Authentication failed: ' . esc_html($error_msg));
         }
 
         // Successfully authenticated - store session and return redirect URL
         $access_token = $body['access_token'];
-        $user_id = $body['user']['id'] ?? '';
+        $user_id = $body['user_id'] ?? '';
 
         // Store temporarily for the callback handler to use
         set_transient('wphc_temp_access_token', $access_token, HOUR_IN_SECONDS);
@@ -918,11 +918,9 @@ class Connector {
     public function handle_oauth_callback_redirect() {
         // This handles both direct authentication and OAuth callback
         $platform_url = get_option('wphc_platform_url');
-        $supabase_url = get_option('wphc_supabase_url');
-        $supabase_anon_key = get_option('wphc_supabase_anon_key');
 
-        if (!$platform_url || !$supabase_url || !$supabase_anon_key) {
-            wp_die('Platform configuration not set. Please configure the connector plugin settings.');
+        if (!$platform_url) {
+            wp_die('Platform connection not configured. Please contact your administrator.');
         }
 
         // Check if this is a direct authentication callback (from email/password login)
@@ -1012,7 +1010,6 @@ class Connector {
             array(
                 'headers' => array(
                     'Content-Type' => 'application/json',
-                    'Authorization' => 'Bearer ' . $supabase_anon_key,
                 ),
                 'body' => json_encode(array(
                     'access_token' => $access_token,
