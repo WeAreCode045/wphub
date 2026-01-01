@@ -67,6 +67,18 @@ class Connector {
             'callback' => array($this, 'rest_get_status'),
             'permission_callback' => '__return_true',
         ));
+
+        register_rest_route('wphub/v1', '/activateTheme', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_activate_theme'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route('wphub/v1', '/togglePlugin', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_toggle_plugin'),
+            'permission_callback' => '__return_true',
+        ));
     }
 
     public function rest_list_plugins($request) {
@@ -156,6 +168,88 @@ class Connector {
             'total_pages' => wp_count_posts('page')->publish ?? 0,
             'disk_usage' => $this->get_wp_directory_size(),
             'max_upload_size' => wp_max_upload_size(),
+        );
+    }
+
+    public function rest_activate_theme($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $theme_slug = isset($body['theme_slug']) ? sanitize_text_field($body['theme_slug']) : '';
+        
+        if (empty($theme_slug)) {
+            return new \WP_Error('missing_theme_slug', 'Theme slug is required', array('status' => 400));
+        }
+
+        // Check if theme exists
+        $theme = wp_get_theme($theme_slug);
+        if (!$theme->exists()) {
+            return new \WP_Error('theme_not_found', 'Theme not found', array('status' => 404));
+        }
+
+        // Activate the theme
+        switch_theme($theme_slug);
+
+        return array(
+            'success' => true,
+            'message' => 'Theme activated successfully',
+            'theme_name' => $theme->get('Name'),
+        );
+    }
+
+    public function rest_toggle_plugin($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $plugin_slug = isset($body['plugin_slug']) ? sanitize_text_field($body['plugin_slug']) : '';
+        
+        if (empty($plugin_slug)) {
+            return new \WP_Error('missing_plugin_slug', 'Plugin slug is required', array('status' => 400));
+        }
+
+        // Find the plugin file
+        $all_plugins = get_plugins();
+        $plugin_file = null;
+        
+        foreach ($all_plugins as $file => $plugin_data) {
+            if (dirname($file) === $plugin_slug || $file === $plugin_slug . '.php') {
+                $plugin_file = $file;
+                break;
+            }
+        }
+
+        if (!$plugin_file) {
+            return new \WP_Error('plugin_not_found', 'Plugin not found', array('status' => 404));
+        }
+
+        // Toggle plugin state
+        $is_active = is_plugin_active($plugin_file);
+        
+        if ($is_active) {
+            deactivate_plugins($plugin_file);
+            $new_status = 'inactive';
+            $message = 'Plugin deactivated successfully';
+        } else {
+            $result = activate_plugin($plugin_file);
+            if (is_wp_error($result)) {
+                return new \WP_Error('activation_failed', $result->get_error_message(), array('status' => 500));
+            }
+            $new_status = 'active';
+            $message = 'Plugin activated successfully';
+        }
+
+        return array(
+            'success' => true,
+            'message' => $message,
+            'new_status' => $new_status,
         );
     }
 
