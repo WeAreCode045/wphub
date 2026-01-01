@@ -306,6 +306,19 @@ export default function SubscriptionPlans() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Error Alert */}
+      {fetchError && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="text-red-600 font-semibold">Fout</div>
+              <div className="text-red-700 text-sm flex-1">{fetchError}</div>
+              <button onClick={() => setFetchError(null)} className="text-red-600 hover:text-red-700">✕</button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
