@@ -726,7 +726,7 @@ class Connector {
                             html = "<div style=\"border: 1px solid #ffb81c; background: #fff8e5; padding: 10px; border-radius: 4px;\">";
                             html += "<p><strong style=\"color:#ffb81c;\">⚠ Update Available!</strong></p>";
                             html += "<p>Latest version: <strong>" + update.latest_version + "</strong></p>";
-                            html += "<button class=\"button button-primary\" onclick=\"wphc_update_plugin(\'" + update.download_url + "\'\">Update Now</button>";
+                            html += "<button class=\"button button-primary wphc-update-btn\" data-download-url=\"" + update.download_url + "\">Update Now</button>";
                             html += "</div>";
                         } else {
                             html = "<p style=\"color: green;\">✓ You are running the latest version (" + update.current_version + ")</p>";
@@ -735,6 +735,11 @@ class Connector {
                         html = "<p style=\"color: #666;\">Could not check for updates</p>";
                     }
                     jQuery("#wphc-update-status").html(html);
+                    
+                    // Bind click handler to update button
+                    jQuery(".wphc-update-btn").on("click", function() {
+                        wphc_update_plugin(jQuery(this).data("download-url"));
+                    });
                 });
             }
             
