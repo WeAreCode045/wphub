@@ -57,8 +57,8 @@ export default function AdminDashboard() {
 
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const newUsersThisMonth = users.filter(u => new Date(u.created_date) > thirtyDaysAgo).length;
-      const newSubscriptionsThisMonth = subscriptions.filter(s => new Date(s.created_date) > thirtyDaysAgo).length;
+      const newUsersThisMonth = users.filter(u => u.created_date && new Date(u.created_date) > thirtyDaysAgo).length;
+      const newSubscriptionsThisMonth = subscriptions.filter(s => s.created_date && new Date(s.created_date) > thirtyDaysAgo).length;
 
       return {
         users: {
