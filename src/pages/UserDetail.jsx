@@ -480,7 +480,7 @@ export default function UserDetail() {
                       <div>
                         <p className="text-xs text-gray-500">Lid sinds</p>
                         <p className="text-sm font-medium text-gray-900">
-                          {format(new Date(targetUser.created_date), "d MMMM yyyy", { locale: nl })}
+                          {targetUser.created_date ? format(new Date(targetUser.created_date), "d MMMM yyyy", { locale: nl }) : '-'}
                         </p>
                       </div>
                     </div>
@@ -514,7 +514,7 @@ export default function UserDetail() {
                           </div>
                           <p className="text-xs text-gray-600 mb-2">{notif.message}</p>
                           <p className="text-xs text-gray-400">
-                            {format(new Date(notif.created_date), "d MMM yyyy HH:mm", { locale: nl })}
+                            {notif.created_date ? format(new Date(notif.created_date), "d MMM yyyy HH:mm", { locale: nl }) : '-'}
                           </p>
                         </div>
                       ))}
@@ -705,7 +705,7 @@ export default function UserDetail() {
                           <div className="col-span-2">
                             <p className="text-gray-600">Vervaldatum</p>
                             <p className="font-medium text-gray-900">
-                              {format(new Date(sub.manual_end_date), "d MMMM yyyy", { locale: nl })}
+                              {sub.manual_end_date ? format(new Date(sub.manual_end_date), "d MMMM yyyy", { locale: nl }) : '-'}
                             </p>
                           </div>
                         )}
@@ -713,7 +713,7 @@ export default function UserDetail() {
                           <div className="col-span-2">
                             <p className="text-gray-600">Verlengdatum</p>
                             <p className="font-medium text-gray-900">
-                              {format(new Date(sub.current_period_end), "d MMMM yyyy", { locale: nl })}
+                              {sub.current_period_end ? format(new Date(sub.current_period_end), "d MMMM yyyy", { locale: nl }) : '-'}
                             </p>
                           </div>
                         )}
