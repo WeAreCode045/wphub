@@ -270,6 +270,46 @@ export default function Themes() {
       const themeToDelete = themes.find(t => t.id === themeId);
       
       if (themeToDelete) {
+        // Delete uploaded zip files from storage for uploaded themes
+        if (themeToDelete.source === "upload" && themeToDelete.versions) {
+          for (const version of themeToDelete.versions) {
+            if (version.download_url) {
+              try {
+                // Extract file path from storage URL
+                // Format: https://...storage.supabase.co/object/public/Themes/{filename}
+                const urlParts = version.download_url.split('/');
+                const filename = urlParts[urlParts.length - 1];
+                
+                await supabase.storage
+                  .from('Themes')
+                  .remove([filename]);
+                
+                console.log(`Deleted theme file: ${filename}`);
+              } catch (error) {
+                console.error(`Error deleting theme file: ${error.message}`);
+                // Continue with deletion even if file deletion fails
+              }
+            }
+          }
+        }
+
+        // Also delete screenshot from Theme storage if it exists
+        if (themeToDelete.screenshot_url) {
+          try {
+            const screenshotUrlParts = themeToDelete.screenshot_url.split('/');
+            const screenshotFilename = screenshotUrlParts[screenshotUrlParts.length - 1];
+            
+            await supabase.storage
+              .from('Theme')
+              .remove([screenshotFilename]);
+            
+            console.log(`Deleted screenshot file: ${screenshotFilename}`);
+          } catch (error) {
+            console.error(`Error deleting screenshot file: ${error.message}`);
+            // Continue with deletion even if screenshot deletion fails
+          }
+        }
+
         await entities.ActivityLog.create({
           user_email: user.email,
           action: `Theme verwijderd: ${themeToDelete.name}`,
