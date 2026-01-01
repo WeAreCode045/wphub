@@ -37,11 +37,20 @@ Deno.serve(async (req) => {
             // Parse and validate request body with Zod
             try {
                 const bodyText = await req.text();
-                const parsed = JSON.parse(bodyText);
-                const validated = SearchWordPressPluginsRequestSchema.parse(parsed);
-                search = validated.search;
-                page = validated.page || 1;
-                per_page = validated.per_page || 20;
+                
+                // If body is empty, fall back to query parameters
+                if (!bodyText || bodyText.trim() === '') {
+                    const url = new URL(req.url);
+                    search = url.searchParams.get('search') || undefined;
+                    page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
+                    per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
+                } else {
+                    const parsed = JSON.parse(bodyText);
+                    const validated = SearchWordPressPluginsRequestSchema.parse(parsed);
+                    search = validated.search;
+                    page = validated.page || 1;
+                    per_page = validated.per_page || 20;
+                }
             } catch (parseError) {
                 console.error('[searchWordPressPlugins] Validation error:', parseError);
                 const error = parseError instanceof z.ZodError
