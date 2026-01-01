@@ -156,34 +156,44 @@ Deno.serve(async (req) => {
 
     // Try to find and upload screenshot
     let screenshotUrl = '';
+    console.log('[parseThemeZip] Looking for screenshot in theme files...');
+    
     for (const [path, file] of Object.entries(zip.files)) {
+      console.log('[parseThemeZip] Found file:', path, 'isDir:', file.dir);
       const fileName = path.toLowerCase();
-      if (fileName.endsWith('screenshot.png') || fileName.endsWith('screenshot.jpg') || fileName.endsWith('screenshot.jpeg')) {
+      
+      if ((fileName.includes('screenshot.png') || fileName.includes('screenshot.jpg') || fileName.includes('screenshot.jpeg')) && !file.dir) {
         const parts = path.split('/');
-        if (parts.length <= 2 && !file.dir) {
-          // Found screenshot at theme root level
+        console.log('[parseThemeZip] Found potential screenshot:', path, 'parts:', parts.length);
+        
+        // Accept screenshots from theme root or first level folder
+        if (parts.length <= 2) {
           try {
+            console.log('[parseThemeZip] Processing screenshot:', path);
             const screenshotData = await file.async('arraybuffer');
+            console.log('[parseThemeZip] Screenshot size:', screenshotData.byteLength, 'bytes');
+            
             const ext = path.substring(path.lastIndexOf('.')).toLowerCase();
             const uploadPath = `${themeData.slug}${ext}`;
             
-            console.log('[parseThemeZip] Uploading screenshot:', uploadPath);
+            console.log('[parseThemeZip] Uploading screenshot:', uploadPath, 'contentType:', fileName.includes('.png') ? 'image/png' : 'image/jpeg');
             
             const { data: uploadData, error: uploadError } = await supabase.storage
               .from('Theme')
               .upload(uploadPath, screenshotData, {
-                contentType: fileName.endsWith('.png') ? 'image/png' : 'image/jpeg',
+                contentType: fileName.includes('.png') ? 'image/png' : 'image/jpeg',
                 upsert: true
               });
 
-            if (!uploadError && uploadData) {
+            if (uploadError) {
+              console.error('[parseThemeZip] Screenshot upload error:', uploadError);
+            } else {
+              console.log('[parseThemeZip] Upload successful:', uploadData);
               const { data: { publicUrl } } = supabase.storage
                 .from('Theme')
                 .getPublicUrl(uploadPath);
               screenshotUrl = publicUrl;
-              console.log('[parseThemeZip] Screenshot uploaded:', screenshotUrl);
-            } else {
-              console.error('[parseThemeZip] Screenshot upload error:', uploadError);
+              console.log('[parseThemeZip] Screenshot public URL:', screenshotUrl);
             }
           } catch (screenshotError) {
             console.error('[parseThemeZip] Error processing screenshot:', screenshotError);
@@ -192,6 +202,8 @@ Deno.serve(async (req) => {
         }
       }
     }
+    
+    console.log('[parseThemeZip] Final screenshotUrl:', screenshotUrl);
 
     return new Response(
         JSON.stringify({
