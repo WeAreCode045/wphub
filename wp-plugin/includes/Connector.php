@@ -110,15 +110,18 @@ class Connector {
 
         $themes = array();
         $all_themes = wp_get_themes();
+        $active_theme = wp_get_theme();
         
         foreach ($all_themes as $theme) {
+            $is_active = ($theme->get_stylesheet() === $active_theme->get_stylesheet());
+            
             $themes[] = array(
                 'name' => $theme->get('Name'),
                 'slug' => $theme->get_stylesheet(),
                 'version' => $theme->get('Version'),
                 'description' => $theme->get('Description'),
                 'author' => $theme->get('Author'),
-                'status' => $theme->is_active() ? 'active' : 'inactive',
+                'status' => $is_active ? 'active' : 'inactive',
                 'parent_theme' => $theme->get('Template'),
             );
         }
