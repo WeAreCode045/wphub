@@ -173,7 +173,7 @@ export default function AccountSettings() {
                 <div>
                   <Label htmlFor="full_name">Volledige Naam</Label>
                   <div className="relative mt-2">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <Input
                       id="full_name"
                       value={formData.full_name}
