@@ -28,18 +28,22 @@ Deno.serve(async (req) => {
         let page = 1;
         let per_page = 20;
 
+        const bodyText = await req.text();
+        console.log('[searchWordPressPlugins] Raw body text:', bodyText);
+        console.log('[searchWordPressPlugins] Body length:', bodyText.length);
+        console.log('[searchWordPressPlugins] Request headers - content-type:', req.headers.get('content-type'));
+
+        if (!bodyText || bodyText.trim() === '') {
+            console.error('[searchWordPressPlugins] Empty body received');
+            return new Response(
+                JSON.stringify({ success: false, error: 'Request body is empty' }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
         try {
-            const bodyText = await req.text();
-            console.log('[searchWordPressPlugins] Body:', bodyText);
-            
-            if (!bodyText || bodyText.trim() === '') {
-                return new Response(
-                    JSON.stringify({ success: false, error: 'Search query is required' }),
-                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-                );
-            }
-            
             const parsed = JSON.parse(bodyText);
+            console.log('[searchWordPressPlugins] Parsed JSON:', parsed);
             const validated = SearchWordPressPluginsRequestSchema.parse(parsed);
             search = validated.search;
             page = validated.page || 1;
@@ -48,7 +52,7 @@ Deno.serve(async (req) => {
             console.error('[searchWordPressPlugins] Parse error:', parseError);
             const error = parseError instanceof z.ZodError
                 ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-                : `Invalid request: ${parseError.message}`;
+                : `Invalid JSON: ${parseError.message}`;
             return new Response(
                 JSON.stringify({ success: false, error }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

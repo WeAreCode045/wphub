@@ -28,18 +28,22 @@ Deno.serve(async (req) => {
     let page = 1;
     let per_page = 20;
 
+    const bodyText = await req.text();
+    console.log('[searchWordPressThemes] Raw body text:', bodyText);
+    console.log('[searchWordPressThemes] Body length:', bodyText.length);
+    console.log('[searchWordPressThemes] Request headers - content-type:', req.headers.get('content-type'));
+
+    if (!bodyText || bodyText.trim() === '') {
+      console.error('[searchWordPressThemes] Empty body received');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Request body is empty' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     try {
-      const bodyText = await req.text();
-      console.log('[searchWordPressThemes] Body:', bodyText);
-      
-      if (!bodyText || bodyText.trim() === '') {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Search query is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
       const parsed = JSON.parse(bodyText);
+      console.log('[searchWordPressThemes] Parsed JSON:', parsed);
       const body = SearchWordPressThemesRequestSchema.parse(parsed);
       search = body.search;
       page = body.page || 1;
@@ -48,7 +52,7 @@ Deno.serve(async (req) => {
       console.error('[searchWordPressThemes] Parse error:', parseError);
       const error = parseError instanceof z.ZodError
         ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-        : `Invalid request: ${parseError.message}`;
+        : `Invalid JSON: ${parseError.message}`;
       return new Response(
         JSON.stringify({ success: false, error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
