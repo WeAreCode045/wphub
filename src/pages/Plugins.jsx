@@ -367,11 +367,9 @@ export default function Plugins() {
     setWpSearchResults([]);
     try {
       const response = await supabase.functions.invoke('searchWordPressPlugins', {
-        body: {
-          search: wpSearchQuery,
-          page: 1,
-          per_page: 20
-        }
+        search: wpSearchQuery,
+        page: 1,
+        per_page: 20
       });
 
       if (response.data.success) {
