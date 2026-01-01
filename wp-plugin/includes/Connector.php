@@ -90,6 +90,7 @@ class Connector {
         $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
         $supabase_anon_key = get_option('wphc_supabase_anon_key', 'sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT');
         $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
+        $redirect_uri = admin_url('admin.php?page=wp-plugin-hub&oauth_callback=1');
 
         // Verify state token
         $stored_state = get_transient('wphc_oauth_state');
@@ -99,22 +100,36 @@ class Connector {
 
         // Exchange code for access token via Supabase
         $response = wp_remote_post(
-            rtrim($supabase_url, '/') . '/auth/v1/token?grant_type=authorization_code',
+            rtrim($supabase_url, '/') . '/auth/v1/token',
             array(
-                'body' => array(
+                'headers' => array('Content-Type' => 'application/json'),
+                'body' => json_encode(array(
+                    'grant_type' => 'authorization_code',
                     'code' => $code,
-                ),
+                    'redirect_uri' => $redirect_uri,
+                )),
                 'timeout' => 15,
             )
         );
 
         if (is_wp_error($response)) {
-            wp_die('Failed to authenticate with Supabase');
+            wp_die('Failed to authenticate with Supabase: ' . $response->get_error_message());
         }
 
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        if (!isset($body['access_token']) || !isset($body['user']['id'])) {
-            wp_die('Invalid Supabase authentication response');
+        $response_code = wp_remote_retrieve_response_code($response);
+        $response_body = wp_remote_retrieve_body($response);
+        
+        if ($response_code !== 200) {
+            wp_die('Supabase authentication failed (HTTP ' . $response_code . '): ' . esc_html($response_body));
+        }
+
+        $body = json_decode($response_body, true);
+        if (!isset($body['access_token'])) {
+            wp_die('Invalid Supabase authentication response: ' . esc_html($response_body));
+        }
+
+        if (!isset($body['user']['id'])) {
+            wp_die('User ID not returned from Supabase');
         }
 
         $access_token = $body['access_token'];
