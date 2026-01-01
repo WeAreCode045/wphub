@@ -29,7 +29,14 @@ Deno.serve(async (req: Request) => {
       const { data: { user } } = await supabase.auth.getUser()
     if (!user || user.user_metadata?.role !== 'admin') return jsonResponse({ error: 'Unauthorized - Admin required' }, 403);
 
-    const { api_key, hub_url, version, description, custom_code } = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      return jsonResponse({ error: 'Invalid JSON in request body: ' + (e instanceof Error ? e.message : String(e)) }, 400);
+    }
+
+    const { api_key, hub_url, version, description, custom_code } = requestBody;
     if (!version) return jsonResponse({ error: 'Version is required' }, 400);
 
     let pluginCode = '';
