@@ -23,23 +23,48 @@ Deno.serve(async (req) => {
       );
         }
 
-        // Parse JSON body
+        // Parse request body - try JSON first, then text
         let search: string | undefined;
         let page = 1;
         let per_page = 20;
 
+        let parsed: any;
         try {
-            const parsed = await req.json();
-            console.log('[searchWordPressPlugins] Parsed JSON:', parsed);
+            // Try parsing as JSON first
+            parsed = await req.json();
+            console.log('[searchWordPressPlugins] Successfully parsed as JSON:', parsed);
+        } catch (jsonError) {
+            console.log('[searchWordPressPlugins] JSON parsing failed, trying text:', jsonError.message);
+            try {
+                // Fallback to text parsing
+                const bodyText = await req.text();
+                console.log('[searchWordPressPlugins] Body as text:', bodyText);
+                
+                if (!bodyText || bodyText.trim() === '' || bodyText === '[object Object]') {
+                    throw new Error('Empty or invalid body');
+                }
+                
+                parsed = JSON.parse(bodyText);
+                console.log('[searchWordPressPlugins] Parsed from text:', parsed);
+            } catch (textError) {
+                console.error('[searchWordPressPlugins] Both JSON and text parsing failed:', textError.message);
+                return new Response(
+                    JSON.stringify({ success: false, error: `Failed to parse request: ${textError.message}` }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+            }
+        }
+
+        try {
             const validated = SearchWordPressPluginsRequestSchema.parse(parsed);
             search = validated.search;
             page = validated.page || 1;
             per_page = validated.per_page || 20;
-        } catch (parseError) {
-            console.error('[searchWordPressPlugins] Parse error:', parseError);
-            const error = parseError instanceof z.ZodError
-                ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-                : `Invalid JSON: ${parseError.message}`;
+        } catch (validateError) {
+            console.error('[searchWordPressPlugins] Validation error:', validateError);
+            const error = validateError instanceof z.ZodError
+                ? `Validation error: ${validateError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+                : `Validation failed: ${validateError.message}`;
             return new Response(
                 JSON.stringify({ success: false, error }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

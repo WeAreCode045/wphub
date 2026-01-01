@@ -23,23 +23,48 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse JSON body
+    // Parse request body - try JSON first, then text
     let search: string | undefined;
     let page = 1;
     let per_page = 20;
 
+    let parsed: any;
     try {
-      const parsed = await req.json();
-      console.log('[searchWordPressThemes] Parsed JSON:', parsed);
+      // Try parsing as JSON first
+      parsed = await req.json();
+      console.log('[searchWordPressThemes] Successfully parsed as JSON:', parsed);
+    } catch (jsonError) {
+      console.log('[searchWordPressThemes] JSON parsing failed, trying text:', jsonError.message);
+      try {
+        // Fallback to text parsing
+        const bodyText = await req.text();
+        console.log('[searchWordPressThemes] Body as text:', bodyText);
+        
+        if (!bodyText || bodyText.trim() === '' || bodyText === '[object Object]') {
+          throw new Error('Empty or invalid body');
+        }
+        
+        parsed = JSON.parse(bodyText);
+        console.log('[searchWordPressThemes] Parsed from text:', parsed);
+      } catch (textError) {
+        console.error('[searchWordPressThemes] Both JSON and text parsing failed:', textError.message);
+        return new Response(
+          JSON.stringify({ success: false, error: `Failed to parse request: ${textError.message}` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    try {
       const body = SearchWordPressThemesRequestSchema.parse(parsed);
       search = body.search;
       page = body.page || 1;
       per_page = body.per_page || 20;
-    } catch (parseError) {
-      console.error('[searchWordPressThemes] Parse error:', parseError);
-      const error = parseError instanceof z.ZodError
-        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-        : `Invalid JSON: ${parseError.message}`;
+    } catch (validateError) {
+      console.error('[searchWordPressThemes] Validation error:', validateError);
+      const error = validateError instanceof z.ZodError
+        ? `Validation error: ${validateError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Validation failed: ${validateError.message}`;
       return new Response(
         JSON.stringify({ success: false, error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
