@@ -26,6 +26,14 @@ Deno.serve(async (req) => {
     // Parse and validate request body with Zod
     let body;
     try {
+      const contentLength = req.headers.get('content-length');
+      if (!contentLength || contentLength === '0') {
+        return new Response(
+          JSON.stringify({ error: 'Request body is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       const requestBody = await req.json();
       body = SearchWordPressThemesRequestSchema.parse(requestBody);
     } catch (parseError) {
