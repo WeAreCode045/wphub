@@ -28,29 +28,34 @@ Deno.serve(async (req) => {
         let page = 1;
         let per_page = 20;
 
-        if (req.method === 'GET') {
-            const url = new URL(req.url);
-            search = url.searchParams.get('search') || undefined;
-            page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
-            per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
-        } else {
-            // Parse and validate request body with Zod
+        // First, always try to get from query parameters (Supabase invoke sends params as query params)
+        const url = new URL(req.url);
+        const querySearch = url.searchParams.get('search') || undefined;
+        const queryPage = parseInt(url.searchParams.get('page') || '1', 10) || 1;
+        const queryPerPage = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
+
+        if (querySearch) {
+            // Use query parameters if available
+            search = querySearch;
+            page = queryPage;
+            per_page = queryPerPage;
+        } else if (req.method === 'POST') {
+            // Try to parse body if no query params
             try {
                 const bodyText = await req.text();
                 
-                // If body is empty, fall back to query parameters
                 if (!bodyText || bodyText.trim() === '') {
-                    const url = new URL(req.url);
-                    search = url.searchParams.get('search') || undefined;
-                    page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
-                    per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
-                } else {
-                    const parsed = JSON.parse(bodyText);
-                    const validated = SearchWordPressPluginsRequestSchema.parse(parsed);
-                    search = validated.search;
-                    page = validated.page || 1;
-                    per_page = validated.per_page || 20;
+                    return new Response(
+                        JSON.stringify({ error: 'Search query is required' }),
+                        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    );
                 }
+                
+                const parsed = JSON.parse(bodyText);
+                const validated = SearchWordPressPluginsRequestSchema.parse(parsed);
+                search = validated.search;
+                page = validated.page || 1;
+                per_page = validated.per_page || 20;
             } catch (parseError) {
                 console.error('[searchWordPressPlugins] Validation error:', parseError);
                 const error = parseError instanceof z.ZodError
