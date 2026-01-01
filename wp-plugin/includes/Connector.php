@@ -1,5 +1,5 @@
 <?php
-namespace WPPluginHub;
+namespace WPHub;
 
 class Connector {
     private static $instance = null;
@@ -21,6 +21,9 @@ class Connector {
     public function init() {
         // OAuth flow
         add_action('admin_init', array($this, 'handle_oauth_callback'));
+        
+        // REST API endpoints
+        add_action('rest_api_init', array($this, 'register_rest_routes'));
         
         // Admin menu is registered in wp_plugin_hub_connector_init()
         add_action('wp_ajax_wphc_oauth_login', array($this, 'oauth_login'));
@@ -45,12 +48,164 @@ class Connector {
         // Cleanup on deactivation
     }
 
+    public function register_rest_routes() {
+        // Register REST API endpoints for the platform to fetch data
+        register_rest_route('wphub/v1', '/listPlugins', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_list_plugins'),
+            'permission_callback' => '__return_true', // We validate API key in the callback
+        ));
+
+        register_rest_route('wphub/v1', '/listThemes', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_list_themes'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route('wphub/v1', '/getStatus', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_get_status'),
+            'permission_callback' => '__return_true',
+        ));
+    }
+
+    public function rest_list_plugins($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $plugins = array();
+        $all_plugins = get_plugins();
+        
+        foreach ($all_plugins as $plugin_file => $plugin_data) {
+            $is_active = is_plugin_active($plugin_file);
+            
+            $plugins[] = array(
+                'name' => $plugin_data['Name'],
+                'slug' => dirname($plugin_file),
+                'version' => $plugin_data['Version'],
+                'description' => $plugin_data['Description'],
+                'author' => $plugin_data['Author'],
+                'status' => $is_active ? 'active' : 'inactive',
+                'is_network_activated' => is_plugin_active_for_network($plugin_file),
+            );
+        }
+
+        return array(
+            'success' => true,
+            'plugins' => $plugins,
+        );
+    }
+
+    public function rest_list_themes($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $themes = array();
+        $all_themes = wp_get_themes();
+        
+        foreach ($all_themes as $theme) {
+            $themes[] = array(
+                'name' => $theme->get('Name'),
+                'slug' => $theme->get_stylesheet(),
+                'version' => $theme->get('Version'),
+                'description' => $theme->get('Description'),
+                'author' => $theme->get('Author'),
+                'status' => $theme->is_active() ? 'active' : 'inactive',
+                'parent_theme' => $theme->get('Template'),
+            );
+        }
+
+        return array(
+            'success' => true,
+            'themes' => $themes,
+        );
+    }
+
+    public function rest_get_status($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        global $wp_version;
+        
+        return array(
+            'success' => true,
+            'wordpress_version' => $wp_version,
+            'site_url' => home_url(),
+            'site_title' => get_bloginfo('name'),
+            'site_description' => get_bloginfo('description'),
+            'active_theme' => wp_get_theme()->get('Name'),
+            'php_version' => phpversion(),
+            'mysql_version' => $this->get_mysql_version(),
+            'total_users' => count_users()['total_users'],
+            'total_posts' => wp_count_posts()->publish ?? 0,
+            'total_pages' => wp_count_posts('page')->publish ?? 0,
+            'disk_usage' => $this->get_wp_directory_size(),
+            'max_upload_size' => wp_max_upload_size(),
+        );
+    }
+
+    private function validate_api_key($api_key) {
+        // Validate API key against stored key
+        $stored_key = get_option('wphc_api_key', '');
+        return !empty($api_key) && !empty($stored_key) && hash_equals($stored_key, $api_key);
+    }
+
+    private function get_mysql_version() {
+        global $wpdb;
+        $server_info = $wpdb->db_version();
+        return $server_info;
+    }
+
+    private function get_wp_directory_size() {
+        $size = 0;
+        $upload_dir = wp_upload_dir();
+        if (is_dir($upload_dir['basedir'])) {
+            $size = $this->get_directory_size($upload_dir['basedir']);
+        }
+        return $size;
+    }
+
+    private function get_directory_size($path) {
+        $size = 0;
+        if (is_dir($path)) {
+            $files = @scandir($path);
+            if ($files === false) {
+                return 0;
+            }
+            foreach ($files as $file) {
+                if ($file !== '.' && $file !== '..') {
+                    $filepath = $path . '/' . $file;
+                    if (is_dir($filepath)) {
+                        $size += $this->get_directory_size($filepath);
+                    } else {
+                        $size += @filesize($filepath);
+                    }
+                }
+            }
+        } else if (is_file($path)) {
+            $size = @filesize($path);
+        }
+        return $size;
+    }
+
     public function add_admin_menu() {
         add_menu_page(
-            'WP Plugin Hub',
-            'Plugin Hub',
+            'WPHub',
+            'WPHub',
             'manage_options',
-            'wp-plugin-hub',
+            'wphub-connector',
             array($this, 'render_admin_page'),
             'dashicons-store'
         );
@@ -59,24 +214,20 @@ class Connector {
     public function oauth_login() {
         check_ajax_referer('wphc_nonce', 'nonce');
         
-        // Return auth page URL that handles login
-        // User will enter email/password on a Supabase-hosted or custom login page
-        // This page will then exchange credentials for an access token and redirect back
-        
         if (!isset($_POST['email']) || !isset($_POST['password'])) {
-            // No credentials provided - need to show login form
-            wp_send_json_error(array(
-                'requires_credentials' => true,
-                'message' => 'Please provide email and password'
-            ));
+            wp_send_json_error('Email and password are required');
         }
 
         $email = sanitize_email($_POST['email']);
         $password = sanitize_text_field($_POST['password']);
-        $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
-        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zc3l4eGxwbHZxYWtvd2l3Ym9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MzYyNjgsImV4cCI6MjA4MTQxMjI2OH0.u8KsxzlJmmYbCdC8yErM0hBM0m3-S800XdnPAOCvkMg');
+        $supabase_url = get_option('wphc_supabase_url');
+        $supabase_anon_key = get_option('wphc_supabase_anon_key');
 
-        // Authenticate directly with Supabase using email/password
+        if (!$supabase_url || !$supabase_anon_key) {
+            wp_send_json_error('Supabase configuration not set. Please configure the connector plugin settings.');
+        }
+
+        // Authenticate with Supabase from server-side (credentials never exposed to browser)
         $response = wp_remote_post(
             rtrim($supabase_url, '/') . '/auth/v1/token?grant_type=password',
             array(
@@ -104,7 +255,7 @@ class Connector {
             wp_send_json_error('Authentication failed: ' . esc_html($error_msg));
         }
 
-        // Successfully authenticated - store session and redirect to callback handler
+        // Successfully authenticated - store session and return redirect URL
         $access_token = $body['access_token'];
         $user_id = $body['user']['id'] ?? '';
 
@@ -112,17 +263,21 @@ class Connector {
         set_transient('wphc_temp_access_token', $access_token, HOUR_IN_SECONDS);
         set_transient('wphc_temp_user_id', $user_id, HOUR_IN_SECONDS);
 
-        // Redirect to callback handler which will complete the connection
+        // Return success with redirect URL (no credentials sent to browser)
         wp_send_json_success(array(
-            'redirect_url' => admin_url('admin.php?page=wp-plugin-hub&oauth_callback=1&direct=1')
+            'redirect_url' => admin_url('admin.php?page=wphub-connector&oauth_callback=1&direct=1')
         ));
     }
 
     public function handle_oauth_callback_redirect() {
         // This handles both direct authentication and OAuth callback
-        $platform_url = get_option('wphc_platform_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
-        $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
-        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zc3l4eGxwbHZxYWtvd2l3Ym9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MzYyNjgsImV4cCI6MjA4MTQxMjI2OH0.u8KsxzlJmmYbCdC8yErM0hBM0m3-S800XdnPAOCvkMg');
+        $platform_url = get_option('wphc_platform_url');
+        $supabase_url = get_option('wphc_supabase_url');
+        $supabase_anon_key = get_option('wphc_supabase_anon_key');
+
+        if (!$platform_url || !$supabase_url || !$supabase_anon_key) {
+            wp_die('Platform configuration not set. Please configure the connector plugin settings.');
+        }
 
         // Check if this is a direct authentication callback (from email/password login)
         if (isset($_GET['direct']) && $_GET['direct'] === '1') {
@@ -145,7 +300,7 @@ class Connector {
 
             $code = sanitize_text_field($_GET['code']);
             $state = sanitize_text_field($_GET['state']);
-            $redirect_uri = admin_url('admin.php?page=wp-plugin-hub&oauth_callback=1');
+            $redirect_uri = admin_url('admin.php?page=wphub-connector&oauth_callback=1');
 
             // Verify state token
             $stored_state = get_transient('wphc_oauth_state');
@@ -257,7 +412,7 @@ class Connector {
         $this->log('Successfully connected to platform site: ' . $callback_body['site_name']);
 
         // Redirect back to admin page
-        wp_safe_redirect(admin_url('admin.php?page=wp-plugin-hub&connected=1'));
+        wp_safe_redirect(admin_url('admin.php?page=wphub-connector&connected=1'));
         exit;
     }
 
@@ -357,7 +512,7 @@ class Connector {
         $this->log('Successfully connected to platform site: ' . $matching_site['name']);
 
         // Redirect back to admin page
-        wp_safe_remote_get(admin_url('admin.php?page=wp-plugin-hub&connected=1'));
+        wp_safe_remote_get(admin_url('admin.php?page=wphub-connector&connected=1'));
         wp_die('Connection successful! Redirecting...', 'Connection Successful');
     }
 
@@ -388,7 +543,7 @@ class Connector {
         }
 
         echo '<div class="wrap">';
-        echo '<h1>WP Plugin Hub Connector</h1>';
+        echo '<h1>WPHub Connector</h1>';
 
         // Connection Status Card
         echo '<div class="card">';

@@ -1,5 +1,5 @@
 <?php
-namespace WPPluginHub;
+namespace WPHub;
 
 class ThemeManager {
     private static $instance = null;

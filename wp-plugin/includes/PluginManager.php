@@ -1,5 +1,5 @@
 <?php
-namespace WPPluginHub;
+namespace WPHub;
 
 class PluginManager {
     private static $instance = null;
