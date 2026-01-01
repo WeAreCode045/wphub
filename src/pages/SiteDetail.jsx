@@ -290,16 +290,25 @@ export default function SiteDetail() {
       });
       return response.data;
     },
-    onSuccess: (data) => {
-      // Ensure health check data has required structure
-      const healthCheckData = {
-        status: data?.status || 'unknown',
-        last_check: data?.last_check || new Date().toISOString(),
-        uptime: data?.uptime || {},
-        performance: data?.performance || {},
-        security: data?.security || {},
-        updates: data?.updates || {}
+    onSuccess: async (data) => {
+      // Extract health check data from response
+      const healthCheckData = data?.health_check || {
+        status: 'unknown',
+        last_check: new Date().toISOString(),
+        uptime: {},
+        performance: {},
+        security: {},
+        updates: {}
       };
+      
+      // Update database with health check data
+      try {
+        await entities.Site.update(siteId, {
+          health_check: healthCheckData
+        });
+      } catch (error) {
+        console.error('Error updating health check in database:', error);
+      }
       
       // Update site cache with health check data
       queryClient.setQueryData(['site', siteId], (oldSite) => ({
