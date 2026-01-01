@@ -9,20 +9,43 @@ Deno.serve(async (req) => {
     }
 
     try {
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-        );
+        // Get auth header
+        const authHeader = req.headers.get('Authorization');
         
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
+        if (!authHeader) {
+            console.log('[listSitePlugins] No Authorization header');
             return new Response(
-                JSON.stringify({ error: 'Unauthorized' }),
+                JSON.stringify({ error: 'Unauthorized - missing auth token' }),
                 { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
         }
+
+        const supabase = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+            { global: { headers: { Authorization: authHeader } } }
+        );
+        
+        console.log('[listSitePlugins] Attempting to get user with token');
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+        if (userError) {
+            console.error('[listSitePlugins] Auth error:', userError.message);
+            return new Response(
+                JSON.stringify({ error: 'Unauthorized - invalid token', details: userError.message }),
+                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
+        if (!user) {
+            console.log('[listSitePlugins] No user found in token');
+            return new Response(
+                JSON.stringify({ error: 'Unauthorized - invalid user' }),
+                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
+        console.log('[listSitePlugins] User authenticated:', user.id);
 
         // Parse and validate request body with Zod
         let body;

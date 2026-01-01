@@ -8,13 +8,24 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // This function doesn't require user auth, it's called from connectors with api_key
-  // But we still need to handle the request properly
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    // Get auth header from request
+    const authHeader = req.headers.get('Authorization');
+    
+    // Create client with user's auth token if available, otherwise use service role
+    let supabase;
+    if (authHeader) {
+      supabase = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: authHeader } } }
+      );
+    } else {
+      supabase = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      );
+    }
 
     const { site_id } = await req.json();
 

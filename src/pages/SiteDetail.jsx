@@ -129,7 +129,7 @@ export default function SiteDetail() {
       const response = await supabase.functions.invoke('listSitePlugins', { body: { site_id: siteId } });
       return response.data.plugins || [];
     },
-    enabled: !!siteId,
+    enabled: !!siteId && !!user,
     refetchInterval: 30000,
     initialData: [],
   });
@@ -140,7 +140,7 @@ export default function SiteDetail() {
       const response = await supabase.functions.invoke('listSiteThemes', { body: { site_id: siteId } });
       return response.data.themes || [];
     },
-    enabled: !!siteId,
+    enabled: !!siteId && !!user,
     refetchInterval: 30000,
     initialData: [],
   });
@@ -151,7 +151,7 @@ export default function SiteDetail() {
       const response = await supabase.functions.invoke('getConnectorVersion', { body: { site_id: siteId } });
       return response.data;
     },
-    enabled: !!siteId,
+    enabled: !!siteId && !!user,
     refetchInterval: 60000,
   });
 

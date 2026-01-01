@@ -10,20 +10,43 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-      )
-      
-      const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
+    // Get auth header
+    const authHeader = req.headers.get('Authorization');
+    
+    if (!authHeader) {
+      console.log('[listSiteThemes] No Authorization header');
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Unauthorized - missing auth token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+      )
+      
+    console.log('[listSiteThemes] Attempting to get user with token');
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError) {
+      console.error('[listSiteThemes] Auth error:', userError.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid token', details: userError.message }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!user) {
+      console.log('[listSiteThemes] No user found in token');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid user' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log('[listSiteThemes] User authenticated:', user.id);
 
     // Parse and validate request body with Zod
     let body;
