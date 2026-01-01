@@ -26,9 +26,8 @@ Deno.serve(async (req) => {
     // Parse and validate request body with Zod
     let body;
     try {
-      const bodyText = await req.text();
-      const parsed = JSON.parse(bodyText);
-      body = SearchWordPressThemesRequestSchema.parse(parsed);
+      const requestBody = await req.json();
+      body = SearchWordPressThemesRequestSchema.parse(requestBody);
     } catch (parseError) {
       console.error('[searchWordPressThemes] Validation error:', parseError);
       const error = parseError instanceof z.ZodError
