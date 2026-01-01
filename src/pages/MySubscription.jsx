@@ -228,7 +228,7 @@ export default function MySubscription() {
       queryClient.invalidateQueries({ queryKey: ['my-subscription'] });
       toast({
         title: "Abonnement opgezegd",
-        description: `Je abonnement eindigt op ${format(new Date(data.cancels_at), "d MMMM yyyy", { locale: nl })}`,
+        description: `Je abonnement eindigt op ${data.cancels_at ? format(new Date(data.cancels_at), "d MMMM yyyy", { locale: nl }) : "onbekende datum"}`,
       });
     },
     onError: (error) => {
@@ -453,7 +453,7 @@ export default function MySubscription() {
                   <Calendar className="w-4 h-4 text-gray-400" />
                 </div>
                 <p className="text-sm text-gray-900">
-                  {format(new Date(subscription.current_period_start), "d MMM yyyy", { locale: nl })} - {format(new Date(subscription.current_period_end), "d MMM yyyy", { locale: nl })}
+                  {subscription.current_period_start ? format(new Date(subscription.current_period_start), "d MMM yyyy", { locale: nl }) : "?"} - {subscription.current_period_end ? format(new Date(subscription.current_period_end), "d MMM yyyy", { locale: nl }) : "?"}
                 </p>
               </div>
 
@@ -524,7 +524,7 @@ export default function MySubscription() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Volgende Betaling</p>
                   <p className="text-lg font-bold text-gray-900">
-                    {format(new Date(subscription.current_period_end), "d MMM yyyy", { locale: nl })}
+                    {subscription.current_period_end ? format(new Date(subscription.current_period_end), "d MMM yyyy", { locale: nl }) : "-"}
                   </p>
                 </div>
                 <div>
@@ -550,7 +550,7 @@ export default function MySubscription() {
                     <div>
                       <p className="font-semibold text-amber-900 text-sm">Abonnement Geannuleerd</p>
                       <p className="text-xs text-amber-700 mt-1">
-                        Je abonnement eindigt op {format(new Date(subscription.current_period_end), "d MMM yyyy", { locale: nl })}
+                        Je abonnement eindigt op {subscription.current_period_end ? format(new Date(subscription.current_period_end), "d MMM yyyy", { locale: nl }) : "-"}
                       </p>
                     </div>
                   </div>
@@ -684,7 +684,7 @@ export default function MySubscription() {
                             <p className="font-semibold text-gray-900">{invoice.invoice_number}</p>
                             <div className="flex items-center gap-2 mt-1">
                               <p className="text-sm text-gray-600">
-                                {format(new Date(invoice.created_date), "d MMM yyyy", { locale: nl })}
+                                {invoice.created_date ? format(new Date(invoice.created_date), "d MMM yyyy", { locale: nl }) : "-"}
                               </p>
                               <span className="text-gray-400">•</span>
                               <Badge className={

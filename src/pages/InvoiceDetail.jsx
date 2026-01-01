@@ -270,7 +270,7 @@ export default function InvoiceDetail() {
                     <div>
                       <p className="font-semibold text-green-900 text-sm">Betaald</p>
                       <p className="text-xs text-green-700 mt-1">
-                        {format(new Date(invoice.paid_at), "d MMMM yyyy 'om' HH:mm", { locale: nl })}
+                        {invoice.paid_at ? format(new Date(invoice.paid_at), "d MMMM yyyy 'om' HH:mm", { locale: nl }) : "-"}
                       </p>
                     </div>
                   </div>
@@ -308,7 +308,7 @@ export default function InvoiceDetail() {
                     Factuurdatum
                   </p>
                   <p className="font-medium text-gray-900">
-                    {format(new Date(invoice.created_date), "d MMMM yyyy", { locale: nl })}
+                    {invoice.created_date ? format(new Date(invoice.created_date), "d MMMM yyyy", { locale: nl }) : "-"}
                   </p>
                 </div>
                 <div>
