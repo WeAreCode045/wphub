@@ -12,7 +12,7 @@ Created `/wp-plugin/` directory with complete plugin code:
 
 ```
 wp-plugin/
-├── wp-plugin-hub-connector.php      (Main plugin file, v1.0.0)
+├── wphub-connector.php              (Main plugin file, v1.0.0)
 ├── includes/
 │   ├── Connector.php                (OAuth, syncing, admin page)
 │   ├── PluginManager.php            (Plugin management)
@@ -35,8 +35,8 @@ Created `scripts/deploy-connector.sh`:
 
 **Functionality:**
 1. Reads version from plugin header
-2. Creates ZIP file: `wp-plugin-hub-connector-X.Y.Z.zip`
-3. Uploads to Supabase `wp-plugin-hub-connector` bucket
+2. Creates ZIP file: `wphub-connector-X.Y.Z.zip`
+3. Uploads to Supabase `Connectors` bucket
 4. Generates public download URL
 5. Updates metadata JSON
 
@@ -60,8 +60,8 @@ export SUPABASE_ANON_KEY=...
   "versions": [
     {
       "version": "1.0.0",
-      "filename": "wp-plugin-hub-connector-1.0.0.zip",
-      "url": "https://...storage/wp-plugin-hub-connector-1.0.0.zip",
+      "filename": "wphub-connector-1.0.0.zip",
+      "url": "https://...storage/wphub-connector-1.0.0.zip",
       "size": 123456,
       "created_at": "2026-01-01T12:00:00Z"
     }
@@ -129,7 +129,7 @@ Created comprehensive documentation:
 
 ```
 wp-plugin/
-├── wp-plugin-hub-connector.php (318 lines)
+├── wphub-connector.php (318 lines)
 ├── includes/
 │   ├── Connector.php (450 lines)
 │   ├── PluginManager.php (50 lines)
@@ -168,7 +168,7 @@ src/pages.config.js
 - ✅ Both using `--no-verify-jwt` flag
 
 ### Storage Bucket
-- **Name:** `wp-plugin-hub-connector`
+- **Name:** `Connectors`
 - **Access:** Public (for downloads)
 - **Status:** Ready for first deployment
 
@@ -188,7 +188,7 @@ export SUPABASE_ANON_KEY="your-anon-key"
 **Output:**
 ```
 Building WP Plugin Hub Connector v1.0.0
-✓ Created ZIP: wp-plugin-hub-connector-1.0.0.zip (45.2 KB)
+✓ Created ZIP: wphub-connector-1.0.0.zip (45.2 KB)
 ✓ Successfully uploaded to Supabase
 ✓ Download URL: https://your-project.supabase.co/storage/v1/object/public/...
 ✓ Deployment complete!
@@ -239,10 +239,10 @@ Users download selected version
 ### Storage Architecture
 ```
 Supabase Storage
-└── wp-plugin-hub-connector/ (public)
-    ├── wp-plugin-hub-connector-1.0.0.zip
-    ├── wp-plugin-hub-connector-1.0.1.zip
-    ├── wp-plugin-hub-connector-2.0.0.zip
+└── Connectors/ (public)
+    ├── wphub-connector-1.0.0.zip
+    ├── wphub-connector-1.0.1.zip
+    ├── wphub-connector-2.0.0.zip
     └── ... (more versions)
 
 Supabase Database

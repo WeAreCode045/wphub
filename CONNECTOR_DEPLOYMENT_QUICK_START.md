@@ -9,7 +9,7 @@ The WordPress connector plugin is now managed from the codebase (`/wp-plugin/` d
 ### Step 1: Update Version
 ```bash
 # Edit the plugin main file header
-nano wp-plugin/wp-plugin-hub-connector.php
+nano wp-plugin/wphub-connector.php
 
 # Change:
 # * Version: 1.0.0
@@ -37,7 +37,7 @@ export SUPABASE_ANON_KEY="your-anon-key"
 
 | File | Purpose |
 |------|---------|
-| `wp-plugin/wp-plugin-hub-connector.php` | Main plugin file - contains version header |
+| `wp-plugin/wphub-connector.php` | Main plugin file - contains version header |
 | `wp-plugin/includes/Connector.php` | OAuth flow, syncing, admin page |
 | `wp-plugin/includes/PluginManager.php` | Plugin install/activate |
 | `wp-plugin/includes/ThemeManager.php` | Theme install/activate |
@@ -49,7 +49,7 @@ export SUPABASE_ANON_KEY="your-anon-key"
 ```
 1. Script reads version from plugin header
    ↓
-2. Creates ZIP: wp-plugin-hub-connector-1.0.1.zip
+2. Creates ZIP: wphub-connector-1.0.1.zip
    ↓
 3. Uploads to Supabase storage bucket
    ↓

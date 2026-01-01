@@ -12,7 +12,7 @@
 
 **Plugin Code:**
 - [wp-plugin/README.md](wp-plugin/README.md) - Plugin documentation
-- [wp-plugin/wp-plugin-hub-connector.php](wp-plugin/wp-plugin-hub-connector.php) - Main plugin file
+- [wp-plugin/wphub-connector.php](wp-plugin/wphub-connector.php) - Main plugin file
 
 ---
 
@@ -21,7 +21,7 @@
 ### WordPress Plugin Code
 ```
 wp-plugin/
-├── wp-plugin-hub-connector.php    # Main plugin (v1.0.0) - 318 lines
+├── wphub-connector.php            # Main plugin (v1.0.0) - 318 lines
 ├── includes/
 │   ├── Connector.php              # OAuth & syncing - 450 lines
 │   ├── PluginManager.php          # Plugin mgmt - 50 lines

@@ -1,14 +1,14 @@
 <?php
 /**
- * Plugin Name: WP Plugin Hub Connector
+ * Plugin Name: WP Hub Connector
  * Plugin URI: https://wphub.io
  * Description: Connector plugin for WP Plugin Hub - Manages plugins and themes from your hub
- * Version: 1.0.0
+ * Version: 1.0.2
  * Author: WP Plugin Hub
  * Author URI: https://wphub.io
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: wp-plugin-hub-connector
+ * Text Domain: wphub-connector
  * Domain Path: /languages
  */
 
@@ -38,7 +38,7 @@ spl_autoload_register(function($class) {
  */
 function wp_plugin_hub_connector_init() {
     load_plugin_textdomain(
-        'wp-plugin-hub-connector',
+        'wphub-connector',
         false,
         dirname(plugin_basename(__FILE__)) . '/languages'
     );

@@ -6,7 +6,7 @@ This is the WordPress connector plugin for WP Plugin Hub. It enables WordPress s
 
 ```
 wp-plugin/
-├── wp-plugin-hub-connector.php    # Main plugin file with initialization
+├── wphub-connector.php            # Main plugin file with initialization
 ├── includes/
 │   ├── Connector.php              # Main connector class handling OAuth and syncing
 │   ├── PluginManager.php          # Plugin installation and management
@@ -33,7 +33,7 @@ wp-plugin/
 
 ## How to Deploy a New Version
 
-1. **Update the version** in `wp-plugin-hub-connector.php`:
+1. **Update the version** in `wphub-connector.php`:
    ```php
    * Version: 1.0.1
    ```
@@ -45,7 +45,7 @@ wp-plugin/
 
    This script will:
    - Extract the version from the plugin header
-   - Create a ZIP file: `wp-plugin-hub-connector-X.Y.Z.zip`
+   - Create a ZIP file: `wphub-connector-X.Y.Z.zip`
    - Upload it to Supabase storage bucket
    - Store metadata in `connector-versions.json`
 
@@ -62,7 +62,7 @@ SUPABASE_ANON_KEY=your-anon-key
 
 ## Plugin Files Structure
 
-### Main Plugin File (wp-plugin-hub-connector.php)
+### Main Plugin File (wphub-connector.php)
 - Plugin header with metadata
 - Auto-loader for classes
 - Initialization hooks

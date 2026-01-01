@@ -18,7 +18,7 @@
 
 **Verify:**
 ```bash
-ls -la wp-plugin/wp-plugin-hub-connector.php
+ls -la wp-plugin/wphub-connector.php
 ls -la scripts/deploy-connector.sh
 grep ConnectorManagement src/pages.config.js
 ```
@@ -30,7 +30,7 @@ grep ConnectorManagement src/pages.config.js
 ```bash
 find wp-plugin/ -type f
 # Should show:
-# - wp-plugin-hub-connector.php
+# - wphub-connector.php
 # - includes/Connector.php
 # - includes/PluginManager.php
 # - includes/ThemeManager.php
@@ -68,13 +68,13 @@ cd /Volumes/Code045Disk/Projects/Applications/wphub
 - [ ] ✓ Deployment complete
 
 **Capture:**
-- [ ] ZIP filename (e.g., wp-plugin-hub-connector-1.0.0.zip)
+- [ ] ZIP filename (e.g., wphub-connector-1.0.0.zip)
 - [ ] Public download URL
 - [ ] File size
 
 ### 4. Verify Upload in Supabase
 
-Go to **Supabase Dashboard** → **Storage** → **wp-plugin-hub-connector**
+Go to **Supabase Dashboard** → **Storage** → **Connectors**
 
 - [ ] ZIP file appears in bucket
 - [ ] File size is reasonable (should be < 1 MB)
@@ -94,8 +94,8 @@ curl https://your-project.supabase.co/functions/v1/getConnectorVersions \
   "versions": [
     {
       "version": "1.0.0",
-      "filename": "wp-plugin-hub-connector-1.0.0.zip",
-      "url": "https://...public/wp-plugin-hub-connector/wp-plugin-hub-connector-1.0.0.zip",
+      "filename": "wphub-connector-1.0.0.zip",
+      "url": "https://...public/Connectors/wphub-connector-1.0.0.zip",
       "size": 12345,
       "created_at": "2026-01-01T..."
     }
@@ -137,7 +137,7 @@ curl https://your-project.supabase.co/functions/v1/connectorVersionSettings \
 {
   "success": true,
   "version": "1.0.0",
-  "url": "https://...wp-plugin-hub-connector-1.0.0.zip"
+  "url": "https://...wphub-connector-1.0.0.zip"
 }
 ```
 
@@ -204,7 +204,7 @@ Before deploying to production:
 
 ```bash
 # 1. Update version
-nano wp-plugin/wp-plugin-hub-connector.php
+nano wp-plugin/wphub-connector.php
 
 # 2. Test locally
 # ... run tests ...

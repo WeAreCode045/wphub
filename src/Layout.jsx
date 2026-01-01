@@ -860,7 +860,7 @@ export default function Layout({ children, currentPageName }) {
                             const url = window.URL.createObjectURL(blob);
                             const link = document.createElement('a');
                             link.href = url;
-                            link.download = `wp-plugin-hub-connector-v${activeConnector.version}.zip`;
+                            link.download = `wphub-connector-v${activeConnector.version}.zip`;
                             document.body.appendChild(link);
                             link.click();
                             document.body.removeChild(link);

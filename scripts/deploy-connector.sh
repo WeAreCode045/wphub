@@ -14,8 +14,18 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Load environment variables from .env file if it exists
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    echo "Loading environment variables from .env file..."
+    export $(cat "$PROJECT_ROOT/.env" | grep -v '^#' | grep -v '^$' | xargs)
+elif [ -f "$PROJECT_ROOT/.env.local" ]; then
+    echo "Loading environment variables from .env.local file..."
+    export $(cat "$PROJECT_ROOT/.env.local" | grep -v '^#' | grep -v '^$' | xargs)
+fi
+
 PLUGIN_DIR="$PROJECT_ROOT/wp-plugin"
-MAIN_FILE="$PLUGIN_DIR/wp-plugin-hub-connector.php"
+MAIN_FILE="$PLUGIN_DIR/wphub-connector.php"
 BUCKET_NAME="Connectors"
 PROJECT_ID="${SUPABASE_PROJECT_ID}"
 SUPABASE_URL="${SUPABASE_URL}"
@@ -34,13 +44,33 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-echo -e "${YELLOW}Building WP Plugin Hub Connector v${VERSION}${NC}"
+echo -e "${YELLOW}Current version: ${VERSION}${NC}"
+
+# Auto-increment version (patch version: X.Y.Z -> X.Y.Z+1)
+IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+PATCH=$((PATCH + 1))
+NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
+echo -e "${YELLOW}Auto-incrementing version to: ${NEW_VERSION}${NC}"
+
+# Update version in plugin file
+sed -i '' "s/\* Version: .*/\* Version: ${NEW_VERSION}/" "$MAIN_FILE"
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Error: Failed to update version in plugin file${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Version updated in plugin file${NC}"
+
+VERSION="${NEW_VERSION}"
+echo -e "${YELLOW}Building WP Hub Connector v${VERSION}${NC}"
 echo "Plugin directory: $PLUGIN_DIR"
 echo "Version: $VERSION"
 
 # Create temporary directory for the plugin zip
 TEMP_DIR=$(mktemp -d)
-PLUGIN_BUILD_DIR="$TEMP_DIR/wp-plugin-hub-connector"
+PLUGIN_BUILD_DIR="$TEMP_DIR/wphub-connector"
 
 # Copy plugin to build directory
 mkdir -p "$PLUGIN_BUILD_DIR"
@@ -52,9 +82,9 @@ find "$PLUGIN_BUILD_DIR" -name "*.swp" -delete
 find "$PLUGIN_BUILD_DIR" -name ".DS_Store" -delete
 
 # Create ZIP file
-ZIP_FILE="wp-plugin-hub-connector-${VERSION}.zip"
+ZIP_FILE="wphub-connector-${VERSION}.zip"
 cd "$TEMP_DIR"
-zip -r "$ZIP_FILE" wp-plugin-hub-connector > /dev/null 2>&1
+zip -r "$ZIP_FILE" wphub-connector > /dev/null 2>&1
 
 # Move ZIP to project root
 cp "$ZIP_FILE" "$PROJECT_ROOT/"
@@ -72,31 +102,43 @@ if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
     exit 1
 fi
 
-# Check if bucket exists, create if not
-BUCKET_EXISTS=$(curl -s \
-    -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-    "$SUPABASE_URL/storage/v1/bucket/$BUCKET_NAME" \
-    | grep -q "id" && echo "true" || echo "false")
-
-if [ "$BUCKET_EXISTS" = "false" ]; then
-    echo -e "${YELLOW}Creating storage bucket: $BUCKET_NAME${NC}"
-    curl -s -X POST \
-        -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-        -H "Content-Type: application/json" \
-        -d "{\"name\":\"$BUCKET_NAME\",\"public\":true}" \
-        "$SUPABASE_URL/storage/v1/admin/buckets" > /dev/null
-fi
+# Use service role key if available, otherwise anon key
+SERVICE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-$SUPABASE_ANON_KEY}"
 
 # Upload ZIP file
-echo "Uploading $ZIP_FILE..."
-UPLOAD_RESPONSE=$(curl -s -X POST \
-    -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+echo "Uploading $ZIP_FILE to $BUCKET_NAME bucket..."
+echo "Upload URL: $SUPABASE_URL/storage/v1/object/$BUCKET_NAME/$ZIP_FILE"
+echo "ZIP file path: $PROJECT_ROOT/$ZIP_FILE"
+
+cd "$PROJECT_ROOT"
+
+# Check if ZIP file exists before uploading
+if [ ! -f "$ZIP_FILE" ]; then
+    echo -e "${RED}Error: ZIP file not found at $ZIP_FILE${NC}"
+    exit 1
+fi
+
+# Use the correct Supabase storage API endpoint with PUT method
+echo "Executing upload..."
+UPLOAD_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
+    -H "Authorization: Bearer $SERVICE_KEY" \
+    -H "Content-Type: application/zip" \
+    -H "x-upsert: true" \
     --data-binary "@$ZIP_FILE" \
-    "$SUPABASE_URL/storage/v1/object/$BUCKET_NAME/$ZIP_FILE")
+    "$SUPABASE_URL/storage/v1/object/$BUCKET_NAME/$ZIP_FILE" 2>&1)
+
+echo "Upload response: $UPLOAD_RESPONSE"
 
 # Check if upload was successful
-if echo "$UPLOAD_RESPONSE" | grep -q "error"; then
+if echo "$UPLOAD_RESPONSE" | grep -q '"error"'; then
     echo -e "${RED}Upload failed:${NC}"
+    echo "$UPLOAD_RESPONSE"
+    exit 1
+fi
+
+# Check if response contains "Id" or "Key" (success indicators)
+if ! echo "$UPLOAD_RESPONSE" | grep -qE '("Id"|"Key"|"path")'; then
+    echo -e "${RED}Upload may have failed. Response:${NC}"
     echo "$UPLOAD_RESPONSE"
     exit 1
 fi

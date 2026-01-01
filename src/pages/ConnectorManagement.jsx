@@ -338,7 +338,7 @@ export default function ConnectorManagement() {
                   To deploy a new connector version:
                 </h4>
                 <ol className="list-decimal list-inside space-y-2 text-gray-600">
-                  <li>Update the version in wp-plugin/wp-plugin-hub-connector.php</li>
+                  <li>Update the version in wp-plugin/wphub-connector.php</li>
                   <li>Run the deployment script:</li>
                 </ol>
                 <code className="block bg-gray-900 text-gray-100 p-3 rounded-lg mt-3 text-xs overflow-x-auto">

@@ -22,7 +22,7 @@ The connector plugin system has been refactored to use a managed plugin approach
 ```
 wphub/
 ├── wp-plugin/                              # Managed WordPress plugin
-│   ├── wp-plugin-hub-connector.php         # Main plugin file (v1.0.0)
+│   ├── wphub-connector.php                 # Main plugin file (v1.0.0)
 │   ├── includes/
 │   │   ├── Connector.php                   # OAuth & sync logic
 │   │   ├── PluginManager.php               # Plugin management
@@ -65,7 +65,7 @@ Users authenticate directly with the platform:
 
 ### 1. Update Plugin Version
 
-Edit `wp-plugin/wp-plugin-hub-connector.php`:
+Edit `wp-plugin/wphub-connector.php`:
 ```php
 /**
  * Version: 1.0.1
@@ -87,16 +87,16 @@ export SUPABASE_ANON_KEY="your-anon-key"
 
 **What the script does:**
 1. Reads version from plugin header
-2. Creates ZIP: `wp-plugin-hub-connector-1.0.1.zip`
-3. Uploads to `wp-plugin-hub-connector` bucket in Supabase
+2. Creates ZIP: `wphub-connector-1.0.1.zip`
+3. Uploads to `Connectors` bucket in Supabase
 4. Generates public URL
 5. Updates `connector-versions.json` metadata
 
 **Output:**
 ```
-✓ Created ZIP: wp-plugin-hub-connector-1.0.1.zip
+✓ Created ZIP: wphub-connector-1.0.1.zip
 ✓ Successfully uploaded to Supabase
-✓ Download URL: https://...supabase.co/storage/v1/object/public/wp-plugin-hub-connector/wp-plugin-hub-connector-1.0.1.zip
+✓ Download URL: https://...supabase.co/storage/v1/object/public/Connectors/wphub-connector-1.0.1.zip
 ✓ Deployment complete!
 ```
 
@@ -125,8 +125,8 @@ export SUPABASE_ANON_KEY="your-anon-key"
   "versions": [
     {
       "version": "1.0.1",
-      "filename": "wp-plugin-hub-connector-1.0.1.zip",
-      "url": "https://...storage/wp-plugin-hub-connector-1.0.1.zip",
+      "filename": "wphub-connector-1.0.1.zip",
+      "url": "https://...storage/wphub-connector-1.0.1.zip",
       "size": 123456,
       "created_at": "2026-01-01T12:00:00Z"
     }
@@ -144,21 +144,21 @@ export SUPABASE_ANON_KEY="your-anon-key"
 ```json
 {
   "version": "1.0.1",
-  "url": "https://...supabase.co/storage/v1/object/public/wp-plugin-hub-connector/wp-plugin-hub-connector-1.0.1.zip"
+  "url": "https://...supabase.co/storage/v1/object/public/Connectors/wphub-connector-1.0.1.zip"
 }
 ```
 
 ## Storage Bucket Structure
 
-**Bucket Name:** `wp-plugin-hub-connector`
+**Bucket Name:** `Connectors`
 **Public Access:** Yes
 
 **File Layout:**
 ```
-wp-plugin-hub-connector/
-├── wp-plugin-hub-connector-1.0.0.zip
-├── wp-plugin-hub-connector-1.0.1.zip
-├── wp-plugin-hub-connector-2.0.0.zip
+Connectors/
+├── wphub-connector-1.0.0.zip
+├── wphub-connector-1.0.1.zip
+├── wphub-connector-2.0.0.zip
 └── ... (more versions)
 ```
 
@@ -212,7 +212,7 @@ export SUPABASE_ANON_KEY="your-anon-key"
 
 ### Production
 
-1. Ensure Supabase bucket `wp-plugin-hub-connector` exists and is public
+1. Ensure Supabase bucket `Connectors` exists and is public
 2. Set environment variables in CI/CD
 3. Run deployment script as part of release process
 4. Verify version appears in admin dashboard
@@ -223,7 +223,7 @@ export SUPABASE_ANON_KEY="your-anon-key"
 
 ```bash
 # 1. Update version in plugin
-nano wp-plugin/wp-plugin-hub-connector.php
+nano wp-plugin/wphub-connector.php
 
 # 2. Deploy
 ./scripts/deploy-connector.sh
@@ -255,7 +255,7 @@ curl -X POST https://your-project.supabase.co/functions/v1/connectorVersionSetti
 ### Version not appearing in admin list
 - Give it 5-10 seconds for bucket to sync
 - Click "Refresh" button in admin dashboard
-- Check Supabase dashboard → Storage → wp-plugin-hub-connector
+- Check Supabase dashboard → Storage → Connectors
 
 ### Download link not working
 - Verify bucket exists and is public

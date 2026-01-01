@@ -480,14 +480,14 @@ add_action('wp_ajax_wphub_sync_now', function() {
               <Badge className="bg-indigo-600 text-white mt-0.5">1</Badge>
               <div>
                 <p className="font-medium">Maak een nieuwe plugin aan</p>
-                <p className="text-gray-600 mt-1">Maak een map <code className="bg-white px-2 py-0.5 rounded">wp-plugin-hub-connector</code> in je WordPress <code className="bg-white px-2 py-0.5 rounded">wp-content/plugins/</code> directory</p>
+                <p className="text-gray-600 mt-1">Maak een map <code className="bg-white px-2 py-0.5 rounded">wphub-connector</code> in je WordPress <code className="bg-white px-2 py-0.5 rounded">wp-content/plugins/</code> directory</p>
               </div>
             </li>
             <li className="flex items-start gap-3">
               <Badge className="bg-indigo-600 text-white mt-0.5">2</Badge>
               <div>
                 <p className="font-medium">Kopieer de plugin code</p>
-                <p className="text-gray-600 mt-1">Maak een bestand <code className="bg-white px-2 py-0.5 rounded">wp-plugin-hub-connector.php</code> en plak de onderstaande code erin</p>
+                <p className="text-gray-600 mt-1">Maak een bestand <code className="bg-white px-2 py-0.5 rounded">wphub-connector.php</code> en plak de onderstaande code erin</p>
               </div>
             </li>
             <li className="flex items-start gap-3">

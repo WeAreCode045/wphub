@@ -282,7 +282,7 @@ export default function SiteSettings() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `wp-plugin-hub-connector-v${connector.version}.zip`;
+      link.download = `wphub-connector-v${connector.version}.zip`;
       document.body.appendChild(link);
       link.click();
       
