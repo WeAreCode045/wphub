@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PLUGIN_DIR="$PROJECT_ROOT/wp-plugin"
 MAIN_FILE="$PLUGIN_DIR/wp-plugin-hub-connector.php"
-BUCKET_NAME="connectors"
+BUCKET_NAME="Connectors"
 PROJECT_ID="${SUPABASE_PROJECT_ID}"
 SUPABASE_URL="${SUPABASE_URL}"
 
@@ -109,7 +109,7 @@ echo -e "${GREEN}✓ Download URL:${NC}"
 echo "$PUBLIC_URL"
 
 # Save version info to a metadata file
-METADATA_FILE="$(dirname "$PLUGIN_DIR")/connector-versions.json"
+METADATA_FILE="$PROJECT_ROOT/connector-versions.json"
 echo "Updating version metadata..."
 
 # Create or update versions JSON
