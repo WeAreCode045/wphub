@@ -12,7 +12,9 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/wp-plugin" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PLUGIN_DIR="$PROJECT_ROOT/wp-plugin"
 MAIN_FILE="$PLUGIN_DIR/wp-plugin-hub-connector.php"
 BUCKET_NAME="connectors"
 PROJECT_ID="${SUPABASE_PROJECT_ID}"
