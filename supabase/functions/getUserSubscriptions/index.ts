@@ -6,14 +6,25 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+}
+
 serve(async (req) => {
+  // Handle CORS preflight request
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders })
+  }
+
   try {
     // Check authentication
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization header" }), {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       })
     }
 
@@ -27,7 +38,7 @@ serve(async (req) => {
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       })
     }
 
@@ -48,7 +59,7 @@ serve(async (req) => {
         if (adminUser?.role !== "admin") {
           return new Response(JSON.stringify({ error: "Admin access required" }), {
             status: 403,
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...corsHeaders },
           })
         }
 
@@ -69,7 +80,7 @@ serve(async (req) => {
 
         if (!userData?.stripe_customer_id) {
           return new Response(JSON.stringify([]), {
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...corsHeaders },
           })
         }
 
@@ -91,7 +102,7 @@ serve(async (req) => {
 
         if (!userInvoiceData?.stripe_customer_id) {
           return new Response(JSON.stringify([]), {
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...corsHeaders },
           })
         }
 
@@ -106,7 +117,7 @@ serve(async (req) => {
       default:
         return new Response(JSON.stringify({ error: "Invalid action" }), {
           status: 400,
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...corsHeaders },
         })
     }
 
@@ -115,7 +126,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify(response.data || []), {
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...corsHeaders },
     })
   } catch (error) {
     console.error("Error:", error)
@@ -125,7 +136,7 @@ serve(async (req) => {
       }),
       {
         status: 500,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     )
   }
