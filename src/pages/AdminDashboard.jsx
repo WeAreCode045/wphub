@@ -287,7 +287,10 @@ export default function AdminDashboard() {
                         <p className="text-xs text-gray-600">{activity.user_email}</p>
                         <span className="text-xs text-gray-400">•</span>
                         <p className="text-xs text-gray-400">
-                          {format(new Date(activity.created_date), "d MMM HH:mm", { locale: nl })}
+                          {activity.created_date 
+                            ? format(new Date(activity.created_date), "d MMM HH:mm", { locale: nl })
+                            : 'N/A'
+                          }
                         </p>
                       </div>
                     </div>
