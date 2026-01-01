@@ -584,11 +584,9 @@ export default function SiteDetail() {
     setIsSearchingWpThemes(true);
     try {
       const response = await supabase.functions.invoke('searchWordPressThemes', {
-        body: {
-          search: wpThemeSearchQuery,
-          page: 1,
-          per_page: 20
-        }
+        search: wpThemeSearchQuery,
+        page: 1,
+        per_page: 20
       });
 
       if (response.data.success) {
