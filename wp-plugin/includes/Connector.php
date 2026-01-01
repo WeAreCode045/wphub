@@ -1524,34 +1524,91 @@ class Connector {
 
         $download_url = esc_url($_POST['download_url']);
 
-        // Include WordPress upgrade library
+        // Include required WordPress files
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/misc.php';
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
-        // Create a temporary file to download the plugin
+        // Get the plugin file path
+        $plugin_file = plugin_basename(WPHC_PLUGIN_DIR . 'wphub-connector.php');
+        
+        // Check if plugin is active
+        $was_active = is_plugin_active($plugin_file);
+
+        // Initialize the WordPress filesystem
+        if (!WP_Filesystem()) {
+            // If we can't initialize filesystem, try direct method
+            wp_send_json_error('Failed to initialize WordPress filesystem. Please check file permissions.');
+        }
+
+        // Download the plugin update
         $temp_file = download_url($download_url, 300);
 
         if (is_wp_error($temp_file)) {
             wp_send_json_error('Failed to download update: ' . $temp_file->get_error_message());
         }
 
-        // Unzip the plugin
-        $unzip_result = unzip_file($temp_file, ABSPATH . 'wp-content/plugins');
+        // Unzip to a temporary directory first
+        $temp_dir = WP_CONTENT_DIR . '/upgrade/wphub-connector-temp-' . time();
+        wp_mkdir_p($temp_dir);
+
+        $unzip_result = unzip_file($temp_file, $temp_dir);
+        @unlink($temp_file);
 
         if (is_wp_error($unzip_result)) {
-            @unlink($temp_file);
             wp_send_json_error('Failed to extract update: ' . $unzip_result->get_error_message());
         }
 
-        @unlink($temp_file);
+        // Find the plugin directory in the extracted files
+        $source_dir = $temp_dir . '/wphub-connector';
+        if (!is_dir($source_dir)) {
+            // Try to find the directory
+            $files = glob($temp_dir . '/*', GLOB_ONLYDIR);
+            if (!empty($files)) {
+                $source_dir = $files[0];
+            } else {
+                $this->delete_directory($temp_dir);
+                wp_send_json_error('Invalid plugin archive structure');
+            }
+        }
 
         // Deactivate the old plugin
-        $plugin_file = plugin_basename(WPHC_PLUGIN_DIR . 'wphub-connector.php');
-        deactivate_plugins($plugin_file);
+        if ($was_active) {
+            deactivate_plugins($plugin_file);
+        }
 
-        // Activate the new version
-        activate_plugin($plugin_file);
+        // Remove old plugin directory
+        $plugin_dir = WP_PLUGIN_DIR . '/wphub-connector';
+        if (is_dir($plugin_dir)) {
+            $this->delete_directory($plugin_dir);
+        }
 
-        $this->log('Plugin updated successfully');
+        // Move new plugin to plugins directory
+        global $wp_filesystem;
+        $move_result = $wp_filesystem->move($source_dir, $plugin_dir, true);
+
+        // Clean up temp directory
+        $this->delete_directory($temp_dir);
+
+        if (!$move_result) {
+            wp_send_json_error('Failed to move plugin files to destination');
+        }
+
+        // Reactivate if was active
+        if ($was_active) {
+            $result = activate_plugin($plugin_file);
+            if (is_wp_error($result)) {
+                $this->log('Plugin updated but reactivation failed: ' . $result->get_error_message());
+                wp_send_json_success(array(
+                    'message' => 'Plugin updated but automatic reactivation failed. Please activate manually.',
+                    'warning' => true,
+                ));
+                return;
+            }
+        }
+
+        $this->log('Plugin updated successfully to version from ' . $download_url);
 
         wp_send_json_success(array(
             'message' => 'Plugin updated successfully. Page will reload.',
