@@ -32,6 +32,7 @@ class Connector {
         add_action('wp_ajax_wphc_get_status', array($this, 'get_status'));
         add_action('wp_ajax_wphc_get_plugins', array($this, 'get_plugins'));
         add_action('wp_ajax_wphc_get_themes', array($this, 'get_themes'));
+        add_action('wp_ajax_wphc_save_settings', array($this, 'save_settings'));
     }
 
     public function activate() {
@@ -57,8 +58,14 @@ class Connector {
         check_ajax_referer('wphc_nonce');
         
         $hub_url = get_option('wphc_hub_url', '');
+        $client_id = get_option('wphc_client_id', '');
+        $client_secret = get_option('wphc_client_secret', '');
         if (empty($hub_url)) {
             wp_send_json_error('Hub URL not configured', 400);
+        }
+
+        if (empty($client_id) || empty($client_secret)) {
+            wp_send_json_error('Client ID and Client Secret are required', 400);
         }
 
         // Generate OAuth state token
@@ -71,13 +78,35 @@ class Connector {
         
         $oauth_url = add_query_arg(array(
             'response_type' => 'code',
-            'client_id' => get_option('wphc_client_id', ''),
+            'client_id' => $client_id,
             'redirect_uri' => $redirect_uri,
             'state' => $state,
             'scope' => 'sites:read',
         ), rtrim($hub_url, '/') . '/oauth/authorize');
 
         wp_send_json_success(array('oauth_url' => $oauth_url));
+    }
+
+    public function save_settings() {
+        check_ajax_referer('wphc_nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized', 403);
+        }
+
+        $hub_url = isset($_POST['hub_url']) ? esc_url_raw(trim(wp_unslash($_POST['hub_url']))) : '';
+        $client_id = isset($_POST['client_id']) ? sanitize_text_field(wp_unslash($_POST['client_id'])) : '';
+        $client_secret = isset($_POST['client_secret']) ? sanitize_text_field(wp_unslash($_POST['client_secret'])) : '';
+
+        if (empty($hub_url) || empty($client_id) || empty($client_secret)) {
+            wp_send_json_error('Please fill Hub URL, Client ID and Client Secret');
+        }
+
+        update_option('wphc_hub_url', $hub_url);
+        update_option('wphc_client_id', $client_id);
+        update_option('wphc_client_secret', $client_secret);
+
+        wp_send_json_success('Settings saved');
     }
 
     public function handle_oauth_callback() {
@@ -192,6 +221,8 @@ class Connector {
         $site_name = get_option('wphc_site_name', '');
         $hub_url = get_option('wphc_hub_url', '');
         $access_token = get_option('wphc_access_token', '');
+        $client_id = get_option('wphc_client_id', '');
+        $client_secret = get_option('wphc_client_secret', '');
 
         // Show connection message if just connected
         if (isset($_GET['connected'])) {
@@ -200,6 +231,19 @@ class Connector {
 
         echo '<div class="wrap">';
         echo '<h1>WP Plugin Hub Connector</h1>';
+
+        // Hub configuration card
+        echo '<div class="card">';
+        echo '<h2>Hub Configuration</h2>';
+        echo '<p>Set your Hub URL and OAuth credentials. These must match the values provided in your WP Hub account.</p>';
+        echo '<table class="form-table">';
+        echo '<tr><th scope="row"><label for="wphc_hub_url">Hub URL</label></th><td><input type="text" id="wphc_hub_url" class="regular-text" value="' . esc_attr($hub_url) . '" placeholder="https://wphub.pro" /></td></tr>';
+        echo '<tr><th scope="row"><label for="wphc_client_id">Client ID</label></th><td><input type="text" id="wphc_client_id" class="regular-text" value="' . esc_attr($client_id) . '" /></td></tr>';
+        echo '<tr><th scope="row"><label for="wphc_client_secret">Client Secret</label></th><td><input type="password" id="wphc_client_secret" class="regular-text" value="' . esc_attr($client_secret) . '" /></td></tr>';
+        echo '</table>';
+        echo '<button class="button button-secondary" onclick="wphc_save_settings()">Save Settings</button>';
+        echo '<div id="wphc-settings-status" style="margin-top:10px;"></div>';
+        echo '</div>';
 
         // Connection Status Card
         echo '<div class="card">';
@@ -255,23 +299,27 @@ class Connector {
 
         echo '<script>
             var wphc_nonce = "' . esc_js($nonce) . '";
+            var wphc_ajax = ajaxurl || "' . admin_url('admin-ajax.php') . '";
             
             function wphc_oauth_login() {
-                jQuery.post(ajaxurl, {
+                jQuery.post(wphc_ajax, {
                     action: "wphc_oauth_login",
                     nonce: wphc_nonce
-                }, function(data) {
+                }).done(function(data) {
                     if (data.success) {
                         window.location.href = data.data.oauth_url;
                     } else {
                         alert("Error: " + data.data);
                     }
+                }).fail(function(xhr) {
+                    var message = xhr.responseText || "Request failed";
+                    alert("Login request failed (" + xhr.status + "): " + message);
                 });
             }
             
             function wphc_disconnect() {
                 if (confirm("Are you sure you want to disconnect from the hub?")) {
-                    jQuery.post(ajaxurl, {
+                    jQuery.post(wphc_ajax, {
                         action: "wphc_disconnect",
                         nonce: wphc_nonce
                     }, function(data) {
@@ -281,10 +329,31 @@ class Connector {
                     });
                 }
             }
+
+            function wphc_save_settings() {
+                var statusEl = jQuery("#wphc-settings-status");
+                statusEl.html("<em>Saving...</em>");
+
+                jQuery.post(wphc_ajax, {
+                    action: "wphc_save_settings",
+                    nonce: wphc_nonce,
+                    hub_url: jQuery("#wphc_hub_url").val(),
+                    client_id: jQuery("#wphc_client_id").val(),
+                    client_secret: jQuery("#wphc_client_secret").val()
+                }).done(function(data) {
+                    if (data.success) {
+                        statusEl.html("<span style=\"color:green;\">Settings saved.</span>");
+                    } else {
+                        statusEl.html("<span style=\"color:red;\">" + data.data + "</span>");
+                    }
+                }).fail(function(xhr) {
+                    statusEl.html("<span style=\"color:red;\">Failed to save (" + xhr.status + ")</span>");
+                });
+            }
             
             function wphc_sync_plugins() {
                 jQuery("#wphc-status").html("<p>Syncing plugins...</p>");
-                jQuery.post(ajaxurl, {
+                jQuery.post(wphc_ajax, {
                     action: "wphc_sync_plugins",
                     nonce: wphc_nonce
                 }, function(data) {
@@ -295,7 +364,7 @@ class Connector {
             
             function wphc_sync_themes() {
                 jQuery("#wphc-status").html("<p>Syncing themes...</p>");
-                jQuery.post(ajaxurl, {
+                jQuery.post(wphc_ajax, {
                     action: "wphc_sync_themes",
                     nonce: wphc_nonce
                 }, function(data) {
@@ -312,7 +381,7 @@ class Connector {
             });
             
             function wphc_load_plugins() {
-                jQuery.post(ajaxurl, {
+                jQuery.post(wphc_ajax, {
                     action: "wphc_get_plugins",
                     nonce: wphc_nonce
                 }, function(data) {
@@ -321,7 +390,7 @@ class Connector {
             }
             
             function wphc_load_themes() {
-                jQuery.post(ajaxurl, {
+                jQuery.post(wphc_ajax, {
                     action: "wphc_get_themes",
                     nonce: wphc_nonce
                 }, function(data) {
