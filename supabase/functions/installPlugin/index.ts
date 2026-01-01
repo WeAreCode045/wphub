@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
       const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'content-type': 'application/json' } });
     }
 
     // Parse and validate request body with Zod
@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
       const error = parseError instanceof z.ZodError
         ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
         : `Invalid request: ${parseError.message}`;
-      return new Response(JSON.stringify({ error }), { status: 400, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ error }), { status: 400, headers: { ...corsHeaders, 'content-type': 'application/json' } });
     }
 
     const { site_id, plugin_slug, plugin_id } = body;
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
       if (!SERVICE_KEY || !SUPA) {
         console.error('installPlugin: missing SERVICE_KEY or SUPABASE_URL env');
-        return new Response(JSON.stringify({ error: 'Server misconfiguration' }), { status: 500, headers: { 'content-type': 'application/json' } });
+        return new Response(JSON.stringify({ error: 'Server misconfiguration' }), { status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' } });
       }
 
       const url = `${SUPA.replace(/\/$/, '')}/functions/v1/executePluginAction`;
@@ -71,14 +71,14 @@ Deno.serve(async (req) => {
 
       // If remote returned non-ok, keep the same status code to surface it
       const statusCode = resp.ok ? 200 : 500;
-      return new Response(JSON.stringify(out), { status: statusCode, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify(out), { status: statusCode, headers: { ...corsHeaders, 'content-type': 'application/json' } });
     } catch (err) {
       console.error('installPlugin invoke failed:', err?.message || err);
       try { console.error('installPlugin invoke failed - stack:', err?.stack); } catch(e){}
-      return new Response(JSON.stringify({ error: err?.message || 'install failed' }), { status: 500, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ error: err?.message || 'install failed' }), { status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' } });
     }
   } catch (err) {
     console.error('installPlugin error:', err);
-    return new Response(JSON.stringify({ error: err?.message || 'internal' }), { status: 500, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ error: err?.message || 'internal' }), { status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' } });
   }
 });

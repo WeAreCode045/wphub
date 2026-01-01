@@ -387,11 +387,12 @@ export default function SiteDetail() {
   });
 
   const installPluginMutation = useMutation({
-    mutationFn: async ({ plugin_id, download_url }) => {
+    mutationFn: async ({ plugin_id, plugin_slug, download_url }) => {
       const response = await supabase.functions.invoke('installPlugin', {
         body: {
           site_id: siteId,
           plugin_id,
+          plugin_slug,
           download_url
         }
       });
@@ -607,6 +608,7 @@ export default function SiteDetail() {
 
     installPluginMutation.mutate({
       plugin_id: plugin.id,
+      plugin_slug: plugin.slug,
       download_url: latestVersion.download_url
     });
   };
@@ -614,6 +616,7 @@ export default function SiteDetail() {
   const handleInstallFromWp = (wpPlugin) => {
     installPluginMutation.mutate({
       plugin_id: null,
+      plugin_slug: wpPlugin.slug,
       download_url: wpPlugin.download_url
     });
   };
