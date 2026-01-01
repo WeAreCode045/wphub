@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Configuration
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/wp-plugin" && pwd)"
 MAIN_FILE="$PLUGIN_DIR/wp-plugin-hub-connector.php"
-BUCKET_NAME="wp-plugin-hub-connector"
+BUCKET_NAME="connectors"
 PROJECT_ID="${SUPABASE_PROJECT_ID}"
 SUPABASE_URL="${SUPABASE_URL}"
 
