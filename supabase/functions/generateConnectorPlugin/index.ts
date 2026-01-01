@@ -27,7 +27,7 @@ Deno.serve(async (req: Request) => {
       )
       
       const { data: { user } } = await supabase.auth.getUser()
-    if (!user || user.role !== 'admin') return jsonResponse({ error: 'Unauthorized - Admin required' }, 403);
+    if (!user || user.user_metadata?.role !== 'admin') return jsonResponse({ error: 'Unauthorized - Admin required' }, 403);
 
     const { api_key, hub_url, version, description, custom_code } = await req.json();
     if (!version) return jsonResponse({ error: 'Version is required' }, 400);

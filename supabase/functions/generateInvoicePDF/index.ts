@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     }
 
     // Check if user owns this invoice (or is admin)
-    if (invoice.user_id !== user.id && user.role !== 'admin') {
+    if (invoice.user_id !== user.id && user.user_metadata?.role !== 'admin') {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

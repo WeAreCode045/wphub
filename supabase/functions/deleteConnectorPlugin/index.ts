@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
         }
 
         // Check if user is admin
-        if (user.role !== 'admin') {
+        if (user.user_metadata?.role !== 'admin') {
             return new Response(
         JSON.stringify({ error: 'Forbidden - Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

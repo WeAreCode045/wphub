@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       
       const { data: { user } } = await supabase.auth.getUser()
 
-        if (!user || user.role !== 'admin') {
+        if (!user || user.user_metadata?.role !== 'admin') {
             return new Response(
         JSON.stringify({ error: 'Unauthorized - Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

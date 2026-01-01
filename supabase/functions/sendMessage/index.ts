@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       project_id
     } = rawBody;
 
-    const isAdmin = user.role === 'admin';
+    const isAdmin = user.user_metadata?.role === 'admin';
 
     // Determine recipient details based on context
     let recipient_type;
