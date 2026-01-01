@@ -36,8 +36,7 @@ import {
   Mail,
   User as UserIcon
 } from "lucide-react";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 
 export default function AdminSupportTickets() {
   const [user, setUser] = useState(null);
@@ -322,7 +321,7 @@ export default function AdminSupportTickets() {
                             <User className="w-3 h-3" />
                             <span>{ticket.submitter_name}</span>
                             <span>•</span>
-                            <span>{format(new Date(ticket.created_date), "d MMM yyyy HH:mm", { locale: nl })}</span>
+                            <span>{safeFormatDate(ticket.created_date, dateFormats.fullDateTime)}</span>
                             {ticket.responses && ticket.responses.length > 0 && (
                               <>
                                 <span>•</span>
@@ -416,7 +415,7 @@ export default function AdminSupportTickets() {
                     <div className="flex items-center gap-2 text-xs text-gray-500 mt-3 pt-3 border-t border-purple-200">
                       <Badge variant="outline">{getCategoryLabel(selectedTicket.category)}</Badge>
                       <span className="ml-auto">
-                        {format(new Date(selectedTicket.created_date), "d MMM yyyy HH:mm", { locale: nl })}
+                        {safeFormatDate(selectedTicket.created_date, dateFormats.fullDateTime)}
                       </span>
                     </div>
                   </CardContent>
@@ -444,7 +443,7 @@ export default function AdminSupportTickets() {
                               </div>
                               <p className="text-sm text-gray-700 whitespace-pre-wrap">{response.message}</p>
                               <p className="text-xs text-gray-500 mt-2">
-                                {format(new Date(response.created_at), "d MMM yyyy 'om' HH:mm", { locale: nl })}
+                                {safeFormatDate(response.created_at, dateFormats.fullDateTimeWithOm)}
                               </p>
                             </div>
                           </div>

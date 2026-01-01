@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Bell, Search, Plus, Trash2, Send } from "lucide-react";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import SendNotificationDialog from "../components/messaging/SendNotificationDialog";
@@ -309,7 +308,7 @@ export default function AdminNotifications() {
                         </div>
                         <p className="text-sm text-gray-700 line-clamp-2 mb-1">{notif.message}</p>
                         <p className="text-xs text-gray-500">
-                          Verzonden op: {format(new Date(notif.created_date), "PPP p", { locale: nl })}
+                          Verzonden op: {safeFormatDate(notif.created_date, dateFormats.fullDateWithTime)}
                         </p>
                       </div>
                       <Button

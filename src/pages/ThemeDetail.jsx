@@ -39,8 +39,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 import {
   Dialog,
   DialogContent,
@@ -505,7 +504,7 @@ export default function ThemeDetail() {
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">Laatst Geüpdatet</span>
                 <span className="text-xs font-medium">
-                  {theme.updated_date ? format(new Date(theme.updated_date), 'd MMM yyyy', { locale: nl }) : 'N/A'}
+                  {safeFormatDate(theme.updated_date, dateFormats.dateOnly)}
                 </span>
               </div>
             </CardContent>

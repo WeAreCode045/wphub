@@ -73,8 +73,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 import SendMessageDialog from "../components/messaging/SendMessageDialog";
 import SendNotificationDialog from "../components/messaging/SendNotificationDialog";
 
@@ -1498,7 +1497,7 @@ export default function SiteDetail() {
                     </Badge>
                     {healthCheck.last_check && (
                       <p className="text-sm text-gray-500 mt-2">
-                        Laatste check: {format(new Date(healthCheck.last_check), "d MMM yyyy HH:mm", { locale: nl })}
+                        Laatste check: {safeFormatDate(healthCheck.last_check, dateFormats.fullDateTime)}
                       </p>
                     )}
                   </div>

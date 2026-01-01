@@ -41,8 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 import { useUser } from "../Layout";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/utils";
@@ -270,7 +269,7 @@ export default function UserManager() {
         )}
 
         <div className="text-xs text-gray-500 pt-2 border-t border-gray-100">
-          Aangemaakt: {format(new Date(targetUser.created_date), "d MMM yyyy", { locale: nl })}
+          Aangemaakt: {safeFormatDate(targetUser.created_date, dateFormats.dateOnly)}
         </div>
 
         <div className="flex gap-2 pt-3 border-t border-gray-100">

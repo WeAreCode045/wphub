@@ -6,8 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, Package, Globe, Users, Bell, Search } from "lucide-react";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
@@ -116,7 +115,7 @@ export default function PlatformActivities() {
               </p>
               <span className="text-xs text-gray-400">•</span>
               <p className="text-xs text-gray-500">
-                {format(new Date(activity.created_date), "d MMM yyyy HH:mm", { locale: nl })}
+                {safeFormatDate(activity.created_date, dateFormats.fullDateTime)}
               </p>
             </div>
           </div>

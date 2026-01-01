@@ -45,8 +45,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -348,7 +347,7 @@ export default function Projects() {
           {project.start_date && (
             <div className="flex items-center gap-2 text-gray-600">
               <Calendar className="w-3.5 h-3.5" />
-              <span>{format(new Date(project.start_date), "d MMM yyyy", { locale: nl })}</span>
+              <span>{safeFormatDate(project.start_date, dateFormats.dateOnly)}</span>
             </div>
           )}
           {project.plugins && project.plugins.length > 0 && (

@@ -56,8 +56,7 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 import SendMessageDialog from "../components/messaging/SendMessageDialog";
 import TeamInboxPopover from "../components/messaging/TeamInboxPopover";
 
@@ -823,7 +822,7 @@ export default function TeamDetail() {
                                     </>
                                   )}
                                   <p className="text-xs text-gray-400">
-                                    {format(new Date(notification.created_date), "d MMM HH:mm", { locale: nl })}
+                                    {safeFormatDate(notification.created_date, dateFormats.shortDateTime)}
                                   </p>
                                 </div>
                               </div>

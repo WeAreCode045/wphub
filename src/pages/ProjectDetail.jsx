@@ -49,8 +49,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import SendMessageDialog from "../components/messaging/SendMessageDialog";
@@ -490,7 +489,7 @@ export default function ProjectDetail() {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Startdatum</p>
                   <p className="text-sm font-medium">
-                    {format(new Date(project.start_date), "d MMMM yyyy", { locale: nl })}
+                    {safeFormatDate(project.start_date, dateFormats.fullDate)}
                   </p>
                 </div>
               )}
@@ -498,7 +497,7 @@ export default function ProjectDetail() {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Einddatum</p>
                   <p className="text-sm font-medium">
-                    {format(new Date(project.end_date), "d MMMM yyyy", { locale: nl })}
+                    {safeFormatDate(project.end_date, dateFormats.fullDate)}
                   </p>
                 </div>
               )}
@@ -666,7 +665,7 @@ export default function ProjectDetail() {
                                 </h4>
                                 <p className="text-sm text-gray-600 mt-1">{event.description}</p>
                                 <p className="text-xs text-gray-500 mt-2">
-                                  {format(new Date(event.date), "d MMMM yyyy", { locale: nl })}
+                                  {safeFormatDate(event.date, dateFormats.fullDate)}
                                 </p>
                               </div>
                               {canManage && (
@@ -846,7 +845,7 @@ export default function ProjectDetail() {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-gray-900 truncate">{attachment.file_name}</p>
                             <p className="text-xs text-gray-500">
-                              {format(new Date(attachment.uploaded_at), "d MMM yyyy", { locale: nl })} • {attachment.uploaded_by}
+                              {safeFormatDate(attachment.uploaded_at, dateFormats.dateOnly)} • {attachment.uploaded_by}
                             </p>
                           </div>
                         </div>

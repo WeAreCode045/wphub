@@ -64,8 +64,7 @@ import SendNotificationDialog from "../components/messaging/SendNotificationDial
 import { checkSubscriptionLimit } from "../components/subscription/LimitChecker";
 import FeatureGate from "../components/subscription/FeatureGate";
 import { useUser } from "../Layout";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 
 export default function Sites() {
   const user = useUser();
@@ -631,7 +630,7 @@ export default function Sites() {
             </div>
             <p className="text-xs text-gray-500">
               <Clock className="w-3 h-3 inline mr-1" />
-              Aangevraagd: {format(new Date(site.transfer_request?.request_date), "d MMM yyyy HH:mm", { locale: nl })}
+              Aangevraagd: {safeFormatDate(site.transfer_request?.request_date, dateFormats.fullDateTime)}
             </p>
           </div>
 
