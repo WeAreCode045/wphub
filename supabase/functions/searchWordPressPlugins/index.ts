@@ -103,10 +103,10 @@ Deno.serve(async (req) => {
 
         console.log('[searchWordPressPlugins] === END ===');
 
-        return new Response(JSON.stringify({ success: true, info: data.info, plugins }), { headers: { 'content-type': 'application/json' } });
+        return new Response(JSON.stringify({ success: true, info: data.info, plugins }), { headers: { ...corsHeaders, 'content-type': 'application/json' } });
 
     } catch (error: any) {
         console.error('[searchWordPressPlugins] ❌ ERROR:', error?.message || error);
-        return new Response(JSON.stringify({ error: (error?.message || String(error)) }), { status: 500, headers: { 'content-type': 'application/json' } });
+        return new Response(JSON.stringify({ error: (error?.message || String(error)) }), { status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' } });
     }
 });
