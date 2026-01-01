@@ -79,6 +79,54 @@ class Connector {
             'callback' => array($this, 'rest_toggle_plugin'),
             'permission_callback' => '__return_true',
         ));
+
+        register_rest_route('wphub/v1', '/updatePlugin', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_update_plugin'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route('wphub/v1', '/uninstallPlugin', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_uninstall_plugin'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route('wphub/v1', '/uninstallTheme', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_uninstall_theme'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route('wphub/v1', '/downloadPlugin', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_download_plugin'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route('wphub/v1', '/updateDebugSettings', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_update_debug_settings'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route('wphub/v1', '/healthCheck', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_health_check'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route('wphub/v1', '/ping', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_ping'),
+            'permission_callback' => '__return_true',
+        ));
+
+        register_rest_route('wphub/v1', '/getWordPressVersion', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_get_wordpress_version'),
+            'permission_callback' => '__return_true',
+        ));
     }
 
     public function rest_list_plugins($request) {
@@ -251,6 +299,383 @@ class Connector {
             'message' => $message,
             'new_status' => $new_status,
         );
+    }
+
+    public function rest_update_plugin($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $plugin_slug = isset($body['plugin_slug']) ? sanitize_text_field($body['plugin_slug']) : '';
+        $file_url = isset($body['file_url']) ? esc_url_raw($body['file_url']) : '';
+        
+        if (empty($plugin_slug)) {
+            return new \WP_Error('missing_plugin_slug', 'Plugin slug is required', array('status' => 400));
+        }
+
+        // Include required WordPress files
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+
+        // Find the plugin file
+        $all_plugins = get_plugins();
+        $plugin_file = null;
+        
+        foreach ($all_plugins as $file => $plugin_data) {
+            if (dirname($file) === $plugin_slug || $file === $plugin_slug . '.php') {
+                $plugin_file = $file;
+                break;
+            }
+        }
+
+        if (!$plugin_file) {
+            return new \WP_Error('plugin_not_found', 'Plugin not found', array('status' => 404));
+        }
+
+        // Check if plugin is active
+        $was_active = is_plugin_active($plugin_file);
+
+        // If file_url provided, download and install manually
+        if (!empty($file_url)) {
+            $temp_file = download_url($file_url);
+            if (is_wp_error($temp_file)) {
+                return new \WP_Error('download_failed', $temp_file->get_error_message(), array('status' => 500));
+            }
+
+            $unzip_result = unzip_file($temp_file, WP_PLUGIN_DIR);
+            @unlink($temp_file);
+
+            if (is_wp_error($unzip_result)) {
+                return new \WP_Error('unzip_failed', $unzip_result->get_error_message(), array('status' => 500));
+            }
+        } else {
+            // Use WordPress upgrader
+            $upgrader = new \Plugin_Upgrader();
+            $result = $upgrader->upgrade($plugin_file);
+
+            if (is_wp_error($result)) {
+                return new \WP_Error('update_failed', $result->get_error_message(), array('status' => 500));
+            }
+        }
+
+        // Reactivate if was active
+        if ($was_active) {
+            activate_plugin($plugin_file);
+        }
+
+        return array(
+            'success' => true,
+            'message' => 'Plugin updated successfully',
+        );
+    }
+
+    public function rest_uninstall_plugin($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $plugin_slug = isset($body['plugin_slug']) ? sanitize_text_field($body['plugin_slug']) : '';
+        
+        if (empty($plugin_slug)) {
+            return new \WP_Error('missing_plugin_slug', 'Plugin slug is required', array('status' => 400));
+        }
+
+        // Include required WordPress files
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        // Find the plugin file
+        $all_plugins = get_plugins();
+        $plugin_file = null;
+        
+        foreach ($all_plugins as $file => $plugin_data) {
+            if (dirname($file) === $plugin_slug || $file === $plugin_slug . '.php') {
+                $plugin_file = $file;
+                break;
+            }
+        }
+
+        if (!$plugin_file) {
+            return new \WP_Error('plugin_not_found', 'Plugin not found', array('status' => 404));
+        }
+
+        // Deactivate first if active
+        if (is_plugin_active($plugin_file)) {
+            deactivate_plugins($plugin_file);
+        }
+
+        // Delete plugin files
+        $plugin_dir = WP_PLUGIN_DIR . '/' . dirname($plugin_file);
+        
+        if (is_dir($plugin_dir)) {
+            $deleted = $this->delete_directory($plugin_dir);
+            if (!$deleted) {
+                return new \WP_Error('delete_failed', 'Failed to delete plugin files', array('status' => 500));
+            }
+        } else {
+            // Single file plugin
+            $plugin_path = WP_PLUGIN_DIR . '/' . $plugin_file;
+            if (file_exists($plugin_path)) {
+                @unlink($plugin_path);
+            }
+        }
+
+        return array(
+            'success' => true,
+            'message' => 'Plugin uninstalled successfully',
+        );
+    }
+
+    public function rest_uninstall_theme($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $theme_slug = isset($body['theme_slug']) ? sanitize_text_field($body['theme_slug']) : '';
+        
+        if (empty($theme_slug)) {
+            return new \WP_Error('missing_theme_slug', 'Theme slug is required', array('status' => 400));
+        }
+
+        $theme = wp_get_theme($theme_slug);
+        if (!$theme->exists()) {
+            return new \WP_Error('theme_not_found', 'Theme not found', array('status' => 404));
+        }
+
+        // Cannot delete active theme
+        $active_theme = wp_get_theme();
+        if ($theme->get_stylesheet() === $active_theme->get_stylesheet()) {
+            return new \WP_Error('theme_active', 'Cannot delete active theme', array('status' => 400));
+        }
+
+        // Delete theme directory
+        $theme_dir = $theme->get_stylesheet_directory();
+        $deleted = $this->delete_directory($theme_dir);
+
+        if (!$deleted) {
+            return new \WP_Error('delete_failed', 'Failed to delete theme files', array('status' => 500));
+        }
+
+        return array(
+            'success' => true,
+            'message' => 'Theme uninstalled successfully',
+        );
+    }
+
+    public function rest_download_plugin($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $file_url = isset($body['file_url']) ? esc_url_raw($body['file_url']) : '';
+        $plugin_slug = isset($body['plugin_slug']) ? sanitize_text_field($body['plugin_slug']) : '';
+        
+        if (empty($file_url)) {
+            return new \WP_Error('missing_file_url', 'File URL is required', array('status' => 400));
+        }
+
+        // Include required WordPress files
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        $temp_file = download_url($file_url);
+        if (is_wp_error($temp_file)) {
+            return new \WP_Error('download_failed', $temp_file->get_error_message(), array('status' => 500));
+        }
+
+        $unzip_result = unzip_file($temp_file, WP_PLUGIN_DIR);
+        @unlink($temp_file);
+
+        if (is_wp_error($unzip_result)) {
+            return new \WP_Error('unzip_failed', $unzip_result->get_error_message(), array('status' => 500));
+        }
+
+        return array(
+            'success' => true,
+            'message' => 'Plugin downloaded and installed successfully',
+        );
+    }
+
+    public function rest_update_debug_settings($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $debug = isset($body['debug']) ? (bool) $body['debug'] : null;
+        $debug_log = isset($body['debug_log']) ? (bool) $body['debug_log'] : null;
+        $debug_display = isset($body['debug_display']) ? (bool) $body['debug_display'] : null;
+
+        $wp_config_path = ABSPATH . 'wp-config.php';
+        
+        if (!file_exists($wp_config_path)) {
+            return new \WP_Error('config_not_found', 'wp-config.php not found', array('status' => 404));
+        }
+
+        $config_content = file_get_contents($wp_config_path);
+
+        // Update WP_DEBUG
+        if ($debug !== null) {
+            $new_value = $debug ? 'true' : 'false';
+            if (preg_match("/define\s*\(\s*['\"]WP_DEBUG['\"]\s*,\s*(true|false)\s*\)/", $config_content)) {
+                $config_content = preg_replace(
+                    "/define\s*\(\s*['\"]WP_DEBUG['\"]\s*,\s*(true|false)\s*\)/",
+                    "define('WP_DEBUG', $new_value)",
+                    $config_content
+                );
+            } else {
+                $config_content = preg_replace(
+                    "/(\/\*\* That's all.*?\*\/)/s",
+                    "define('WP_DEBUG', $new_value);\n\n$1",
+                    $config_content
+                );
+            }
+        }
+
+        // Update WP_DEBUG_LOG
+        if ($debug_log !== null) {
+            $new_value = $debug_log ? 'true' : 'false';
+            if (preg_match("/define\s*\(\s*['\"]WP_DEBUG_LOG['\"]\s*,\s*(true|false)\s*\)/", $config_content)) {
+                $config_content = preg_replace(
+                    "/define\s*\(\s*['\"]WP_DEBUG_LOG['\"]\s*,\s*(true|false)\s*\)/",
+                    "define('WP_DEBUG_LOG', $new_value)",
+                    $config_content
+                );
+            } else {
+                $config_content = preg_replace(
+                    "/(\/\*\* That's all.*?\*\/)/s",
+                    "define('WP_DEBUG_LOG', $new_value);\n\n$1",
+                    $config_content
+                );
+            }
+        }
+
+        // Update WP_DEBUG_DISPLAY
+        if ($debug_display !== null) {
+            $new_value = $debug_display ? 'true' : 'false';
+            if (preg_match("/define\s*\(\s*['\"]WP_DEBUG_DISPLAY['\"]\s*,\s*(true|false)\s*\)/", $config_content)) {
+                $config_content = preg_replace(
+                    "/define\s*\(\s*['\"]WP_DEBUG_DISPLAY['\"]\s*,\s*(true|false)\s*\)/",
+                    "define('WP_DEBUG_DISPLAY', $new_value)",
+                    $config_content
+                );
+            } else {
+                $config_content = preg_replace(
+                    "/(\/\*\* That's all.*?\*\/)/s",
+                    "define('WP_DEBUG_DISPLAY', $new_value);\n\n$1",
+                    $config_content
+                );
+            }
+        }
+
+        $result = file_put_contents($wp_config_path, $config_content);
+
+        if ($result === false) {
+            return new \WP_Error('write_failed', 'Failed to update wp-config.php', array('status' => 500));
+        }
+
+        return array(
+            'success' => true,
+            'message' => 'Debug settings updated successfully',
+        );
+    }
+
+    public function rest_health_check($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        global $wp_version;
+
+        $health_data = array(
+            'wordpress_version' => $wp_version,
+            'php_version' => phpversion(),
+            'mysql_version' => $this->get_mysql_version(),
+            'active_plugins' => count(get_option('active_plugins', array())),
+            'total_plugins' => count(get_plugins()),
+            'active_theme' => wp_get_theme()->get('Name'),
+            'total_users' => count_users()['total_users'],
+            'disk_usage' => $this->get_wp_directory_size(),
+            'max_upload_size' => wp_max_upload_size(),
+            'memory_limit' => ini_get('memory_limit'),
+            'max_execution_time' => ini_get('max_execution_time'),
+            'debug_mode' => defined('WP_DEBUG') && WP_DEBUG,
+        );
+
+        return array(
+            'success' => true,
+            'health' => $health_data,
+        );
+    }
+
+    public function rest_ping($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        return array(
+            'success' => true,
+            'message' => 'pong',
+            'timestamp' => time(),
+        );
+    }
+
+    public function rest_get_wordpress_version($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        global $wp_version;
+
+        return array(
+            'success' => true,
+            'version' => $wp_version,
+            'php_version' => phpversion(),
+            'mysql_version' => $this->get_mysql_version(),
+        );
+    }
+
+    private function delete_directory($dir) {
+        if (!is_dir($dir)) {
+            return false;
+        }
+
+        $files = array_diff(scandir($dir), array('.', '..'));
+        
+        foreach ($files as $file) {
+            $path = $dir . '/' . $file;
+            if (is_dir($path)) {
+                $this->delete_directory($path);
+            } else {
+                @unlink($path);
+            }
+        }
+        
+        return @rmdir($dir);
     }
 
     private function validate_api_key($api_key) {
