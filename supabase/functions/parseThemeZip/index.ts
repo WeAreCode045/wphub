@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
           console.log('[parseThemeZip] Uploading screenshot:', uploadPath);
           
           const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('Theme')
+            .from('Themes')
             .upload(uploadPath, new Uint8Array(screenshotData), {
               contentType: fileName.includes('.png') ? 'image/png' : 'image/jpeg',
               upsert: true
@@ -186,7 +186,7 @@ Deno.serve(async (req) => {
           } else {
             console.log('[parseThemeZip] Upload successful:', uploadData);
             const { data: { publicUrl } } = supabase.storage
-              .from('Theme')
+              .from('Themes')
               .getPublicUrl(uploadPath);
             screenshotUrl = publicUrl;
             console.log('[parseThemeZip] Screenshot public URL:', screenshotUrl);
