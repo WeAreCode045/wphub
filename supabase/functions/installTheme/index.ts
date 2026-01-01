@@ -41,13 +41,47 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { site_id, theme_slug, theme_id, download_url } = body;
+    const { site_id, theme_id, download_url } = body;
+    let { theme_slug } = body;
 
     console.log('[installTheme] === START ===');
     console.log('[installTheme] Site ID:', site_id);
     console.log('[installTheme] Theme slug:', theme_slug);
     console.log('[installTheme] Theme ID:', theme_id);
     console.log('[installTheme] Download URL:', download_url);
+
+    // If theme_slug not provided but theme_id is, fetch it from database
+    if (!theme_slug && theme_id) {
+      const { data: theme } = await supabase
+        .from('themes')
+        .select('slug')
+        .eq('id', theme_id)
+        .single();
+      
+      if (theme?.slug) {
+        theme_slug = theme.slug;
+        console.log('[installTheme] Fetched theme_slug from database:', theme_slug);
+      }
+    }
+
+    // If still no theme_slug but have download_url, try to extract from URL
+    if (!theme_slug && download_url) {
+      // Extract slug from WordPress.org download URL pattern
+      // https://downloads.wordpress.org/theme/themename.1.0.0.zip
+      const match = download_url.match(/\/theme\/([^.\/]+)/);
+      if (match) {
+        theme_slug = match[1];
+        console.log('[installTheme] Extracted theme_slug from URL:', theme_slug);
+      }
+    }
+
+    // Validate we have a theme_slug
+    if (!theme_slug) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Theme slug is required and could not be determined' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get site details
     const { data: site, error: siteError } = await supabase

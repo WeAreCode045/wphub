@@ -443,8 +443,8 @@ export type TestSiteConnectionRequest = z.infer<typeof TestSiteConnectionRequest
 
 export const InstallThemeRequestSchema = z.object({
   site_id: z.string().uuid(),
-  theme_slug: z.string().min(1),
-  theme_id: z.string().uuid().optional(),
+  theme_slug: z.string().min(1).optional(),
+  theme_id: z.string().uuid().nullable().optional(),
   download_url: z.string().url().optional(),
 });
 

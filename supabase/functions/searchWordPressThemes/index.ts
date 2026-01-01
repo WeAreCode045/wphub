@@ -73,6 +73,7 @@ Deno.serve(async (req) => {
       screenshot_url: theme.screenshot_url || '',
       preview_url: theme.preview_url || '',
       homepage: theme.homepage || `https://wordpress.org/themes/${theme.slug}/`,
+      download_link: theme.download_link || `https://downloads.wordpress.org/theme/${theme.slug}.${theme.version}.zip`,
       download_url: theme.download_link || `https://downloads.wordpress.org/theme/${theme.slug}.${theme.version}.zip`,
       active_installs: theme.active_installs || 0,
       rating: theme.rating || 0,
