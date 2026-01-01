@@ -35,7 +35,7 @@ spl_autoload_register(function(\$class) {
     if (strpos(\$class, 'WPPluginHub\\') !== 0) {
         return;
     }
-    \$file = WPHC_PLUGIN_DIR . 'includes/' . str_replace('\\', '/', substr(\$class, 13)) . '.php';
+    \\$file = WPHC_PLUGIN_DIR . 'includes/' . str_replace(chr(92), '/', substr(\\$class, 13)) . '.php';
     if (file_exists(\$file)) {
         require_once \$file;
     }
