@@ -1,3 +1,4 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { authMeWithToken, extractBearerFromReq, jsonResponse } from '../_helpers.ts';
 import { corsHeaders } from '../_helpers.ts';
 import { ActivateThemeRequestSchema, z } from '../_shared/schemas.ts';

@@ -1,3 +1,4 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { authMeWithToken, extractBearerFromReq, uploadToStorage, jsonResponse } from '../_helpers.ts';
 import { corsHeaders } from '../_helpers.ts';
 import { DownloadPluginFromWordPressRequestSchema, z } from '../_shared/schemas.ts';
