@@ -243,10 +243,12 @@ export default function SiteDetail() {
   const acceptSiteTransferMutation = useMutation({
     mutationFn: async () => {
       const response = await supabase.functions.invoke('acceptSiteTransfer', {
-        site_id: siteId,
-        scheduled_transfer_date: scheduledDate ? scheduledDate.toISOString() : null,
-        transfer_plugins: selectedPluginsForTransfer,
-        non_transfer_action: nonTransferAction
+        body: {
+          site_id: siteId,
+          scheduled_transfer_date: scheduledDate ? scheduledDate.toISOString() : null,
+          transfer_plugins: selectedPluginsForTransfer,
+          non_transfer_action: nonTransferAction
+        }
       });
       return response.data;
     },
@@ -266,7 +268,7 @@ export default function SiteDetail() {
   const declineSiteTransferMutation = useMutation({
     mutationFn: async () => {
       const response = await supabase.functions.invoke('declineSiteTransfer', {
-        site_id: siteId
+        body: { site_id: siteId }
       });
       return response.data;
     },
@@ -282,7 +284,7 @@ export default function SiteDetail() {
   const performHealthCheckMutation = useMutation({
     mutationFn: async () => {
       const response = await supabase.functions.invoke('performHealthCheck', {
-        site_id: siteId
+        body: { site_id: siteId }
       });
       return response.data;
     },
@@ -298,8 +300,10 @@ export default function SiteDetail() {
   const updateDebugSettingsMutation = useMutation({
     mutationFn: async (settings) => {
       const response = await supabase.functions.invoke('updateDebugSettings', {
-        site_id: siteId,
-        ...settings
+        body: {
+          site_id: siteId,
+          ...settings
+        }
       });
       return response.data;
     },
@@ -315,7 +319,7 @@ export default function SiteDetail() {
   const testConnectionMutation = useMutation({
     mutationFn: async () => {
       const response = await supabase.functions.invoke('testSiteConnection', {
-        site_id: siteId
+        body: { site_id: siteId }
       });
       return response.data;
     },
@@ -334,7 +338,7 @@ export default function SiteDetail() {
   const updateConnectorMutation = useMutation({
     mutationFn: async () => {
       const response = await supabase.functions.invoke('updateConnectorPlugin', {
-        site_id: siteId
+        body: { site_id: siteId }
       });
       return response.data;
     },
@@ -385,9 +389,11 @@ export default function SiteDetail() {
   const installPluginMutation = useMutation({
     mutationFn: async ({ plugin_id, download_url }) => {
       const response = await supabase.functions.invoke('installPlugin', {
-        site_id: siteId,
-        plugin_id,
-        download_url
+        body: {
+          site_id: siteId,
+          plugin_id,
+          download_url
+        }
       });
       return response.data;
     },
@@ -406,10 +412,12 @@ export default function SiteDetail() {
   const updatePluginMutation = useMutation({
     mutationFn: async ({ plugin_slug, plugin_id, download_url }) => {
       const response = await supabase.functions.invoke('updatePlugin', {
-        site_id: siteId,
-        plugin_slug,
-        plugin_id,
-        download_url
+        body: {
+          site_id: siteId,
+          plugin_slug,
+          plugin_id,
+          download_url
+        }
       });
       return response.data;
     },
@@ -445,9 +453,11 @@ export default function SiteDetail() {
   const uninstallPluginMutation = useMutation({
     mutationFn: async ({ pluginSlug, pluginId }) => {
       const response = await supabase.functions.invoke('uninstallPlugin', {
-        site_id: siteId,
-        plugin_slug: pluginSlug,
-        plugin_id: pluginId
+        body: {
+          site_id: siteId,
+          plugin_slug: pluginSlug,
+          plugin_id: pluginId
+        }
       });
       return response.data;
     },
@@ -465,8 +475,10 @@ export default function SiteDetail() {
   const updatePlatformPluginMutation = useMutation({
     mutationFn: async ({ wpPlugin, platformPlugin }) => {
       const response = await supabase.functions.invoke('downloadPluginFromWordPress', {
-        site_id: siteId,
-        plugin_slug: wpPlugin.slug
+        body: {
+          site_id: siteId,
+          plugin_slug: wpPlugin.slug
+        }
       });
 
       if (!response.data.success) {
@@ -550,9 +562,11 @@ export default function SiteDetail() {
     setIsSearchingWp(true);
     try {
       const response = await supabase.functions.invoke('searchWordPressPlugins', {
-        search: wpSearchQuery,
-        page: 1,
-        per_page: 20
+        body: {
+          search: wpSearchQuery,
+          page: 1,
+          per_page: 20
+        }
       });
 
       if (response.data.success) {
@@ -570,9 +584,11 @@ export default function SiteDetail() {
     setIsSearchingWpThemes(true);
     try {
       const response = await supabase.functions.invoke('searchWordPressThemes', {
-        search: wpThemeSearchQuery,
-        page: 1,
-        per_page: 20
+        body: {
+          search: wpThemeSearchQuery,
+          page: 1,
+          per_page: 20
+        }
       });
 
       if (response.data.success) {
@@ -608,9 +624,11 @@ export default function SiteDetail() {
   const installThemeMutation = useMutation({
     mutationFn: async ({ theme_id, download_url }) => {
       const response = await supabase.functions.invoke('installTheme', {
-        site_id: siteId,
-        theme_id,
-        download_url
+        body: {
+          site_id: siteId,
+          theme_id,
+          download_url
+        }
       });
       return response.data;
     },
@@ -629,8 +647,10 @@ export default function SiteDetail() {
   const activateThemeMutation = useMutation({
     mutationFn: async (themeSlug) => {
       const response = await supabase.functions.invoke('activateTheme', {
-        site_id: siteId,
-        theme_slug: themeSlug
+        body: {
+          site_id: siteId,
+          theme_slug: themeSlug
+        }
       });
       return response.data;
     },
@@ -646,9 +666,11 @@ export default function SiteDetail() {
   const uninstallThemeMutation = useMutation({
     mutationFn: async ({ themeSlug, themeId }) => {
       const response = await supabase.functions.invoke('uninstallTheme', {
-        site_id: siteId,
-        theme_slug: themeSlug,
-        theme_id: themeId
+        body: {
+          site_id: siteId,
+          theme_slug: themeSlug,
+          theme_id: themeId
+        }
       });
       return response.data;
     },
