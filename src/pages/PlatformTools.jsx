@@ -228,7 +228,7 @@ export default function PlatformTools() {
   // New: Generate Connector Mutation
   const generateConnectorMutation = useMutation({
     mutationFn: async (version) => {
-      const response = await supabase.functions.invoke('generateConnectorPlugin', { version });
+      const response = await supabase.functions.invoke('generateConnectorPlugin', { body: { version } });
       return response.data;
     },
     onSuccess: () => {

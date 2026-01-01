@@ -126,7 +126,7 @@ export default function SiteSettings() {
 
   const generateConnectorMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await supabase.functions.invoke('generateConnectorPlugin', data);
+      const response = await supabase.functions.invoke('generateConnectorPlugin', { body: data });
       return response.data;
     },
     onSuccess: () => {
