@@ -57,8 +57,8 @@ cd "$TEMP_DIR"
 zip -r "$ZIP_FILE" wp-plugin-hub-connector > /dev/null 2>&1
 
 # Move ZIP to project root
-cp "$ZIP_FILE" "$(dirname "$PLUGIN_DIR")/"
-ZIP_PATH="$(dirname "$PLUGIN_DIR")/$ZIP_FILE"
+cp "$ZIP_FILE" "$PROJECT_ROOT/"
+ZIP_PATH="$PROJECT_ROOT/$ZIP_FILE"
 
 echo -e "${GREEN}✓ Created ZIP: $ZIP_FILE${NC}"
 echo "File size: $(du -h "$ZIP_PATH" | cut -f1)"
