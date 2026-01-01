@@ -867,8 +867,8 @@ class Connector {
         $email = sanitize_email($_POST['email']);
         $password = sanitize_text_field($_POST['password']);
         
-        // Get platform URL from database (set during initial connection)
-        $platform_url = get_option('wphc_platform_url');
+        // Get platform URL: check constant first, then database
+        $platform_url = defined('WPHUB_PLATFORM_URL') ? WPHUB_PLATFORM_URL : get_option('wphc_platform_url');
 
         if (!$platform_url) {
             wp_send_json_error('Site is not connected to platform. Please contact your administrator.');
@@ -917,7 +917,7 @@ class Connector {
 
     public function handle_oauth_callback_redirect() {
         // This handles both direct authentication and OAuth callback
-        $platform_url = get_option('wphc_platform_url');
+        $platform_url = defined('WPHUB_PLATFORM_URL') ? WPHUB_PLATFORM_URL : get_option('wphc_platform_url');
 
         if (!$platform_url) {
             wp_die('Platform connection not configured. Please contact your administrator.');
