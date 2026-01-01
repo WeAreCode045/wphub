@@ -3,7 +3,7 @@
  * Plugin Name: WP Hub Connector
  * Plugin URI: https://wphub.io
  * Description: Connector plugin for WP Plugin Hub - Manages plugins and themes from your hub
- * Version: 1.0.9
+ * Version: 1.0.11
  * Author: WP Plugin Hub
  * Author URI: https://wphub.io
  * License: GPL v2 or later
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('WPHC_VERSION', '1.0.9');
+define('WPHC_VERSION', '1.0.11');
 define('WPHC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WPHC_PLUGIN_URL', plugin_dir_url(__FILE__));
 
