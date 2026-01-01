@@ -30,8 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format } from "date-fns";
-import { nl } from "date-fns/locale";
+import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 import { useUser } from "../Layout";
 import { useToast } from "@/components/ui/use-toast";
 import { Link } from "react-router-dom";
@@ -431,7 +430,7 @@ export default function UserMessages() {
                             </p>
                             <div className="flex items-center gap-2 mt-2">
                               <p className="text-xs text-gray-400">
-                                {format(new Date(msg.created_date), "d MMM HH:mm", { locale: nl })}
+                                {safeFormatDate(msg.created_date, dateFormats.shortDateTime)}
                               </p>
                               <Badge className={`${getPriorityColor(msg.priority)} text-xs`}>
                                 {msg.priority}
@@ -488,7 +487,7 @@ export default function UserMessages() {
                                   </div>
                                   <p className="text-xs text-gray-500">{msg.sender_email}</p>
                                   <p className="text-xs text-gray-400">
-                                    {format(new Date(msg.created_date), "d MMMM yyyy 'om' HH:mm", { locale: nl })}
+                                    {safeFormatDate(msg.created_date, dateFormats.fullDateTimeWithOm)}
                                   </p>
                                 </div>
                               </div>

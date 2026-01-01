@@ -833,7 +833,10 @@ export default function SiteSettings() {
                               </div>
                               <p className="text-sm text-gray-600 mb-2">{connector.description}</p>
                               <p className="text-xs text-gray-500">
-                                Aangemaakt op {format(new Date(connector.created_date), "d MMM yyyy HH:mm", { locale: nl })}
+                                Aangemaakt op {connector.created_date 
+                                  ? format(new Date(connector.created_date), "d MMM yyyy HH:mm", { locale: nl })
+                                  : 'N/A'
+                                }
                               </p>
                             </div>
                             <div className="flex gap-2">
