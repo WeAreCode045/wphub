@@ -59,81 +59,137 @@ class Connector {
     public function oauth_login() {
         check_ajax_referer('wphc_nonce', 'nonce');
         
-        $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
-        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT');
+        // Return auth page URL that handles login
+        // User will enter email/password on a Supabase-hosted or custom login page
+        // This page will then exchange credentials for an access token and redirect back
         
-        $redirect_uri = admin_url('admin.php?page=wp-plugin-hub&oauth_callback=1');
-        
-        // Build Supabase OAuth URL directly (no need to call edge function)
-        $oauth_url = rtrim($supabase_url, '/') . '/auth/v1/authorize?' .
-            'client_id=' . urlencode($supabase_anon_key) .
-            '&response_type=code' .
-            '&redirect_uri=' . urlencode($redirect_uri) .
-            '&scope=user';
-        
-        // Generate state token for CSRF protection
-        $state = bin2hex(random_bytes(16));
-        set_transient('wphc_oauth_state', $state, HOUR_IN_SECONDS);
-        $oauth_url .= '&state=' . urlencode($state);
-
-        wp_send_json_success(array('oauth_url' => $oauth_url));
-    }
-
-    public function handle_oauth_callback_redirect() {
-        // This is called when user returns from Supabase OAuth
-        if (!isset($_GET['code']) || !isset($_GET['state'])) {
-            return;
+        if (!isset($_POST['email']) || !isset($_POST['password'])) {
+            // No credentials provided - need to show login form
+            wp_send_json_error(array(
+                'requires_credentials' => true,
+                'message' => 'Please provide email and password'
+            ));
         }
 
-        $code = sanitize_text_field($_GET['code']);
-        $state = sanitize_text_field($_GET['state']);
+        $email = sanitize_email($_POST['email']);
+        $password = sanitize_text_field($_POST['password']);
         $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
         $supabase_anon_key = get_option('wphc_supabase_anon_key', 'sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT');
-        $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
-        $redirect_uri = admin_url('admin.php?page=wp-plugin-hub&oauth_callback=1');
 
-        // Verify state token
-        $stored_state = get_transient('wphc_oauth_state');
-        if ($stored_state !== $state) {
-            wp_die('OAuth state mismatch - possible CSRF attack');
-        }
-
-        // Exchange code for access token via Supabase
+        // Authenticate directly with Supabase using email/password
         $response = wp_remote_post(
-            rtrim($supabase_url, '/') . '/auth/v1/token',
+            rtrim($supabase_url, '/') . '/auth/v1/token?grant_type=password',
             array(
-                'headers' => array('Content-Type' => 'application/json'),
+                'headers' => array(
+                    'Content-Type' => 'application/json',
+                    'apikey' => $supabase_anon_key,
+                ),
                 'body' => json_encode(array(
-                    'grant_type' => 'authorization_code',
-                    'code' => $code,
-                    'redirect_uri' => $redirect_uri,
+                    'email' => $email,
+                    'password' => $password,
                 )),
                 'timeout' => 15,
             )
         );
 
         if (is_wp_error($response)) {
-            wp_die('Failed to authenticate with Supabase: ' . $response->get_error_message());
+            wp_send_json_error('Authentication failed: ' . $response->get_error_message());
         }
 
         $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-        
-        if ($response_code !== 200) {
-            wp_die('Supabase authentication failed (HTTP ' . $response_code . '): ' . esc_html($response_body));
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($response_code !== 200 || !isset($body['access_token'])) {
+            $error_msg = isset($body['error_description']) ? $body['error_description'] : 'Invalid email or password';
+            wp_send_json_error('Authentication failed: ' . esc_html($error_msg));
         }
 
-        $body = json_decode($response_body, true);
-        if (!isset($body['access_token'])) {
-            wp_die('Invalid Supabase authentication response: ' . esc_html($response_body));
-        }
-
-        if (!isset($body['user']['id'])) {
-            wp_die('User ID not returned from Supabase');
-        }
-
+        // Successfully authenticated - store session and redirect to callback handler
         $access_token = $body['access_token'];
-        $user_id = $body['user']['id'];
+        $user_id = $body['user']['id'] ?? '';
+
+        // Store temporarily for the callback handler to use
+        set_transient('wphc_temp_access_token', $access_token, HOUR_IN_SECONDS);
+        set_transient('wphc_temp_user_id', $user_id, HOUR_IN_SECONDS);
+
+        // Redirect to callback handler which will complete the connection
+        wp_send_json_success(array(
+            'redirect_url' => admin_url('admin.php?page=wp-plugin-hub&oauth_callback=1&direct=1')
+        ));
+    }
+
+    public function handle_oauth_callback_redirect() {
+        // This handles both direct authentication and OAuth callback
+        $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
+        $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
+        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT');
+
+        // Check if this is a direct authentication callback (from email/password login)
+        if (isset($_GET['direct']) && $_GET['direct'] === '1') {
+            // Get the temporary tokens stored by oauth_login
+            $access_token = get_transient('wphc_temp_access_token');
+            $user_id = get_transient('wphc_temp_user_id');
+
+            if (!$access_token || !$user_id) {
+                wp_die('Authentication session expired. Please try again.');
+            }
+
+            // Clear the temporary tokens
+            delete_transient('wphc_temp_access_token');
+            delete_transient('wphc_temp_user_id');
+        } else {
+            // OAuth code-based flow (not currently used but kept for compatibility)
+            if (!isset($_GET['code']) || !isset($_GET['state'])) {
+                return;
+            }
+
+            $code = sanitize_text_field($_GET['code']);
+            $state = sanitize_text_field($_GET['state']);
+            $redirect_uri = admin_url('admin.php?page=wp-plugin-hub&oauth_callback=1');
+
+            // Verify state token
+            $stored_state = get_transient('wphc_oauth_state');
+            if ($stored_state !== $state) {
+                wp_die('OAuth state mismatch - possible CSRF attack');
+            }
+
+            // Exchange code for access token via Supabase
+            $response = wp_remote_post(
+                rtrim($supabase_url, '/') . '/auth/v1/token',
+                array(
+                    'headers' => array('Content-Type' => 'application/json'),
+                    'body' => json_encode(array(
+                        'grant_type' => 'authorization_code',
+                        'code' => $code,
+                        'redirect_uri' => $redirect_uri,
+                    )),
+                    'timeout' => 15,
+                )
+            );
+
+            if (is_wp_error($response)) {
+                wp_die('Failed to authenticate with Supabase: ' . $response->get_error_message());
+            }
+
+            $response_code = wp_remote_retrieve_response_code($response);
+            $response_body = wp_remote_retrieve_body($response);
+
+            if ($response_code !== 200) {
+                wp_die('Supabase authentication failed (HTTP ' . $response_code . '): ' . esc_html($response_body));
+            }
+
+            $body = json_decode($response_body, true);
+            if (!isset($body['access_token'])) {
+                wp_die('Invalid Supabase authentication response: ' . esc_html($response_body));
+            }
+
+            if (!isset($body['user']['id'])) {
+                wp_die('User ID not returned from Supabase');
+            }
+
+            $access_token = $body['access_token'];
+            $user_id = $body['user']['id'];
+        }
 
         // Call Edge Function to match site and get API key
         $callback_response = wp_remote_post(
@@ -312,7 +368,27 @@ class Connector {
         } else {
             echo '<p><strong>Status:</strong> <span style="color:red;">✗ Not Connected</span></p>';
             echo '<p>Click the button below to log in with your WP Plugin Hub account. Your WordPress site will be automatically connected.</p>';
-            echo '<button class="button button-primary" onclick="wphc_oauth_login()">Login to Hub</button>';
+            echo '<button class="button button-primary" onclick="wphc_show_login_form()">Login to Hub</button>';
+            
+            // Login form modal
+            echo '<div id="wphc-login-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999;">';
+            echo '<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 400px;">';
+            echo '<h2>Login to WP Plugin Hub</h2>';
+            echo '<form id="wphc-login-form">';
+            echo '<div style="margin-bottom: 15px;">';
+            echo '<label for="wphc_email" style="display: block; margin-bottom: 5px;">Email:</label>';
+            echo '<input type="email" id="wphc_email" name="email" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">';
+            echo '</div>';
+            echo '<div style="margin-bottom: 15px;">';
+            echo '<label for="wphc_password" style="display: block; margin-bottom: 5px;">Password:</label>';
+            echo '<input type="password" id="wphc_password" name="password" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">';
+            echo '</div>';
+            echo '<div id="wphc-login-error" style="color: red; margin-bottom: 15px; display: none;"></div>';
+            echo '<button type="button" class="button button-primary" onclick="wphc_submit_login()">Login</button>';
+            echo '<button type="button" class="button" onclick="wphc_hide_login_form()" style="margin-left: 10px;">Cancel</button>';
+            echo '</form>';
+            echo '</div>';
+            echo '</div>';
         }
         
         echo '</div>';
@@ -364,6 +440,59 @@ class Connector {
         echo '<script>
             var wphc_nonce = "' . esc_js($nonce) . '";
             var wphc_ajax = ajaxurl || "' . admin_url('admin-ajax.php') . '";
+            
+            jQuery(document).ready(function() {
+                jQuery("#wphc-login-modal").on("click", function(e) {
+                    if (e.target === this) {
+                        wphc_hide_login_form();
+                    }
+                });
+                
+                jQuery("#wphc_password").on("keypress", function(e) {
+                    if (e.key === "Enter") {
+                        wphc_submit_login();
+                    }
+                });
+            });
+            
+            function wphc_show_login_form() {
+                jQuery("#wphc-login-modal").show();
+                jQuery("#wphc_email").focus();
+            }
+            
+            function wphc_hide_login_form() {
+                jQuery("#wphc-login-modal").hide();
+                jQuery("#wphc-login-error").hide().text("");
+                jQuery("#wphc-login-form")[0].reset();
+            }
+            
+            function wphc_submit_login() {
+                var email = jQuery("#wphc_email").val();
+                var password = jQuery("#wphc_password").val();
+                var errorDiv = jQuery("#wphc-login-error");
+                
+                if (!email || !password) {
+                    errorDiv.text("Please enter both email and password").show();
+                    return;
+                }
+                
+                errorDiv.hide().text("");
+                jQuery.post(wphc_ajax, {
+                    action: "wphc_oauth_login",
+                    nonce: wphc_nonce,
+                    email: email,
+                    password: password
+                }).done(function(data) {
+                    if (data.success) {
+                        window.location.href = data.data.redirect_url;
+                    } else {
+                        errorDiv.text(data.data).show();
+                    }
+                }).fail(function(xhr) {
+                    var message = xhr.responseText || "Request failed";
+                    errorDiv.text("Login failed: " + message).show();
+                });
+            }
             
             function wphc_oauth_login() {
                 jQuery.post(wphc_ajax, {
