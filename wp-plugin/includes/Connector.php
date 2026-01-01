@@ -74,7 +74,7 @@ class Connector {
         $email = sanitize_email($_POST['email']);
         $password = sanitize_text_field($_POST['password']);
         $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
-        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT');
+        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zc3l4eGxwbHZxYWtvd2l3Ym9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MzYyNjgsImV4cCI6MjA4MTQxMjI2OH0.u8KsxzlJmmYbCdC8yErM0hBM0m3-S800XdnPAOCvkMg');
 
         // Authenticate directly with Supabase using email/password
         $response = wp_remote_post(
@@ -120,9 +120,9 @@ class Connector {
 
     public function handle_oauth_callback_redirect() {
         // This handles both direct authentication and OAuth callback
-        $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
+        $platform_url = get_option('wphc_platform_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
         $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
-        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT');
+        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zc3l4eGxwbHZxYWtvd2l3Ym9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU4MzYyNjgsImV4cCI6MjA4MTQxMjI2OH0.u8KsxzlJmmYbCdC8yErM0hBM0m3-S800XdnPAOCvkMg');
 
         // Check if this is a direct authentication callback (from email/password login)
         if (isset($_GET['direct']) && $_GET['direct'] === '1') {
@@ -192,6 +192,20 @@ class Connector {
         }
 
         // Call Edge Function to match site and get API key
+        $wordpress_url = home_url();
+        
+        // Ensure consistent URL format - remove trailing slash and protocol for matching
+        $normalized_url = strtolower(
+            str_replace(
+                array('http://', 'https://', '/'),
+                array('', '', ''),
+                rtrim($wordpress_url, '/')
+            )
+        );
+        
+        $this->log('WordPress home_url(): ' . $wordpress_url);
+        $this->log('Normalized for Edge Function: ' . $normalized_url);
+        
         $callback_response = wp_remote_post(
             rtrim($platform_url, '/') . '/functions/v1/connectorOAuthCallback',
             array(
@@ -201,7 +215,7 @@ class Connector {
                 ),
                 'body' => json_encode(array(
                     'access_token' => $access_token,
-                    'wordpress_url' => home_url(),
+                    'wordpress_url' => $wordpress_url,
                     'user_id' => $user_id,
                 )),
                 'timeout' => 15,
@@ -212,11 +226,19 @@ class Connector {
             wp_die('Failed to connect with platform: ' . $callback_response->get_error_message());
         }
 
+        $callback_code = wp_remote_retrieve_response_code($callback_response);
         $callback_body = json_decode(wp_remote_retrieve_body($callback_response), true);
         
-        if (!isset($callback_body['success']) || !$callback_body['success']) {
+        $this->log('Edge Function response (HTTP ' . $callback_code . '): ' . json_encode($callback_body));
+        
+        // Check for success (HTTP 200 and success flag)
+        if ($callback_code !== 200 || !isset($callback_body['success']) || !$callback_body['success']) {
             $error_msg = isset($callback_body['error']) ? $callback_body['error'] : 'Unknown error';
-            wp_die('Connection failed: ' . esc_html($error_msg));
+            $diagnostic = '';
+            if (isset($callback_body['normalized_wordpress_url'])) {
+                $diagnostic = ' [Sent: ' . $callback_body['normalized_wordpress_url'] . ', Available: ' . implode(', ', $callback_body['normalized_user_sites'] ?? []) . ']';
+            }
+            wp_die('Connection failed: ' . esc_html($error_msg) . $diagnostic);
         }
 
         // Store connection info

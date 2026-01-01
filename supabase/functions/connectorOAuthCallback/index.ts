@@ -68,6 +68,9 @@ Deno.serve(async (req: Request) => {
         .select('id, url, name')
         .eq('user_id', user_id);
 
+      console.log('Looking up sites for user_id:', user_id);
+      console.log('Raw database sites:', sites);
+
       if (sitesError) {
         console.error('Error fetching user sites:', sitesError);
         return new Response(
@@ -87,11 +90,15 @@ Deno.serve(async (req: Request) => {
       );
 
       if (!matching_site) {
+        console.log('URL mismatch - Normalized WP URL:', normalized_wp_url);
+        console.log('Available sites:', (sites || []).map((s: any) => ({ url: s.url, normalized: normalize_url(s.url) })));
         return new Response(
           JSON.stringify({ 
             error: 'Your WordPress site URL was not found in your platform sites',
             wordpress_url: wordpress_url,
-            user_sites: (sites || []).map((s: any) => s.url)
+            normalized_wordpress_url: normalized_wp_url,
+            user_sites: (sites || []).map((s: any) => s.url),
+            normalized_user_sites: (sites || []).map((s: any) => normalize_url(s.url))
           }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
