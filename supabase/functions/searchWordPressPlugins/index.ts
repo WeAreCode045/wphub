@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
             description: plugin.short_description,
             author: plugin.author?.replace(/<[^>]*>/g, ''),
             download_url: plugin.download_link,
+            screenshot_url: plugin.icons?.['2x'] || plugin.icons?.['1x'] || plugin.banners?.['2x'] || plugin.banners?.['1x'] || '',
             active_installs: plugin.active_installs,
             rating: plugin.rating,
             num_ratings: plugin.num_ratings,

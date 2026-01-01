@@ -271,6 +271,58 @@ Deno.serve(async (req) => {
             }
         }
 
+        // Try to find and upload screenshot/icon
+        let screenshotUrl = '';
+        console.log('[parsePluginZip] Looking for icon/screenshot in plugin files...');
+        console.log('[parsePluginZip] All files in ZIP:', decodedEntries.slice(0, 20)); // Log first 20 files
+
+        for (const decodedFilename of decodedEntries) {
+            const fileName = decodedFilename.toLowerCase();
+
+            // Look for icon/screenshot anywhere in the plugin
+            if ((fileName.includes('icon.png') || fileName.includes('icon.jpg') || fileName.includes('icon.jpeg') || fileName.includes('screenshot.png') || fileName.includes('screenshot.jpg') || fileName.includes('screenshot.jpeg')) && !fileName.endsWith('/')) {
+                try {
+                    console.log('[parsePluginZip] Found icon/screenshot:', decodedFilename);
+                    const rawKey = fileMapping[decodedFilename];
+                    const screenshotData = await zip.files[rawKey].async('arraybuffer');
+                    console.log('[parsePluginZip] Screenshot size:', screenshotData.byteLength, 'bytes');
+
+                    const ext = decodedFilename.substring(decodedFilename.lastIndexOf('.')).toLowerCase();
+                    const uploadPath = `${slug}${ext}`;
+
+                    console.log('[parsePluginZip] Uploading icon:', uploadPath);
+
+                    const { data: uploadData, error: uploadError } = await supabase.storage
+                        .from('Plugin')
+                        .upload(uploadPath, new Uint8Array(screenshotData), {
+                            contentType: fileName.includes('.png') ? 'image/png' : 'image/jpeg',
+                            upsert: true
+                        });
+
+                    if (uploadError) {
+                        console.error('[parsePluginZip] Icon upload error:', uploadError);
+                    } else {
+                        console.log('[parsePluginZip] Upload successful:', uploadData);
+                        const { data: { publicUrl } } = supabase.storage
+                            .from('Plugin')
+                            .getPublicUrl(uploadPath);
+                        screenshotUrl = publicUrl;
+                        console.log('[parsePluginZip] Icon public URL:', screenshotUrl);
+                    }
+                } catch (screenshotError) {
+                    console.error('[parsePluginZip] Error processing icon:', screenshotError);
+                }
+                break; // Stop after finding first icon
+            }
+        }
+
+        console.log('[parsePluginZip] Final screenshotUrl:', screenshotUrl);
+
+        // Add screenshot URL to header if found
+        if (screenshotUrl) {
+            header.screenshot_url = screenshotUrl;
+        }
+
         console.log('[parsePluginZip] === SUCCESS ===');
         console.log('[parsePluginZip] Final header:', header);
 

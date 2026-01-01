@@ -169,6 +169,7 @@ export default function Plugins() {
         description: plugin_data.description || '',
         author: plugin_data.author || '',
         author_url: plugin_data.author_url || '',
+        screenshot_url: plugin_data.screenshot_url || '',
         owner_type: "user",
         owner_id: user.id,
         source: "upload",
@@ -282,6 +283,46 @@ export default function Plugins() {
       const pluginToDelete = plugins.find(p => p.id === pluginId);
       
       if (pluginToDelete) {
+        // Delete uploaded zip files from storage for uploaded plugins
+        if (pluginToDelete.source === "upload" && pluginToDelete.versions) {
+          for (const version of pluginToDelete.versions) {
+            if (version.download_url) {
+              try {
+                // Extract file path from storage URL
+                // Format: https://...storage.supabase.co/object/public/Plugins/{filename}
+                const urlParts = version.download_url.split('/');
+                const filename = urlParts[urlParts.length - 1];
+                
+                await supabase.storage
+                  .from('Plugins')
+                  .remove([filename]);
+                
+                console.log(`Deleted plugin file: ${filename}`);
+              } catch (error) {
+                console.error(`Error deleting plugin file: ${error.message}`);
+                // Continue with deletion even if file deletion fails
+              }
+            }
+          }
+        }
+
+        // Also delete icon from Plugin storage if it exists
+        if (pluginToDelete.screenshot_url) {
+          try {
+            const iconUrlParts = pluginToDelete.screenshot_url.split('/');
+            const iconFilename = iconUrlParts[iconUrlParts.length - 1];
+            
+            await supabase.storage
+              .from('Plugin')
+              .remove([iconFilename]);
+            
+            console.log(`Deleted icon file: ${iconFilename}`);
+          } catch (error) {
+            console.error(`Error deleting icon file: ${error.message}`);
+            // Continue with deletion even if icon deletion fails
+          }
+        }
+
         await entities.ActivityLog.create({
           user_email: user.email,
           action: `Plugin verwijderd: ${pluginToDelete.name}`,
