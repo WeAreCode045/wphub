@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error }), { status: 400, headers: { ...corsHeaders, 'content-type': 'application/json' } });
     }
 
-    const { site_id, plugin_slug, plugin_id } = body;
+    const { site_id, plugin_slug, plugin_id, download_url } = body;
 
     try {
       // Call executePluginAction directly via Supabase Functions HTTP endpoint using service role key
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
           'apikey': SERVICE_KEY,
           'Authorization': `Bearer ${SERVICE_KEY}`
         },
-        body: JSON.stringify({ action: 'install', site_id, plugin_slug, plugin_id })
+        body: JSON.stringify({ action: 'install', site_id, plugin_slug, file_url: download_url })
       });
 
       let bodyText = '';

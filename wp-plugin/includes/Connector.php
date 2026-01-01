@@ -104,6 +104,12 @@ class Connector {
             'permission_callback' => '__return_true',
         ));
 
+        register_rest_route('wphub/v1', '/installPlugin', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_install_plugin'),
+            'permission_callback' => '__return_true',
+        ));
+
         register_rest_route('wphub/v1', '/downloadTheme', array(
             'methods' => 'POST',
             'callback' => array($this, 'rest_download_theme'),
@@ -512,6 +518,71 @@ class Connector {
         return array(
             'success' => true,
             'message' => 'Plugin downloaded and installed successfully',
+        );
+    }
+
+    public function rest_install_plugin($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $file_url = isset($body['file_url']) ? esc_url_raw($body['file_url']) : '';
+        $plugin_slug = isset($body['plugin_slug']) ? sanitize_text_field($body['plugin_slug']) : '';
+        
+        if (empty($file_url)) {
+            return new \WP_Error('missing_file_url', 'File URL is required', array('status' => 400));
+        }
+
+        if (empty($plugin_slug)) {
+            return new \WP_Error('missing_plugin_slug', 'Plugin slug is required', array('status' => 400));
+        }
+
+        // Include required WordPress files
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        // Download and extract plugin
+        $temp_file = download_url($file_url);
+        if (is_wp_error($temp_file)) {
+            return new \WP_Error('download_failed', $temp_file->get_error_message(), array('status' => 500));
+        }
+
+        $unzip_result = unzip_file($temp_file, WP_PLUGIN_DIR);
+        @unlink($temp_file);
+
+        if (is_wp_error($unzip_result)) {
+            return new \WP_Error('unzip_failed', $unzip_result->get_error_message(), array('status' => 500));
+        }
+
+        // Find and activate the plugin
+        $all_plugins = get_plugins();
+        $plugin_file = null;
+
+        // Try to find the plugin file by slug
+        foreach ($all_plugins as $file => $data) {
+            if (strpos($file, $plugin_slug) === 0) {
+                $plugin_file = $file;
+                break;
+            }
+        }
+
+        if (!$plugin_file) {
+            return new \WP_Error('plugin_not_found', 'Plugin could not be found after installation', array('status' => 500));
+        }
+
+        // Activate the plugin
+        $activate_result = activate_plugin($plugin_file);
+        if (is_wp_error($activate_result)) {
+            return new \WP_Error('activation_failed', $activate_result->get_error_message(), array('status' => 500));
+        }
+
+        return array(
+            'success' => true,
+            'message' => 'Plugin installed and activated successfully',
+            'plugin' => $plugin_file,
         );
     }
 

@@ -162,37 +162,28 @@ Deno.serve(async (req) => {
 async function installPlugin(site, plugin_slug, file_url, authHeader) {
     console.log('[installPlugin] Installing plugin:', plugin_slug);
     console.log('[installPlugin] File URL:', file_url);
+    console.log('[installPlugin] Site URL:', site.url);
 
     try {
-        // First, download the ZIP file
-        console.log('[installPlugin] Downloading ZIP file...');
-        const zipResponse = await fetch(file_url);
+        // Call the connector plugin's installPlugin REST endpoint
+        const connectorEndpoint = `${site.url}/wp-json/wphub/v1/installPlugin`;
+        console.log('[installPlugin] Calling connector endpoint:', connectorEndpoint);
         
-        if (!zipResponse.ok) {
-            throw new Error(`Failed to download plugin ZIP: ${zipResponse.statusText}`);
-        }
-
-        const zipBlob = await zipResponse.blob();
-        console.log('[installPlugin] ZIP downloaded, size:', zipBlob.size, 'bytes');
-
-        // Create form data with the ZIP file
-        const formData = new FormData();
-        formData.append('file', zipBlob, `${plugin_slug}.zip`);
-        formData.append('status', 'inactive');
-
-        const wpEndpoint = `${site.url}/wp-json/wp/v2/plugins`;
-        console.log('[installPlugin] Uploading to WordPress:', wpEndpoint);
-        
-        const response = await fetch(wpEndpoint, {
+        const response = await fetch(connectorEndpoint, {
             method: 'POST',
             headers: {
+                'Content-Type': 'application/json',
                 'Authorization': authHeader,
             },
-            body: formData
+            body: JSON.stringify({
+                api_key: site.api_key,
+                file_url: file_url,
+                plugin_slug: plugin_slug
+            })
         });
 
         const data = await response.json();
-        console.log('[installPlugin] WordPress response:', JSON.stringify(data));
+        console.log('[installPlugin] Connector response:', JSON.stringify(data));
         
         if (!response.ok) {
             console.error('[installPlugin] Error response:', data);
