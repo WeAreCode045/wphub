@@ -34,6 +34,7 @@ export default function SubscriptionPlans() {
   const user = useUser();
   const [showDialog, setShowDialog] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -47,7 +48,9 @@ export default function SubscriptionPlans() {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('SubscriptionPlans: user loaded', user);
     if (user && user.role !== "admin") {
+      console.log('SubscriptionPlans: user is not admin, redirecting');
       navigate(createPageUrl("Dashboard"));
     }
   }, [user, navigate]);
