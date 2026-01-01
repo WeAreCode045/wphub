@@ -53,11 +53,15 @@ function wp_plugin_hub_connector_init() {
 
     \$class_name = 'WPPluginHub' . chr(92) . 'Connector';
     if (class_exists(\$class_name)) {
-        \$class_name::getInstance()->init();
+        \$connector = \$class_name::getInstance();
+        \$connector->init();
+        // Ensure admin menu is registered
+        add_action('admin_menu', array(\$connector, 'add_admin_menu'), 5);
     }
 }
 
-add_action('plugins_loaded', 'wp_plugin_hub_connector_init');
+// Use earlier hook to ensure menu is registered
+add_action('plugins_loaded', 'wp_plugin_hub_connector_init', 5);
 
 function wp_plugin_hub_connector_activate() {
     \$class_name = 'WPPluginHub' . chr(92) . 'Connector';
@@ -98,7 +102,7 @@ class Connector {
     }
 
     public function init() {
-        add_action('admin_menu', array(\$this, 'add_admin_menu'));
+        // Admin menu is registered in wp_plugin_hub_connector_init()
         add_action('wp_ajax_wphc_sync_plugins', array(\$this, 'sync_plugins'));
         add_action('wp_ajax_wphc_sync_themes', array(\$this, 'sync_themes'));
         add_action('wp_ajax_wphc_install_plugin', array(\$this, 'install_plugin'));
