@@ -57,56 +57,108 @@ class Connector {
     public function oauth_login() {
         check_ajax_referer('wphc_nonce');
         
-        $hub_url = get_option('wphc_hub_url', '');
-        $client_id = get_option('wphc_client_id', '');
-        $client_secret = get_option('wphc_client_secret', '');
-        if (empty($hub_url)) {
-            wp_send_json_error('Hub URL not configured', 400);
-        }
-
-        if (empty($client_id) || empty($client_secret)) {
-            wp_send_json_error('Client ID and Client Secret are required', 400);
-        }
-
-        // Generate OAuth state token
-        $state = wp_generate_password(32, false);
-        set_transient('wphc_oauth_state', $state, HOUR_IN_SECONDS);
-
-        // Build OAuth URL
-        $site_url = home_url();
-        $redirect_uri = admin_url('admin-ajax.php?action=wphc_oauth_callback');
+        $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
+        $wordpress_url = home_url();
+        $redirect_uri = admin_url('admin.php?page=wp-plugin-hub&oauth_callback=1');
         
-        $oauth_url = add_query_arg(array(
-            'response_type' => 'code',
-            'client_id' => $client_id,
-            'redirect_uri' => $redirect_uri,
-            'state' => $state,
-            'scope' => 'sites:read',
-        ), rtrim($hub_url, '/') . '/oauth/authorize');
+        $response = wp_remote_get(
+            rtrim($platform_url, '/') . '/functions/v1/connectorOAuthCallback?wordpress_url=' . urlencode($wordpress_url) . '&redirect_uri=' . urlencode($redirect_uri),
+            array('timeout' => 15)
+        );
 
-        wp_send_json_success(array('oauth_url' => $oauth_url));
+        if (is_wp_error($response)) {
+            wp_send_json_error('Failed to get OAuth URL');
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+        if (!isset($body['oauth_url'])) {
+            wp_send_json_error('Invalid OAuth response');
+        }
+
+        if (isset($body['state'])) {
+            set_transient('wphc_oauth_state', $body['state'], HOUR_IN_SECONDS);
+        }
+
+        wp_send_json_success(array('oauth_url' => $body['oauth_url']));
     }
 
-    public function save_settings() {
-        check_ajax_referer('wphc_nonce');
-
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Unauthorized', 403);
+    public function handle_oauth_callback_redirect() {
+        // This is called when user returns from Supabase OAuth
+        if (!isset($_GET['code']) || !isset($_GET['state'])) {
+            return;
         }
 
-        $hub_url = isset($_POST['hub_url']) ? esc_url_raw(trim(wp_unslash($_POST['hub_url']))) : '';
-        $client_id = isset($_POST['client_id']) ? sanitize_text_field(wp_unslash($_POST['client_id'])) : '';
-        $client_secret = isset($_POST['client_secret']) ? sanitize_text_field(wp_unslash($_POST['client_secret'])) : '';
+        $code = sanitize_text_field($_GET['code']);
+        $state = sanitize_text_field($_GET['state']);
+        $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
 
-        if (empty($hub_url) || empty($client_id) || empty($client_secret)) {
-            wp_send_json_error('Please fill Hub URL, Client ID and Client Secret');
+        // Verify state token
+        $stored_state = get_transient('wphc_oauth_state');
+        if ($stored_state !== $state) {
+            wp_die('OAuth state mismatch - possible CSRF attack');
         }
 
-        update_option('wphc_hub_url', $hub_url);
-        update_option('wphc_client_id', $client_id);
-        update_option('wphc_client_secret', $client_secret);
+        // Exchange code for access token via Supabase
+        $response = wp_remote_post(
+            rtrim($platform_url, '/') . '/auth/v1/token?grant_type=authorization_code',
+            array(
+                'body' => array(
+                    'code' => $code,
+                ),
+                'timeout' => 15,
+            )
+        );
 
-        wp_send_json_success('Settings saved');
+        if (is_wp_error($response)) {
+            wp_die('Failed to authenticate with platform');
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+        if (!isset($body['access_token']) || !isset($body['user']['id'])) {
+            wp_die('Invalid authentication response');
+        }
+
+        $access_token = $body['access_token'];
+        $user_id = $body['user']['id'];
+
+        // Call Edge Function to match site and get API key
+        $callback_response = wp_remote_post(
+            rtrim($platform_url, '/') . '/functions/v1/connectorOAuthCallback',
+            array(
+                'headers' => array('Content-Type' => 'application/json'),
+                'body' => json_encode(array(
+                    'access_token' => $access_token,
+                    'wordpress_url' => home_url(),
+                    'user_id' => $user_id,
+                )),
+                'timeout' => 15,
+            )
+        );
+
+        if (is_wp_error($callback_response)) {
+            wp_die('Failed to connect with platform');
+        }
+
+        $callback_body = json_decode(wp_remote_retrieve_body($callback_response), true);
+        
+        if (!isset($callback_body['success']) || !$callback_body['success']) {
+            $error_msg = isset($callback_body['error']) ? $callback_body['error'] : 'Unknown error';
+            wp_die('Connection failed: ' . esc_html($error_msg));
+        }
+
+        // Store connection info
+        update_option('wphc_platform_url', $platform_url);
+        update_option('wphc_site_id', $callback_body['site_id']);
+        update_option('wphc_site_name', $callback_body['site_name']);
+        update_option('wphc_api_key', $callback_body['api_key']);
+        update_option('wphc_access_token', $access_token);
+        update_option('wphc_connected', true);
+
+        $this->log('Successfully connected to platform site: ' . $callback_body['site_name']);
+
+        // Redirect back to admin page
+        wp_safe_redirect(admin_url('admin.php?page=wp-plugin-hub&connected=1'));
+        exit;
     }
 
     public function handle_oauth_callback() {
@@ -232,19 +284,6 @@ class Connector {
         echo '<div class="wrap">';
         echo '<h1>WP Plugin Hub Connector</h1>';
 
-        // Hub configuration card
-        echo '<div class="card">';
-        echo '<h2>Hub Configuration</h2>';
-        echo '<p>Set your Hub URL and OAuth credentials. These must match the values provided in your WP Hub account.</p>';
-        echo '<table class="form-table">';
-        echo '<tr><th scope="row"><label for="wphc_hub_url">Hub URL</label></th><td><input type="text" id="wphc_hub_url" class="regular-text" value="' . esc_attr($hub_url) . '" placeholder="https://wphub.pro" /></td></tr>';
-        echo '<tr><th scope="row"><label for="wphc_client_id">Client ID</label></th><td><input type="text" id="wphc_client_id" class="regular-text" value="' . esc_attr($client_id) . '" /></td></tr>';
-        echo '<tr><th scope="row"><label for="wphc_client_secret">Client Secret</label></th><td><input type="password" id="wphc_client_secret" class="regular-text" value="' . esc_attr($client_secret) . '" /></td></tr>';
-        echo '</table>';
-        echo '<button class="button button-secondary" onclick="wphc_save_settings()">Save Settings</button>';
-        echo '<div id="wphc-settings-status" style="margin-top:10px;"></div>';
-        echo '</div>';
-
         // Connection Status Card
         echo '<div class="card">';
         echo '<h2>Connection Status</h2>';
@@ -252,11 +291,10 @@ class Connector {
         if ($is_connected && !empty($site_name)) {
             echo '<p><strong>Status:</strong> <span style="color:green;">✓ Connected</span></p>';
             echo '<p><strong>Site:</strong> ' . esc_html($site_name) . '</p>';
-            echo '<p><strong>Hub URL:</strong> ' . esc_url($hub_url) . '</p>';
             echo '<button class="button button-primary" onclick="wphc_disconnect()">Disconnect</button>';
         } else {
             echo '<p><strong>Status:</strong> <span style="color:red;">✗ Not Connected</span></p>';
-            echo '<p>Click the button below to connect your WordPress site to the WP Plugin Hub platform.</p>';
+            echo '<p>Click the button below to log in with your WP Plugin Hub account. Your WordPress site will be automatically connected.</p>';
             echo '<button class="button button-primary" onclick="wphc_oauth_login()">Login to Hub</button>';
         }
         
@@ -328,27 +366,6 @@ class Connector {
                         }
                     });
                 }
-            }
-
-            function wphc_save_settings() {
-                var statusEl = jQuery("#wphc-settings-status");
-                statusEl.html("<em>Saving...</em>");
-
-                jQuery.post(wphc_ajax, {
-                    action: "wphc_save_settings",
-                    nonce: wphc_nonce,
-                    hub_url: jQuery("#wphc_hub_url").val(),
-                    client_id: jQuery("#wphc_client_id").val(),
-                    client_secret: jQuery("#wphc_client_secret").val()
-                }).done(function(data) {
-                    if (data.success) {
-                        statusEl.html("<span style=\"color:green;\">Settings saved.</span>");
-                    } else {
-                        statusEl.html("<span style=\"color:red;\">" + data.data + "</span>");
-                    }
-                }).fail(function(xhr) {
-                    statusEl.html("<span style=\"color:red;\">Failed to save (" + xhr.status + ")</span>");
-                });
             }
             
             function wphc_sync_plugins() {
