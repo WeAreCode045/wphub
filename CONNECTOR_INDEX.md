@@ -9,6 +9,7 @@
 **Full Documentation:**
 - [CONNECTOR_PLUGIN_SYSTEM.md](CONNECTOR_PLUGIN_SYSTEM.md) - Complete architecture & API reference
 - [CONNECTOR_IMPLEMENTATION_SUMMARY.md](CONNECTOR_IMPLEMENTATION_SUMMARY.md) - Project overview
+- [CONNECTOR_VERSION_TRACKING.md](CONNECTOR_VERSION_TRACKING.md) - Automatic version tracking in database
 
 **Plugin Code:**
 - [wp-plugin/README.md](wp-plugin/README.md) - Plugin documentation
@@ -46,7 +47,15 @@ src/pages/
 ```
 supabase/functions/
 ├── getConnectorVersions/          # Lists versions from bucket - 60 lines
-└── connectorVersionSettings/      # Manages active version - 110 lines
+├── connectorVersionSettings/      # Manages active version - 110 lines
+└── registerConnectorVersion/      # Registers new versions - 95 lines (NEW)
+```
+
+### Database Tables
+```
+supabase/migrations/
+├── 20260101_create_settings_table.sql           # Key-value store for settings
+└── 20260101_create_connector_versions_table.sql # Version history tracking
 ```
 
 ### Documentation (1,300+ lines)

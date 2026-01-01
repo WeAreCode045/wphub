@@ -20,72 +20,61 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supaUrl, serviceKey);
 
-    // GET: Retrieve current selected connector version
-    if (req.method === 'GET') {
+    // POST: Register a new connector version
+    if (req.method === 'POST') {
+      const body = await req.json();
+      const { version, file_name, file_url, file_size } = body;
+
+      if (!version || !file_url) {
+        return new Response(
+          JSON.stringify({ error: 'Version and file_url are required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Insert or update the connector version
       const { data, error } = await supabase
-        .from('settings')
-        .select('*')
-        .eq('key', 'connector_version')
+        .from('connector_versions')
+        .upsert(
+          {
+            version,
+            file_name: file_name || `wphub-connector-${version}.zip`,
+            file_url,
+            file_size: file_size || null,
+            uploaded_at: new Date().toISOString(),
+          },
+          { onConflict: 'version' }
+        )
+        .select()
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 is "not found" error
+      if (error) {
+        console.error('Error registering version:', error);
         return new Response(
           JSON.stringify({ error: error.message }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const setting = data ? JSON.parse(data.value || '{}') : null;
-
       return new Response(
         JSON.stringify({
           success: true,
-          version: setting?.version || null,
-          url: setting?.url || null,
+          version: data,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // POST: Set selected connector version
-    if (req.method === 'POST') {
-      const body = await req.json();
-      const { version, url } = body;
+    // GET: List all connector versions
+    if (req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('connector_versions')
+        .select('*')
+        .order('uploaded_at', { ascending: false });
 
-      if (!version || !url) {
+      if (error) {
         return new Response(
-          JSON.stringify({ error: 'Version and URL are required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // First, try to get existing setting
-      const { data: existing } = await supabase
-        .from('settings')
-        .select('id')
-        .eq('key', 'connector_version')
-        .single();
-
-      const settingValue = JSON.stringify({ version, url, updated_at: new Date().toISOString() });
-
-      let result;
-      if (existing) {
-        // Update existing
-        result = await supabase
-          .from('settings')
-          .update({ value: settingValue })
-          .eq('key', 'connector_version');
-      } else {
-        // Insert new
-        result = await supabase
-          .from('settings')
-          .insert([{ key: 'connector_version', value: settingValue }]);
-      }
-
-      if (result.error) {
-        return new Response(
-          JSON.stringify({ error: result.error.message }),
+          JSON.stringify({ error: error.message }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -93,8 +82,7 @@ Deno.serve(async (req: Request) => {
       return new Response(
         JSON.stringify({
           success: true,
-          version: version,
-          url: url,
+          versions: data || [],
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -105,7 +93,7 @@ Deno.serve(async (req: Request) => {
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error handling connector version:', error);
+    console.error('Error in registerConnectorVersion:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

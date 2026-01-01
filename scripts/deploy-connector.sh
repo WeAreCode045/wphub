@@ -150,6 +150,53 @@ PUBLIC_URL="$SUPABASE_URL/storage/v1/object/public/$BUCKET_NAME/$ZIP_FILE"
 echo -e "${GREEN}✓ Download URL:${NC}"
 echo "$PUBLIC_URL"
 
+# Update settings table with the new version via Edge Function
+echo -e "${YELLOW}Updating connector version in settings table...${NC}"
+SETTINGS_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
+    -H "Authorization: Bearer $SERVICE_KEY" \
+    -H "Content-Type: application/json" \
+    -d "{\"version\":\"$VERSION\",\"url\":\"$PUBLIC_URL\"}" \
+    "$SUPABASE_URL/functions/v1/connectorVersionSettings" 2>&1)
+
+echo "Settings update response: $SETTINGS_RESPONSE"
+
+# Check if settings update was successful
+if echo "$SETTINGS_RESPONSE" | grep -q '"error"'; then
+    echo -e "${YELLOW}Warning: Settings table update failed (this is optional):${NC}"
+    echo "$SETTINGS_RESPONSE"
+else
+    if echo "$SETTINGS_RESPONSE" | grep -q '"success"'; then
+        echo -e "${GREEN}✓ Settings table updated with new version${NC}"
+    else
+        echo -e "${YELLOW}Warning: Settings table response unclear:${NC}"
+        echo "$SETTINGS_RESPONSE"
+    fi
+fi
+
+# Register version in connector_versions table
+echo -e "${YELLOW}Registering version in connector_versions table...${NC}"
+FILE_SIZE=$(du -h "$ZIP_PATH" | cut -f1)
+REGISTER_RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
+    -H "Authorization: Bearer $SERVICE_KEY" \
+    -H "Content-Type: application/json" \
+    -d "{\"version\":\"$VERSION\",\"file_name\":\"$ZIP_FILE\",\"file_url\":\"$PUBLIC_URL\",\"file_size\":\"$FILE_SIZE\"}" \
+    "$SUPABASE_URL/functions/v1/registerConnectorVersion" 2>&1)
+
+echo "Register response: $REGISTER_RESPONSE"
+
+# Check if registration was successful
+if echo "$REGISTER_RESPONSE" | grep -q '"error"'; then
+    echo -e "${YELLOW}Warning: Version registration failed (this is optional):${NC}"
+    echo "$REGISTER_RESPONSE"
+else
+    if echo "$REGISTER_RESPONSE" | grep -q '"success"'; then
+        echo -e "${GREEN}✓ Version registered in connector_versions table${NC}"
+    else
+        echo -e "${YELLOW}Warning: Registration response unclear:${NC}"
+        echo "$REGISTER_RESPONSE"
+    fi
+fi
+
 # Save version info to a metadata file
 METADATA_FILE="$PROJECT_ROOT/connector-versions.json"
 echo "Updating version metadata..."
@@ -183,5 +230,7 @@ echo "ZIP File: $ZIP_FILE"
 echo "Public URL: $PUBLIC_URL"
 echo ""
 echo "Next steps:"
-echo "1. Update your admin dashboard to list this version"
-echo "2. Users can now download this connector version"
+echo "1. Version ${VERSION} has been registered in connector_versions table"
+echo "2. Active version has been set in settings table"
+echo "3. Users can now download this connector version from Site Settings"
+echo "4. Refresh the admin dashboard to see the new version"
