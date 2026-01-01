@@ -55,7 +55,7 @@ class Connector {
     }
 
     public function oauth_login() {
-        check_ajax_referer('wphc_nonce');
+        check_ajax_referer('wphc_nonce', 'nonce');
         
         $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
         $wordpress_url = home_url();
@@ -256,7 +256,7 @@ class Connector {
     }
 
     public function disconnect() {
-        check_ajax_referer('wphc_nonce');
+        check_ajax_referer('wphc_nonce', 'nonce');
         
         delete_option('wphc_access_token');
         delete_option('wphc_site_id');
@@ -420,7 +420,7 @@ class Connector {
     }
 
     public function sync_plugins() {
-        check_ajax_referer('wphc_nonce');
+        check_ajax_referer('wphc_nonce', 'nonce');
         $access_token = get_option('wphc_access_token', '');
         $hub_url = get_option('wphc_hub_url', '');
 
@@ -448,7 +448,7 @@ class Connector {
     }
 
     public function sync_themes() {
-        check_ajax_referer('wphc_nonce');
+        check_ajax_referer('wphc_nonce', 'nonce');
         $access_token = get_option('wphc_access_token', '');
         $hub_url = get_option('wphc_hub_url', '');
 
@@ -476,7 +476,7 @@ class Connector {
     }
 
     public function install_plugin() {
-        check_ajax_referer('wphc_nonce');
+        check_ajax_referer('wphc_nonce', 'nonce');
         $plugin_id = sanitize_text_field($_POST['plugin_id'] ?? '');
         if (!empty($plugin_id)) {
             PluginManager::getInstance()->install($plugin_id);
@@ -484,7 +484,7 @@ class Connector {
     }
 
     public function install_theme() {
-        check_ajax_referer('wphc_nonce');
+        check_ajax_referer('wphc_nonce', 'nonce');
         $theme_id = sanitize_text_field($_POST['theme_id'] ?? '');
         if (!empty($theme_id)) {
             ThemeManager::getInstance()->install($theme_id);
@@ -500,7 +500,7 @@ class Connector {
     }
 
     public function get_plugins() {
-        check_ajax_referer('wphc_nonce');
+        check_ajax_referer('wphc_nonce', 'nonce');
 
         $plugins = PluginManager::getInstance()->get_installed();
         $active = PluginManager::getInstance()->get_active();
@@ -522,7 +522,7 @@ class Connector {
     }
 
     public function get_themes() {
-        check_ajax_referer('wphc_nonce');
+        check_ajax_referer('wphc_nonce', 'nonce');
 
         $themes = ThemeManager::getInstance()->get_installed();
         $active = ThemeManager::getInstance()->get_active();
