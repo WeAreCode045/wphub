@@ -234,11 +234,16 @@ class Connector {
         // Check for success (HTTP 200 and success flag)
         if ($callback_code !== 200 || !isset($callback_body['success']) || !$callback_body['success']) {
             $error_msg = isset($callback_body['error']) ? $callback_body['error'] : 'Unknown error';
+            $details = '';
+            if (isset($callback_body['details'])) {
+                $details = ' (' . $callback_body['details'] . ')';
+            }
             $diagnostic = '';
             if (isset($callback_body['normalized_wordpress_url'])) {
                 $diagnostic = ' [Sent: ' . $callback_body['normalized_wordpress_url'] . ', Available: ' . implode(', ', $callback_body['normalized_user_sites'] ?? []) . ']';
             }
-            wp_die('Connection failed: ' . esc_html($error_msg) . $diagnostic);
+            $this->log('Connection failed: ' . $error_msg . $details . $diagnostic);
+            wp_die('Connection failed: ' . esc_html($error_msg) . esc_html($details) . $diagnostic);
         }
 
         // Store connection info

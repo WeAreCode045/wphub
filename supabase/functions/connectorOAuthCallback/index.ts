@@ -64,17 +64,23 @@ Deno.serve(async (req: Request) => {
 
       // Find the user's site that matches the WordPress URL
       const { data: sites, error: sitesError } = await supabase
-        .from('Site')
-        .select('id, url, name')
-        .eq('user_id', user_id);
+        .from('sites')
+        .select('id, url, name, api_key')
+        .eq('owner_type', 'user')
+        .eq('owner_id', user_id);
 
       console.log('Looking up sites for user_id:', user_id);
+      console.log('Query: owner_type=user AND owner_id=user_id');
       console.log('Raw database sites:', sites);
 
       if (sitesError) {
         console.error('Error fetching user sites:', sitesError);
         return new Response(
-          JSON.stringify({ error: 'Failed to fetch user sites' }),
+          JSON.stringify({ 
+            error: 'Failed to fetch user sites',
+            details: sitesError.message || JSON.stringify(sitesError),
+            user_id: user_id
+          }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -105,28 +111,21 @@ Deno.serve(async (req: Request) => {
       }
 
       // Generate or get existing API key for this site
-      const { data: existingKey } = await supabase
-        .from('SiteApiKey')
-        .select('key')
-        .eq('site_id', matching_site.id)
-        .single();
-
-      let api_key = existingKey?.key;
+      // The api_key is stored directly in the sites table
+      let api_key = matching_site.api_key;
 
       if (!api_key) {
         // Generate a new API key
         const new_key = crypto.getRandomValues(new Uint8Array(32));
         const key_hex = Array.from(new_key).map(b => b.toString(16).padStart(2, '0')).join('');
         
-        const { error: createError } = await supabase
-          .from('SiteApiKey')
-          .insert({
-            site_id: matching_site.id,
-            key: key_hex,
-          });
+        const { error: updateError } = await supabase
+          .from('sites')
+          .update({ api_key: key_hex })
+          .eq('id', matching_site.id);
 
-        if (createError) {
-          console.error('Error creating API key:', createError);
+        if (updateError) {
+          console.error('Error updating site with API key:', updateError);
           return new Response(
             JSON.stringify({ error: 'Failed to create API key' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
