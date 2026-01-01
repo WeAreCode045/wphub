@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import JSZip from 'npm:jszip@3.10.1';
 import { corsHeaders } from '../_helpers.ts';
+import { ParseThemeZipRequestSchema, z } from '../_shared/schemas.ts';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
