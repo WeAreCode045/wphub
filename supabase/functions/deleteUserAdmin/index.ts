@@ -24,7 +24,9 @@ Deno.serve(async (req: Request) => {
     const admin = adminArr?.[0];
     if (!admin || admin.role !== 'admin') return jsonResponse({ error: 'Admin access required' }, 403);
 
-    const { user_id } = await req.json();
+    const bodyText = await req.text();
+    const parsed = JSON.parse(bodyText);
+    const { user_id } = parsed;
     if (!user_id) return jsonResponse({ error: 'user_id is required' }, 400);
 
     // Delete user from auth

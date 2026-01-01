@@ -34,25 +34,34 @@ Deno.serve(async (req) => {
       page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
       per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
     } else {
-      // Parse and validate request body with Zod
-      try {
-        const bodyText = await req.text();
-        const parsed = JSON.parse(bodyText);
-        const body = SearchWordPressThemesRequestSchema.parse(parsed);
-        search = body.search;
-        page = body.page || 1;
-        per_page = body.per_page || 20;
-      } catch (parseError) {
-        console.error('[searchWordPressThemes] Validation error:', parseError);
-        const error = parseError instanceof z.ZodError
-          ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-          : parseError.message === 'Unexpected end of JSON input' 
-            ? 'Request body is required'
-            : `Invalid request: ${parseError.message}`;
-        return new Response(
-          JSON.stringify({ error }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // POST request - try to parse body first, then fall back to query params
+      console.log('[searchWordPressThemes] POST request received, method:', req.method);
+      
+      // First try to get parameters from query string (in case Supabase sends them there)
+      const url = new URL(req.url);
+      search = url.searchParams.get('search') || undefined;
+      page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
+      per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
+      
+      console.log('[searchWordPressThemes] Query params - search:', search, 'page:', page, 'per_page:', per_page);
+      
+      // If we don't have search from query params, try to parse the body
+      if (!search) {
+        try {
+          const bodyText = await req.text();
+          console.log('[searchWordPressThemes] Body text:', bodyText);
+          if (bodyText && bodyText.trim()) {
+            const parsed = JSON.parse(bodyText);
+            console.log('[searchWordPressThemes] Parsed body:', parsed);
+            const body = SearchWordPressThemesRequestSchema.parse(parsed);
+            search = body.search;
+            page = body.page || 1;
+            per_page = body.per_page || 20;
+          }
+        } catch (parseError) {
+          console.error('[searchWordPressThemes] Body parsing error:', parseError);
+          // Don't return error here, continue with query params
+        }
       }
     }
 
