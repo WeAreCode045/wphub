@@ -203,7 +203,43 @@ export const supabaseQueries = {
 
   // Subscription Plans
   subscriptionPlans: {
-    list: () => supabase.from('subscription_plans').select('*').order('sort_order', { ascending: true }),
+    list: async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        if (token) {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ action: 'list' }),
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            return data;
+          }
+        }
+
+        // Fallback to direct API (may fail with RLS)
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .select('*')
+          .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('Error in SubscriptionPlan.list:', err);
+        return [];
+      }
+    },
     filter: (filters) => {
       let query = supabase.from('subscription_plans').select('*');
       Object.entries(filters).forEach(([key, value]) => {
@@ -855,9 +891,37 @@ const entities = {
 
   SubscriptionPlan: {
     async list() {
-      const { data, error } = await supabase.from('subscription_plans').select('*');
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        if (token) {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ action: 'list' }),
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            return data || [];
+          }
+        }
+
+        // Fallback to direct API (may fail with RLS)
+        const { data, error } = await supabase.from('subscription_plans').select('*');
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('Error in SubscriptionPlan.list:', err);
+        return [];
+      }
     },
 
     async get(id) {
@@ -896,9 +960,40 @@ const entities = {
 
   UserSubscription: {
     async list() {
-      const { data, error } = await supabase.from('user_subscriptions').select('*');
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          console.warn('No auth token for UserSubscription.list, falling back to direct API');
+          const { data, error } = await supabase.from('user_subscriptions').select('*');
+          if (error) throw error;
+          return data || [];
+        }
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/getUserSubscriptions`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'list', orderBy: 'created_at', ascending: false }),
+          }
+        );
+        
+        if (!response.ok) {
+          console.error('Edge function error:', await response.text());
+          throw new Error('Failed to fetch subscriptions');
+        }
+        return await response.json();
+      } catch (error) {
+        console.error('Error in UserSubscription.list:', error);
+        const { data, error: dbError } = await supabase.from('user_subscriptions').select('*');
+        if (dbError) throw dbError;
+        return data || [];
+      }
     },
 
     async get(id) {
@@ -919,25 +1014,69 @@ const entities = {
 
     // Get subscriptions for a specific user via stripe_customer_id link
     async getByUserId(userId) {
-      // First get the user's stripe customer ID
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('stripe_customer_id')
-        .eq('id', userId)
-        .single();
-      
-      if (userError || !user?.stripe_customer_id) {
-        return [];
-      }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          console.warn('No auth token for UserSubscription.getByUserId');
+          const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('stripe_customer_id')
+            .eq('id', userId)
+            .single();
+          
+          if (userError || !user?.stripe_customer_id) {
+            return [];
+          }
 
-      // Then get subscriptions for that customer
-      const { data, error } = await supabase
-        .from('user_subscriptions')
-        .select('*')
-        .eq('customer', user.stripe_customer_id);
-      
-      if (error) throw error;
-      return data || [];
+          const { data, error } = await supabase
+            .from('user_subscriptions')
+            .select('*')
+            .eq('customer', user.stripe_customer_id);
+          
+          if (error) throw error;
+          return data || [];
+        }
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/getUserSubscriptions`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'getByUserId' }),
+          }
+        );
+        
+        if (!response.ok) {
+          console.error('Edge function error:', await response.text());
+          throw new Error('Failed to fetch user subscriptions');
+        }
+        return await response.json();
+      } catch (err) {
+        console.error('Error in UserSubscription.getByUserId:', err);
+        // Fallback to direct query
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('stripe_customer_id')
+          .eq('id', userId)
+          .single();
+        
+        if (userError || !user?.stripe_customer_id) {
+          return [];
+        }
+
+        const { data, error: dbError } = await supabase
+          .from('user_subscriptions')
+          .select('*')
+          .eq('customer', user.stripe_customer_id);
+        
+        if (dbError) throw dbError;
+        return data || [];
+      }
     },
 
     async create(data) {
@@ -960,9 +1099,40 @@ const entities = {
 
   Invoice: {
     async list() {
-      const { data, error } = await supabase.from('invoices').select('*').order('created', { ascending: false });
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          console.warn('No auth token for Invoice.list, falling back to direct API');
+          const { data, error } = await supabase.from('invoices').select('*').order('created', { ascending: false });
+          if (error) throw error;
+          return data || [];
+        }
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/getUserSubscriptions`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'getInvoices', orderBy: 'created', ascending: false }),
+          }
+        );
+        
+        if (!response.ok) {
+          console.error('Edge function error:', await response.text());
+          throw new Error('Failed to fetch invoices');
+        }
+        return await response.json();
+      } catch (error) {
+        console.error('Error in Invoice.list:', error);
+        const { data, error: dbError } = await supabase.from('invoices').select('*').order('created', { ascending: false });
+        if (dbError) throw dbError;
+        return data || [];
+      }
     },
 
     async get(id) {
@@ -983,26 +1153,71 @@ const entities = {
 
     // Get invoices for a specific user via stripe_customer_id link
     async getByUserId(userId) {
-      // First get the user's stripe customer ID
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('stripe_customer_id')
-        .eq('id', userId)
-        .single();
-      
-      if (userError || !user?.stripe_customer_id) {
-        return [];
-      }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          console.warn('No auth token for Invoice.getByUserId');
+          const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('stripe_customer_id')
+            .eq('id', userId)
+            .single();
+          
+          if (userError || !user?.stripe_customer_id) {
+            return [];
+          }
 
-      // Then get invoices for that customer
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('customer', user.stripe_customer_id)
-        .order('created', { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
+          const { data, error } = await supabase
+            .from('invoices')
+            .select('*')
+            .eq('customer', user.stripe_customer_id)
+            .order('created', { ascending: false });
+          
+          if (error) throw error;
+          return data || [];
+        }
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/getUserSubscriptions`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'getInvoices' }),
+          }
+        );
+        
+        if (!response.ok) {
+          console.error('Edge function error:', await response.text());
+          throw new Error('Failed to fetch invoices');
+        }
+        return await response.json();
+      } catch (err) {
+        console.error('Error in Invoice.getByUserId:', err);
+        // Fallback to direct query
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('stripe_customer_id')
+          .eq('id', userId)
+          .single();
+        
+        if (userError || !user?.stripe_customer_id) {
+          return [];
+        }
+
+        const { data, error: dbError } = await supabase
+          .from('invoices')
+          .select('*')
+          .eq('customer', user.stripe_customer_id)
+          .order('created', { ascending: false });
+        
+        if (dbError) throw dbError;
+        return data || [];
+      }
     },
 
     async create(data) {
