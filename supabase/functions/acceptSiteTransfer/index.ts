@@ -23,8 +23,9 @@ Deno.serve(async (req: Request) => {
     // Parse and validate request body
     let body;
     try {
-      const rawBody = await req.json();
-      body = AcceptSiteTransferRequestSchema.parse(rawBody);
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = AcceptSiteTransferRequestSchema.parse(parsed);
     } catch (parseError) {
       const error = parseError instanceof z.ZodError
         ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`

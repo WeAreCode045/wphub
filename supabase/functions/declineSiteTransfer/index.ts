@@ -27,8 +27,9 @@ Deno.serve(async (req) => {
     // Parse and validate request body
     let body;
     try {
-      const rawBody = await req.json();
-      body = DeclineSiteTransferRequestSchema.parse(rawBody);
+      const bodyText = await req.text();
+      const parsed = JSON.parse(bodyText);
+      body = DeclineSiteTransferRequestSchema.parse(parsed);
     } catch (parseError) {
       console.error('[declineSiteTransfer] Validation error:', parseError);
       const error = parseError instanceof z.ZodError

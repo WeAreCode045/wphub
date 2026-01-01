@@ -15,7 +15,9 @@ Deno.serve(async (req) => {
   );
 
     try {
-        const { site_id } = await req.json();
+        const bodyText = await req.text();
+        const parsed = JSON.parse(bodyText);
+        const { site_id } = parsed;
 
         console.log('[performHealthCheck] Starting health check for site:', site_id);
 
