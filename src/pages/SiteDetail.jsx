@@ -291,10 +291,20 @@ export default function SiteDetail() {
       return response.data;
     },
     onSuccess: (data) => {
+      // Ensure health check data has required structure
+      const healthCheckData = {
+        status: data?.status || 'unknown',
+        last_check: data?.last_check || new Date().toISOString(),
+        uptime: data?.uptime || {},
+        performance: data?.performance || {},
+        security: data?.security || {},
+        updates: data?.updates || {}
+      };
+      
       // Update site cache with health check data
       queryClient.setQueryData(['site', siteId], (oldSite) => ({
         ...oldSite,
-        health_check: data
+        health_check: healthCheckData
       }));
       alert('✅ Health check voltooid');
     },
@@ -1519,17 +1529,17 @@ export default function SiteDetail() {
             <Card className="border-none shadow-lg">
               <CardHeader className="border-b border-gray-100">
                 <CardTitle className="flex items-center gap-2">
-                  {getHealthStatusIcon(healthCheck.status)}
+                  {getHealthStatusIcon(healthCheck?.status || 'unknown')}
                   Algemene Status
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Badge className={`${getHealthStatusColor(healthCheck.status)} text-lg py-2 px-4`}>
-                      {healthCheck.status.toUpperCase()}
+                    <Badge className={`${getHealthStatusColor(healthCheck?.status || 'unknown')} text-lg py-2 px-4`}>
+                      {(healthCheck?.status || 'unknown').toUpperCase()}
                     </Badge>
-                    {healthCheck.last_check && (
+                    {healthCheck?.last_check && (
                       <p className="text-sm text-gray-500 mt-2">
                         Laatste check: {safeFormatDate(healthCheck.last_check, dateFormats.fullDateTime)}
                       </p>
@@ -1589,12 +1599,12 @@ export default function SiteDetail() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
-                  {healthCheck.performance?.score ? (
+                  {healthCheck?.performance?.score ? (
                     <>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Score</span>
-                        <Badge className={`${getPerformanceColor(healthCheck.performance.score)}`}>
-                          {healthCheck.performance.score.toUpperCase()}
+                        <Badge className={`${getPerformanceColor(healthCheck?.performance?.score)}`}>
+                          {(healthCheck?.performance?.score || 'unknown').toUpperCase()}
                         </Badge>
                       </div>
                       {healthCheck.performance.page_load_time && (
