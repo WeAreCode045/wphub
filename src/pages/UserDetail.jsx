@@ -141,10 +141,10 @@ export default function UserDetail() {
   });
 
   const { data: userSubscriptions = [] } = useQuery({
-    queryKey: ['user-subscriptions', userId], // Keep userId for specific user subscriptions
+    queryKey: ['user-subscriptions', userId],
     queryFn: async () => {
       if (!userId) return [];
-      return entities.UserSubscription.filter({ user_id: userId }); // Corrected entity name
+      return entities.UserSubscription.getByUserId(userId);
     },
     enabled: !!userId,
     initialData: [],

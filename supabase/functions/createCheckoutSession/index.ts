@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     // Get the subscription plan
     const { data: plan, error: planError } = await supabase
-      .from('subscriptionplans')
+      .from('subscription_plans')
       .select()
       .eq('id', plan_id)
       .single();
@@ -62,28 +62,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!plan.is_active) {
+    if (!plan.active) {
       return new Response(
         JSON.stringify({ error: 'This plan is not available' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Select the right price based on billing cycle
-    const priceId = billing_cycle === 'annual' 
-      ? plan.stripe_price_id_annual 
-      : plan.stripe_price_id_monthly;
-
-    // Get or create Stripe customer
-    let customerId;
-    const existingUser = await client.entities.User.get(user.id);
+    // Use the plan's default price - billing_cycle would be handled by Stripe price
+    const priceId = plan.default_price;
     
-    if (existingUser.stripe_customer_id) {
+    if (!priceId) {
+      return new Response(
+        JSON.stringify({ error: 'Plan has no associated price' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get or create Stripe customer via user's stripe_customer_id
+    let customerId;
+    const { data: existingUser, error: userQueryError } = await supabase
+      .from('users')
+      .select('stripe_customer_id')
+      .eq('id', user.id)
+      .single();
+    
+    if (existingUser?.stripe_customer_id) {
       customerId = existingUser.stripe_customer_id;
     } else {
       const customer = await stripe.customers.create({
         email: user.email,
-        name: user.full_name,
         metadata: {
           user_id: user.id,
           platform: 'wp-cloud-hub'
@@ -92,9 +100,14 @@ Deno.serve(async (req) => {
       customerId = customer.id;
       
       // Save customer ID to user
-      await client.entities.User.update(user.id, {
-        stripe_customer_id: customerId
-      });
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', user.id);
+      
+      if (updateError) {
+        console.error('Failed to save customer ID:', updateError);
+      }
     }
 
     // Prepare session parameters

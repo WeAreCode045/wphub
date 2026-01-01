@@ -48,8 +48,8 @@ export default function Pricing() {
     queryKey: ['subscription-plans'],
     queryFn: async () => {
       const allPlans = await entities.SubscriptionPlan.filter({
-        is_active: true
-      }, "sort_order");
+        active: true
+      });
       return allPlans;
     },
     initialData: [],
@@ -59,11 +59,9 @@ export default function Pricing() {
     queryKey: ['my-subscription', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const subs = await entities.UserSubscription.filter({
-        user_id: user.id,
-        status: ['active', 'trialing']
-      });
-      return subs.length > 0 ? subs[0] : null;
+      const subs = await entities.UserSubscription.getByUserId(user.id);
+      const activeSubs = subs.filter(s => s.status === 'active' || s.status === 'trialing');
+      return activeSubs.length > 0 ? activeSubs[0] : null;
     },
     enabled: !!user,
   });

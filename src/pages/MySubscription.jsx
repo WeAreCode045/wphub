@@ -65,9 +65,7 @@ export default function MySubscription() {
     queryKey: ['my-subscription', user?.id],
     queryFn: async () => {
       if (!user) return null;
-      const allSubs = await entities.UserSubscription.filter({
-        user_id: user.id
-      });
+      const allSubs = await entities.UserSubscription.getByUserId(user.id);
       const activeSubs = allSubs.filter(s =>
         s.status === 'active' || s.status === 'trialing'
       );

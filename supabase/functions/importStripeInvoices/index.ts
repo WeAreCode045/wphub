@@ -41,92 +41,84 @@ Deno.serve(async (req) => {
 
     const { user_id } = body;
 
-    const { data: subscriptions, error: subscriptionsError } = await supabase.from('usersubscriptions').select().eq('user_id', user_id);
-
-            if (subscriptionsError || !subscriptions) {
-            return new Response(
-        JSON.stringify({ error: 'Database error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-        }
-        if (subscriptions.length === 0) {
+    // Get user and their stripe customer ID
+    const { data: user, error: userError } = await supabase.from('users').select('*').eq('id', user_id).single();
+    
+    if (userError || !user) {
       return new Response(
-        JSON.stringify({ error: 'No subscription found for user' }),
+        JSON.stringify({ error: 'User not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const subscription = subscriptions[0];
-
-    if (!subscription.stripe_customer_id) {
+    if (!user.stripe_customer_id) {
       return new Response(
-        JSON.stringify({ error: 'No Stripe customer ID found' }),
+        JSON.stringify({ error: 'No Stripe customer ID found for this user' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { data: user, error: userError } = await supabase.from('users').select().eq('id', user_id).single();
-    const { data: plan, error: planError } = await supabase.from('subscriptionplans').select().eq('id', subscription.plan_id).single();
+    // Get user's subscriptions via stripe customer ID link
+    const { data: subscriptions, error: subscriptionsError } = await supabase
+      .from('user_subscriptions')
+      .select()
+      .eq('customer', user.stripe_customer_id);
 
-    const stripeInvoices = await stripe.invoices.list({ customer: subscription.stripe_customer_id, limit: 100 });
+    if (subscriptionsError || !subscriptions || subscriptions.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No active subscription found for user' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const stripeInvoices = await stripe.invoices.list({ customer: user.stripe_customer_id, limit: 100 });
 
     let imported = 0;
     let skipped = 0;
 
     for (const stripeInvoice of stripeInvoices.data) {
-      const { data: existingInvoices, error: existingInvoicesError } = await supabase.from('invoices').select().eq('stripe_invoice_id', stripeInvoice.id);
+      // Check if invoice already exists
+      const { data: existingInvoices, error: existingInvoicesError } = await supabase
+        .from('invoices')
+        .select()
+        .eq('id', stripeInvoice.id);
 
-      if (existingInvoices.length > 0) { skipped++; continue; }
-      if (stripeInvoice.status !== 'paid' && stripeInvoice.status !== 'open') { skipped++; continue; }
+      if (existingInvoices && existingInvoices.length > 0) { 
+        skipped++; 
+        continue; 
+      }
+      
+      if (stripeInvoice.status !== 'paid' && stripeInvoice.status !== 'open') { 
+        skipped++; 
+        continue; 
+      }
 
-      const { data: allInvoices, error: allInvoicesError } = await supabase.from('invoices').select();
-      const invoiceNumber = `INV-${new Date().getFullYear()}-${String(allInvoices.length + imported + 1).padStart(6, '0')}`;
+      const subtotal = stripeInvoice.subtotal || 0;
+      const vatAmount = stripeInvoice.tax || 0;
+      const totalAmount = stripeInvoice.amount_paid || stripeInvoice.total || 0;
 
-      const subtotal = stripeInvoice.subtotal;
-      const vatPercentage = subscription.vat_percentage || plan.vat_rate_percentage || 21;
-      const vatAmount = stripeInvoice.tax || Math.round(subtotal * (vatPercentage / 100));
-      const totalAmount = stripeInvoice.amount_paid || stripeInvoice.total;
-
-      const billingPeriod = stripeInvoice.lines.data[0]?.price?.recurring?.interval || subscription.interval;
-
+      // Insert invoice using Stripe table structure
       await supabase.from('invoices').insert({
-        invoice_number: invoiceNumber,
-        user_id: user_id,
-        user_email: user.email,
-        user_name: user.full_name,
-        subscription_id: subscription.id,
-        stripe_invoice_id: stripeInvoice.id,
-        stripe_payment_intent_id: stripeInvoice.payment_intent,
-        amount: totalAmount,
-        subtotal: subtotal,
-        vat_amount: vatAmount,
-        vat_percentage: vatPercentage,
-        currency: stripeInvoice.currency.toUpperCase(),
-        plan_name: plan.name,
-        billing_period: billingPeriod,
+        id: stripeInvoice.id,
+        customer: user.stripe_customer_id,
+        subscription: stripeInvoice.subscription || null,
+        status: stripeInvoice.status,
+        total: totalAmount,
+        currency: stripeInvoice.currency?.toUpperCase() || 'EUR',
         period_start: stripeInvoice.period_start ? new Date(stripeInvoice.period_start * 1000).toISOString() : null,
         period_end: stripeInvoice.period_end ? new Date(stripeInvoice.period_end * 1000).toISOString() : null,
-        status: stripeInvoice.status,
-        paid_at: stripeInvoice.status_transitions?.paid_at ? new Date(stripeInvoice.status_transitions.paid_at * 1000).toISOString() : null,
-        due_date: stripeInvoice.due_date ? new Date(stripeInvoice.due_date * 1000).toISOString() : null,
-        description: stripeInvoice.description || `${plan.name} - ${billingPeriod === 'month' ? 'Maandelijks' : 'Jaarlijks'} Abonnement`,
-        billing_address: stripeInvoice.customer_address || {}
+        created: new Date().toISOString(),
+        updated: new Date().toISOString(),
+        attrs: stripeInvoice
       });
 
       imported++;
     }
 
-    await supabase.from('activitylogs').insert({
-      user_email: admin.email,
-      action: `Geïmporteerde Stripe facturen voor gebruiker`,
-      entity_type: 'subscription',
-      details: `User: ${user.email}, Imported: ${imported}, Skipped: ${skipped}`
-    });
-
     return new Response(
-        JSON.stringify({ success: true, imported, skipped, total: stripeInvoices.data.length, message: `${imported} facturen geïmporteerd, ${skipped} overgeslagen` }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      JSON.stringify({ success: true, imported, skipped, total: stripeInvoices.data.length, message: `${imported} invoices imported, ${skipped} skipped` }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
     console.error('Import invoices error:', error);

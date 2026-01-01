@@ -32,29 +32,33 @@ Deno.serve(async (req: Request) => {
     const user = userArr?.[0];
     if (!user) return jsonResponse({ error: 'Gebruiker niet gevonden' }, 404);
 
-    // Cancel existing subscriptions
-    const subsRes = await fetch(`${supa}/rest/v1/user_subscriptions?user_id=eq.${encodeURIComponent(String(user_id))}&or=(status.eq.active,status.eq.trialing)`, { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } });
+    // Cancel existing subscriptions for this customer
+    const subsRes = await fetch(`${supa}/rest/v1/user_subscriptions?customer=eq.${encodeURIComponent(user.stripe_customer_id)}`, { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } });
     const existingSubscriptions = (subsRes.ok ? await subsRes.json() : []);
     for (const sub of existingSubscriptions) {
-      await fetch(`${supa}/rest/v1/user_subscriptions?id=eq.${encodeURIComponent(String(sub.id))}`, { method: 'PATCH', headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ status: 'canceled', canceled_at: new Date().toISOString(), cancel_at_period_end: false }) });
+      await fetch(`${supa}/rest/v1/user_subscriptions?id=eq.${encodeURIComponent(String(sub.id))}`, { method: 'PATCH', headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ status: 'canceled' }) });
     }
 
-    // Create manual subscription
+    // Create manual subscription using Stripe table structure
     const now = new Date();
     const currentPeriodEnd = end_date ? new Date(end_date) : null;
     const newSubPayload = {
-      user_id,
-      plan_id,
-      is_manual: true,
-      assigned_by: admin.email,
-      manual_end_date: end_date || null,
+      customer: user.stripe_customer_id,
       status: 'active',
+      currency: plan.currency || 'EUR',
       current_period_start: now.toISOString(),
       current_period_end: currentPeriodEnd ? currentPeriodEnd.toISOString() : null,
-      interval: interval || 'lifetime',
-      amount: custom_amount || 0,
-      currency: plan.currency || 'EUR',
-      usage_tracking: { plugins_used: 0, sites_used: 0, teams_used: 0, projects_used: 0 }
+      created: now.toISOString(),
+      updated: now.toISOString(),
+      attrs: {
+        plan_id: plan_id,
+        is_manual: true,
+        assigned_by: admin.email,
+        manual_end_date: end_date || null,
+        interval: interval || 'lifetime',
+        amount: custom_amount || 0,
+        user_id: user_id
+      }
     };
 
     const createRes = await fetch(`${supa}/rest/v1/user_subscriptions`, { method: 'POST', headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify(newSubPayload) });
@@ -63,9 +67,6 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ success: false, error: `Failed to create subscription: ${txt}` }, 500);
     }
     const created = await createRes.json();
-
-    // Log activity
-    await fetch(`${supa}/rest/v1/activity_logs`, { method: 'POST', headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ user_email: admin.email, action: `Handmatig abonnement toegewezen aan ${user.email}`, entity_type: 'subscription', details: `Plan: ${plan.name}, Bedrag: €${(custom_amount || 0) / 100}, Interval: ${interval || 'lifetime'}, Einddatum: ${end_date || 'onbeperkt'}` }) });
 
     return jsonResponse({ success: true, subscription: created });
   } catch (err:any) {

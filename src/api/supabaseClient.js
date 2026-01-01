@@ -917,6 +917,29 @@ const entities = {
       return data || [];
     },
 
+    // Get subscriptions for a specific user via stripe_customer_id link
+    async getByUserId(userId) {
+      // First get the user's stripe customer ID
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('stripe_customer_id')
+        .eq('id', userId)
+        .single();
+      
+      if (userError || !user?.stripe_customer_id) {
+        return [];
+      }
+
+      // Then get subscriptions for that customer
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('customer', user.stripe_customer_id);
+      
+      if (error) throw error;
+      return data || [];
+    },
+
     async create(data) {
       const { data: result, error } = await supabase.from('user_subscriptions').insert(data).select().single();
       if (error) throw error;
@@ -931,6 +954,71 @@ const entities = {
 
     async delete(id) {
       const { error } = await supabase.from('user_subscriptions').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
+  Invoice: {
+    async list() {
+      const { data, error } = await supabase.from('invoices').select('*').order('created', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('invoices').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters) {
+      let query = supabase.from('invoices').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query.order('created', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    // Get invoices for a specific user via stripe_customer_id link
+    async getByUserId(userId) {
+      // First get the user's stripe customer ID
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('stripe_customer_id')
+        .eq('id', userId)
+        .single();
+      
+      if (userError || !user?.stripe_customer_id) {
+        return [];
+      }
+
+      // Then get invoices for that customer
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('customer', user.stripe_customer_id)
+        .order('created', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('invoices').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('invoices').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('invoices').delete().eq('id', id);
       if (error) throw error;
     }
   },
