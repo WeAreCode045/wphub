@@ -9,17 +9,17 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supaUrl = Deno.env.get('SUPABASE_URL')?.replace(/\/$/, '') || '';
-    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!supaUrl || !serviceKey || !anonKey) {
+    if (!supaUrl || !anonKey || !serviceKey) {
       return new Response(
         JSON.stringify({ error: 'Missing Supabase configuration' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // GET: Generate OAuth URL for Supabase login
+    // GET: Generate OAuth URL for Supabase login (PUBLIC - no auth required)
     if (req.method === 'GET') {
       const { searchParams } = new URL(req.url);
       const wordpress_url = searchParams.get('wordpress_url');

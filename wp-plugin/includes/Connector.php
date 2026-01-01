@@ -33,6 +33,8 @@ class Connector {
         add_action('wp_ajax_wphc_get_plugins', array($this, 'get_plugins'));
         add_action('wp_ajax_wphc_get_themes', array($this, 'get_themes'));
         add_action('wp_ajax_wphc_save_settings', array($this, 'save_settings'));
+        add_action('wp_ajax_wphc_check_updates', array($this, 'check_updates'));
+        add_action('wp_ajax_wphc_update_plugin', array($this, 'update_plugin'));
     }
 
     public function activate() {
@@ -57,29 +59,24 @@ class Connector {
     public function oauth_login() {
         check_ajax_referer('wphc_nonce', 'nonce');
         
-        $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
-        $wordpress_url = home_url();
+        $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
+        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT');
+        
         $redirect_uri = admin_url('admin.php?page=wp-plugin-hub&oauth_callback=1');
         
-        $response = wp_remote_get(
-            rtrim($platform_url, '/') . '/functions/v1/connectorOAuthCallback?wordpress_url=' . urlencode($wordpress_url) . '&redirect_uri=' . urlencode($redirect_uri),
-            array('timeout' => 15)
-        );
+        // Build Supabase OAuth URL directly (no need to call edge function)
+        $oauth_url = rtrim($supabase_url, '/') . '/auth/v1/authorize?' .
+            'client_id=' . urlencode($supabase_anon_key) .
+            '&response_type=code' .
+            '&redirect_uri=' . urlencode($redirect_uri) .
+            '&scope=user';
+        
+        // Generate state token for CSRF protection
+        $state = bin2hex(random_bytes(16));
+        set_transient('wphc_oauth_state', $state, HOUR_IN_SECONDS);
+        $oauth_url .= '&state=' . urlencode($state);
 
-        if (is_wp_error($response)) {
-            wp_send_json_error('Failed to get OAuth URL');
-        }
-
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        if (!isset($body['oauth_url'])) {
-            wp_send_json_error('Invalid OAuth response');
-        }
-
-        if (isset($body['state'])) {
-            set_transient('wphc_oauth_state', $body['state'], HOUR_IN_SECONDS);
-        }
-
-        wp_send_json_success(array('oauth_url' => $body['oauth_url']));
+        wp_send_json_success(array('oauth_url' => $oauth_url));
     }
 
     public function handle_oauth_callback_redirect() {
@@ -90,6 +87,8 @@ class Connector {
 
         $code = sanitize_text_field($_GET['code']);
         $state = sanitize_text_field($_GET['state']);
+        $supabase_url = get_option('wphc_supabase_url', 'https://ossyxxlplvqakowiwbok.supabase.co');
+        $supabase_anon_key = get_option('wphc_supabase_anon_key', 'sb_publishable_5iOa2uiY5e9dGvvGupyvwA_WWtCNmQT');
         $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
 
         // Verify state token
@@ -100,7 +99,7 @@ class Connector {
 
         // Exchange code for access token via Supabase
         $response = wp_remote_post(
-            rtrim($platform_url, '/') . '/auth/v1/token?grant_type=authorization_code',
+            rtrim($supabase_url, '/') . '/auth/v1/token?grant_type=authorization_code',
             array(
                 'body' => array(
                     'code' => $code,
@@ -110,12 +109,12 @@ class Connector {
         );
 
         if (is_wp_error($response)) {
-            wp_die('Failed to authenticate with platform');
+            wp_die('Failed to authenticate with Supabase');
         }
 
         $body = json_decode(wp_remote_retrieve_body($response), true);
         if (!isset($body['access_token']) || !isset($body['user']['id'])) {
-            wp_die('Invalid authentication response');
+            wp_die('Invalid Supabase authentication response');
         }
 
         $access_token = $body['access_token'];
@@ -125,7 +124,10 @@ class Connector {
         $callback_response = wp_remote_post(
             rtrim($platform_url, '/') . '/functions/v1/connectorOAuthCallback',
             array(
-                'headers' => array('Content-Type' => 'application/json'),
+                'headers' => array(
+                    'Content-Type' => 'application/json',
+                    'Authorization' => 'Bearer ' . $supabase_anon_key,
+                ),
                 'body' => json_encode(array(
                     'access_token' => $access_token,
                     'wordpress_url' => home_url(),
@@ -136,7 +138,7 @@ class Connector {
         );
 
         if (is_wp_error($callback_response)) {
-            wp_die('Failed to connect with platform');
+            wp_die('Failed to connect with platform: ' . $callback_response->get_error_message());
         }
 
         $callback_body = json_decode(wp_remote_retrieve_body($callback_response), true);
@@ -300,6 +302,15 @@ class Connector {
         
         echo '</div>';
 
+        // Update notification card
+        echo '<div class="card">';
+        echo '<h2>Connector Updates</h2>';
+        echo '<p>Current Version: <strong>' . esc_html(WPHC_VERSION) . '</strong></p>';
+        echo '<div id="wphc-update-status" style="margin-top:10px;">';
+        echo '<p><em>Checking for updates...</em></p>';
+        echo '</div>';
+        echo '</div>';
+
         if ($is_connected) {
             echo '<div class="card">';
             echo '<h2>Synchronization</h2>';
@@ -368,6 +379,53 @@ class Connector {
                 }
             }
             
+            function wphc_check_updates() {
+                jQuery.post(wphc_ajax, {
+                    action: "wphc_check_updates",
+                    nonce: wphc_nonce
+                }, function(data) {
+                    var html = "";
+                    if (data.success) {
+                        var update = data.data;
+                        if (update.has_update) {
+                            html = "<div style=\"border: 1px solid #ffb81c; background: #fff8e5; padding: 10px; border-radius: 4px;\">";
+                            html += "<p><strong style=\"color:#ffb81c;\">⚠ Update Available!</strong></p>";
+                            html += "<p>Latest version: <strong>" + update.latest_version + "</strong></p>";
+                            html += "<button class=\"button button-primary\" onclick=\"wphc_update_plugin(\'" + update.download_url + "\'\">Update Now</button>";
+                            html += "</div>";
+                        } else {
+                            html = "<p style=\"color: green;\">✓ You are running the latest version (" + update.current_version + ")</p>";
+                        }
+                    } else {
+                        html = "<p style=\"color: #666;\">Could not check for updates</p>";
+                    }
+                    jQuery("#wphc-update-status").html(html);
+                });
+            }
+            
+            function wphc_update_plugin(downloadUrl) {
+                if (!confirm("This will download and install the latest version. Continue?")) {
+                    return;
+                }
+                jQuery("#wphc-update-status").html("<p>Downloading and installing update...</p>");
+                jQuery.post(wphc_ajax, {
+                    action: "wphc_update_plugin",
+                    nonce: wphc_nonce,
+                    download_url: downloadUrl
+                }, function(data) {
+                    if (data.success) {
+                        jQuery("#wphc-update-status").html("<p style=\"color: green;\">✓ " + data.data.message + "</p>");
+                        setTimeout(function() {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        jQuery("#wphc-update-status").html("<p style=\"color: red;\">✗ Update failed: " + data.data + "</p>");
+                    }
+                }).fail(function(xhr) {
+                    jQuery("#wphc-update-status").html("<p style=\"color: red;\">✗ Update failed: Network error</p>");
+                });
+            }
+            
             function wphc_sync_plugins() {
                 jQuery("#wphc-status").html("<p>Syncing plugins...</p>");
                 jQuery.post(wphc_ajax, {
@@ -394,6 +452,7 @@ class Connector {
                 if (jQuery("body").hasClass("wp-admin")) {
                     wphc_load_plugins();
                     wphc_load_themes();
+                    wphc_check_updates();
                 }
             });
             
@@ -555,6 +614,89 @@ class Connector {
         ) $charset_collate;";
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($sql);
+    }
+
+    public function check_updates() {
+        check_ajax_referer('wphc_nonce', 'nonce');
+        
+        $platform_url = get_option('wphc_platform_url', 'https://wphub.pro');
+        
+        // Fetch available versions from platform
+        $response = wp_remote_get(
+            rtrim($platform_url, '/') . '/functions/v1/getConnectorVersions',
+            array('timeout' => 15)
+        );
+
+        if (is_wp_error($response)) {
+            wp_send_json_error('Failed to check for updates');
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+        if (!isset($body['success']) || !$body['success'] || empty($body['versions'])) {
+            wp_send_json_error('No versions available');
+        }
+
+        $current_version = WPHC_VERSION;
+        $available_versions = $body['versions'];
+        
+        // Get the latest version
+        usort($available_versions, function($a, $b) {
+            return version_compare($b['version'], $a['version']);
+        });
+        
+        $latest_version = $available_versions[0];
+        $has_update = version_compare($latest_version['version'], $current_version, '>');
+
+        wp_send_json_success(array(
+            'current_version' => $current_version,
+            'latest_version' => $latest_version['version'],
+            'has_update' => $has_update,
+            'download_url' => $latest_version['url'] ?? '',
+            'latest_data' => $latest_version,
+        ));
+    }
+
+    public function update_plugin() {
+        check_ajax_referer('wphc_nonce', 'nonce');
+        
+        if (!isset($_POST['download_url']) || empty($_POST['download_url'])) {
+            wp_send_json_error('Download URL is required');
+        }
+
+        $download_url = esc_url($_POST['download_url']);
+
+        // Include WordPress upgrade library
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        // Create a temporary file to download the plugin
+        $temp_file = download_url($download_url, 300);
+
+        if (is_wp_error($temp_file)) {
+            wp_send_json_error('Failed to download update: ' . $temp_file->get_error_message());
+        }
+
+        // Unzip the plugin
+        $unzip_result = unzip_file($temp_file, ABSPATH . 'wp-content/plugins');
+
+        if (is_wp_error($unzip_result)) {
+            @unlink($temp_file);
+            wp_send_json_error('Failed to extract update: ' . $unzip_result->get_error_message());
+        }
+
+        @unlink($temp_file);
+
+        // Deactivate the old plugin
+        $plugin_file = plugin_basename(WPHC_PLUGIN_DIR . 'wphub-connector.php');
+        deactivate_plugins($plugin_file);
+
+        // Activate the new version
+        activate_plugin($plugin_file);
+
+        $this->log('Plugin updated successfully');
+
+        wp_send_json_success(array(
+            'message' => 'Plugin updated successfully. Page will reload.',
+        ));
     }
 
     private function log($message, $type = 'info') {
