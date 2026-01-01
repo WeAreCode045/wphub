@@ -23,9 +23,9 @@ Deno.serve(async (req: Request) => {
     // GET: Retrieve current selected connector version
     if (req.method === 'GET') {
       const { data, error } = await supabase
-        .from('settings')
+        .from('site_settings')
         .select('*')
-        .eq('key', 'connector_version')
+        .eq('setting_key', 'connector_version')
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      const setting = data ? JSON.parse(data.value || '{}') : null;
+      const setting = data ? JSON.parse(data.setting_value || '{}') : null;
 
       return new Response(
         JSON.stringify({
@@ -62,9 +62,9 @@ Deno.serve(async (req: Request) => {
 
       // First, try to get existing setting
       const { data: existing } = await supabase
-        .from('settings')
+        .from('site_settings')
         .select('id')
-        .eq('key', 'connector_version')
+        .eq('setting_key', 'connector_version')
         .single();
 
       const settingValue = JSON.stringify({ version, url, updated_at: new Date().toISOString() });
@@ -73,14 +73,14 @@ Deno.serve(async (req: Request) => {
       if (existing) {
         // Update existing
         result = await supabase
-          .from('settings')
-          .update({ value: settingValue })
-          .eq('key', 'connector_version');
+          .from('site_settings')
+          .update({ setting_value: settingValue })
+          .eq('setting_key', 'connector_version');
       } else {
         // Insert new
         result = await supabase
-          .from('settings')
-          .insert([{ key: 'connector_version', value: settingValue }]);
+          .from('site_settings')
+          .insert([{ setting_key: 'connector_version', setting_value: settingValue }]);
       }
 
       if (result.error) {
