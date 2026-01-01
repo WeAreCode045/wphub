@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { entities } from "@/api/entities";
+import { supabase } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,9 +57,13 @@ export default function SubscriptionPlans() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
       try {
-        const token = await (window.__supabase?.auth?.getSession?.()).then(
-          (data) => data?.data?.session?.access_token
-        );
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          console.warn('No auth token available, using direct API access');
+          return await entities.SubscriptionPlan.list();
+        }
         
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
@@ -72,7 +77,10 @@ export default function SubscriptionPlans() {
           }
         );
         
-        if (!response.ok) throw new Error('Failed to fetch plans');
+        if (!response.ok) {
+          console.error(`Function returned ${response.status}:`, await response.text());
+          throw new Error(`Failed to fetch plans (${response.status})`);
+        }
         return await response.json();
       } catch (error) {
         console.error('Error fetching plans:', error);
@@ -87,9 +95,10 @@ export default function SubscriptionPlans() {
 
   const createPlanMutation = useMutation({
     mutationFn: async (planData) => {
-      const token = await (window.__supabase?.auth?.getSession?.()).then(
-        (data) => data?.data?.session?.access_token
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) throw new Error('Not authenticated');
       
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
@@ -126,9 +135,10 @@ export default function SubscriptionPlans() {
 
   const updatePlanMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const token = await (window.__supabase?.auth?.getSession?.()).then(
-        (data) => data?.data?.session?.access_token
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) throw new Error('Not authenticated');
       
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
@@ -165,9 +175,10 @@ export default function SubscriptionPlans() {
 
   const deletePlanMutation = useMutation({
     mutationFn: async (planId) => {
-      const token = await (window.__supabase?.auth?.getSession?.()).then(
-        (data) => data?.data?.session?.access_token
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) throw new Error('Not authenticated');
       
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
