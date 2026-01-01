@@ -35,7 +35,7 @@ spl_autoload_register(function(\$class) {
     if (strpos(\$class, 'WPPluginHub' . chr(92)) !== 0) {
         return;
     }
-    \$file = WPHC_PLUGIN_DIR . 'includes/' . str_replace(chr(92), '/', substr(\$class, 13)) . '.php';
+    \$file = WPHC_PLUGIN_DIR . 'includes/' . str_replace(chr(92), '/', substr(\$class, 12)) . '.php';
     if (file_exists(\$file)) {
         require_once \$file;
     }
@@ -50,6 +50,14 @@ function wp_plugin_hub_connector_init() {
         false,
         dirname(plugin_basename(__FILE__)) . '/languages'
     );
+
+    // Explicitly load the Connector class
+    if (!class_exists('WPPluginHub' . chr(92) . 'Connector')) {
+        \$connector_file = WPHC_PLUGIN_DIR . 'includes/Connector.php';
+        if (file_exists(\$connector_file)) {
+            require_once \$connector_file;
+        }
+    }
 
     \$class_name = 'WPPluginHub' . chr(92) . 'Connector';
     if (class_exists(\$class_name)) {
