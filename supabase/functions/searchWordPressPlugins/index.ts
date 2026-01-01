@@ -28,22 +28,30 @@ Deno.serve(async (req) => {
         let page = 1;
         let per_page = 20;
 
+        console.log('[searchWordPressPlugins] Method:', req.method);
+        console.log('[searchWordPressPlugins] URL:', req.url);
+        
         try {
             const bodyText = await req.text();
+            console.log('[searchWordPressPlugins] Body text length:', bodyText.length);
+            console.log('[searchWordPressPlugins] Body text:', bodyText);
             
             // If we have a body, parse it
             if (bodyText && bodyText.trim() !== '') {
                 const parsed = JSON.parse(bodyText);
+                console.log('[searchWordPressPlugins] Parsed body:', parsed);
                 const validated = SearchWordPressPluginsRequestSchema.parse(parsed);
                 search = validated.search;
                 page = validated.page || 1;
                 per_page = validated.per_page || 20;
             } else {
                 // No body, try query parameters
+                console.log('[searchWordPressPlugins] No body, checking query params');
                 const url = new URL(req.url);
                 search = url.searchParams.get('search') || undefined;
                 page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
                 per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
+                console.log('[searchWordPressPlugins] Query params - search:', search, 'page:', page, 'per_page:', per_page);
             }
         } catch (parseError) {
             console.error('[searchWordPressPlugins] Parse error:', parseError);
@@ -52,7 +60,10 @@ Deno.serve(async (req) => {
             search = url.searchParams.get('search') || undefined;
             page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
             per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
+            console.log('[searchWordPressPlugins] Fallback query params - search:', search);
         }
+
+        console.log('[searchWordPressPlugins] Final search value:', search);
 
         if (!search) {
             return new Response(
