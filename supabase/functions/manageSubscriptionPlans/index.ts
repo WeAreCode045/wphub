@@ -28,17 +28,15 @@ serve(async (req) => {
       })
     }
 
-    // Create user client to verify auth
-    const userClient = createClient(supabaseUrl, authHeader.replace("Bearer ", ""))
-    const {
-      data: { user },
-      error: authError,
-    } = await userClient.auth.getUser()
+    // Extract token and verify it
+    const token = authHeader.replace("Bearer ", "")
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
 
     if (authError || !user) {
+      console.error("Auth error:", authError)
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...corsHeaders },
       })
     }
 
