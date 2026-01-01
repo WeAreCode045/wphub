@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Code, Check, Loader2, Image, Mail, Globe, Type, Download, Trash2, PackagePlus } from "lucide-react";
+import { Settings, Code, Check, Loader2, Image, Mail, Globe, Type, Download, Trash2, PackagePlus, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -34,10 +34,9 @@ export default function SiteSettings() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [generalSettingsSaved, setGeneralSettingsSaved] = useState(false);
-  const [showGenerateDialog, setShowGenerateDialog] = useState(false);
-  const [newConnector, setNewConnector] = useState({ version: "", description: "" });
-  const [connectorCode, setConnectorCode] = useState("");
-  const [isEditingCode, setIsEditingCode] = useState(false);
+  const [managedVersions, setManagedVersions] = useState([]);
+  const [activeVersion, setActiveVersion] = useState(null);
+  const [loadingManagedVersions, setLoadingManagedVersions] = useState(false);
   const [generalSettings, setGeneralSettings] = useState({
     platform_url: "",
     platform_name: "",
@@ -62,17 +61,52 @@ export default function SiteSettings() {
     }
   };
 
+  const loadManagedVersions = async () => {
+    try {
+      setLoadingManagedVersions(true);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/getConnectorVersions`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+      const data = await response.json();
+      if (data.versions) {
+        setManagedVersions(data.versions);
+      }
+      
+      // Load active version
+      const settingsResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connectorVersionSettings`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+      const settingsData = await settingsResponse.json();
+      if (settingsData.version) {
+        setActiveVersion(settingsData.version);
+      }
+    } catch (error) {
+      console.error('Error loading managed versions:', error);
+    } finally {
+      setLoadingManagedVersions(false);
+    }
+  };
+
   const { data: settings = [] } = useQuery({
     queryKey: ['site-settings'],
     queryFn: () => entities.SiteSettings.list(),
     initialData: []
   });
 
-  const { data: connectors = [] } = useQuery({
-    queryKey: ['connectors'],
-    queryFn: () => entities.Connector.list("-created_date"),
-    initialData: []
-  });
+  // Load managed versions on mount
+  useEffect(() => {
+    loadManagedVersions();
+  }, []);
 
   // Load general settings when data is fetched
   useEffect(() => {
@@ -87,21 +121,6 @@ export default function SiteSettings() {
       });
     }
   }, [settings]);
-
-  // Load connector code from active version
-  useEffect(() => {
-    if (connectors.length > 0) {
-      const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
-      const activeConnector = connectors.find(c => c.version === activeVersion);
-      
-      if (activeConnector && activeConnector.plugin_code) {
-        setConnectorCode(activeConnector.plugin_code);
-      } else if (connectors[0]?.plugin_code) {
-        // Fallback to latest connector if no active version or active version has no code
-        setConnectorCode(connectors[0].plugin_code);
-      }
-    }
-  }, [connectors, settings]);
 
   const updateSettingMutation = useMutation({
     mutationFn: async ({ settingKey, value, description }) => {
@@ -121,33 +140,6 @@ export default function SiteSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['site-settings'] });
-    }
-  });
-
-  const generateConnectorMutation = useMutation({
-    mutationFn: async (data) => {
-      const response = await supabase.functions.invoke('generateConnectorPlugin', { body: data });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['connectors'] });
-      setShowGenerateDialog(false);
-      setNewConnector({ version: "", description: "" });
-      setIsEditingCode(false);
-      alert('✅ Connector plugin succesvol gegenereerd!');
-    },
-    onError: (error) => {
-      alert('❌ Fout bij genereren: ' + error.message);
-    }
-  });
-
-  const deleteConnectorMutation = useMutation({
-    mutationFn: async (connector_id) => {
-      const response = await supabase.functions.invoke('deleteConnectorPlugin', { connector_id });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['connectors'] });
     }
   });
 
@@ -229,49 +221,6 @@ export default function SiteSettings() {
     }
   };
 
-  const handleGenerateConnector = () => {
-    if (newConnector.version) {
-      const platformUrl = settings.find(s => s.setting_key === 'platform_url')?.setting_value || 'https://wphub.pro';
-      
-      generateConnectorMutation.mutate({
-        ...newConnector,
-        hub_url: platformUrl,
-        api_key: '{{API_KEY}}', // Placeholder - wordt per site ingevuld
-        custom_code: isEditingCode ? connectorCode : null
-      });
-    }
-  };
-
-  const handleSaveAsNewVersion = () => {
-    if (!newConnector.version) {
-      alert('Voer een versienummer in');
-      return;
-    }
-    
-    // Ensure isEditingCode is true when saving custom code
-    // The handleGenerateConnector will then use the current connectorCode
-    setIsEditingCode(true); // Explicitly set to true for this context
-    handleGenerateConnector();
-  };
-
-  const handleResetCode = () => {
-    if (confirm('Weet je zeker dat je de code wilt resetten naar de originele template?')) {
-      const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
-      const activeConnector = connectors.find(c => c.version === activeVersion);
-      
-      if (activeConnector && activeConnector.plugin_code) {
-        setConnectorCode(activeConnector.plugin_code);
-      } else if (connectors.length > 0 && connectors[0]?.plugin_code) {
-        // Fallback to the latest connector's code if active is not found or has no code
-        setConnectorCode(connectors[0].plugin_code);
-      } else {
-        setConnectorCode(""); // Default to empty if no connector code is available
-      }
-      
-      setIsEditingCode(false);
-    }
-  };
-
   const handleDownloadConnector = async (connector) => {
     try {
       // Fetch the file
@@ -309,8 +258,29 @@ export default function SiteSettings() {
     }
   };
 
-  const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
-  const activeConnector = connectors.find(c => c.version === activeVersion);
+  const handleSetManagedActiveVersion = async (version, url) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connectorVersionSettings`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ version, url })
+        }
+      );
+      if (response.ok) {
+        setActiveVersion(version);
+        alert('✅ Actieve versie ingesteld!');
+      } else {
+        alert('❌ Fout bij instellen versie');
+      }
+    } catch (error) {
+      alert('❌ Fout: ' + error.message);
+    }
+  };
 
   if (!user || user.role !== "admin") {
     return (
@@ -532,341 +502,117 @@ export default function SiteSettings() {
 
           <TabsContent value="connector">
             <div className="space-y-6">
-              {/* Connector Code Editor Card */}
+              {/* Managed Connector Versions Card */}
               <Card className="border-none shadow-lg">
                 <CardHeader className="border-b border-gray-100">
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
-                      <Code className="w-5 h-5 text-indigo-600" />
-                      Connector Code
+                      <PackagePlus className="w-5 h-5 text-blue-600" />
+                      Beheerde Connector Versies
                     </CardTitle>
-                    <div className="flex gap-2">
-                      {isEditingCode && (
-                        <Button
-                          variant="outline"
-                          onClick={handleResetCode}
-                          size="sm"
-                        >
-                          Reset
-                        </Button>
-                      )}
-                      <Button
-                        variant={isEditingCode ? "default" : "outline"}
-                        onClick={() => setIsEditingCode(!isEditingCode)}
-                        size="sm"
-                      >
-                        {isEditingCode ? "Stop Bewerken" : "Bewerken"}
-                      </Button>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadManagedVersions}
+                      disabled={loadingManagedVersions}
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Vernieuwen
+                    </Button>
                   </div>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Deze versies worden beheerd via het deployment script en zijn opgeslagen in Supabase
+                  </p>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Code className="w-4 h-4 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900 mb-1">
-                            Connector Plugin Template
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            Deze code wordt gebruikt om de connector plugin te genereren. 
-                            Je kunt aanpassingen maken en opslaan als een nieuwe versie.
-                            De placeholders {`{{API_KEY}}`} en {`{{HUB_URL}}`} worden automatisch ingevuld per site.
-                          </p>
-                        </div>
-                      </div>
+                  {loadingManagedVersions ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mr-2" />
+                      <p className="text-gray-600">Versies laden...</p>
                     </div>
+                  ) : managedVersions.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <PackagePlus className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Geen versies beschikbaar</h3>
+                      <p className="text-gray-500">Voer het deployment script uit om connector versies te uploaden</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Active Version */}
+                      {activeVersion && managedVersions.find(v => v.version === activeVersion) && (
+                        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-200 mb-6">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <p className="text-sm font-semibold text-blue-900">Momenteel Actieve Versie</p>
+                                <Badge className="bg-blue-100 text-blue-700">Actief</Badge>
+                              </div>
+                              <p className="text-2xl font-bold text-blue-700">v{activeVersion}</p>
+                              <p className="text-xs text-blue-600 mt-1">
+                                Download URL: {managedVersions.find(v => v.version === activeVersion)?.url}
+                              </p>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(managedVersions.find(v => v.version === activeVersion)?.url)}
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Download
+                            </Button>
+                          </div>
+                        </div>
+                      )}
 
-                    <div className="relative rounded-lg overflow-hidden border border-gray-700">
-                      {/* Line numbers */}
-                      <div className="absolute left-0 top-0 bottom-0 w-12 bg-gray-800 text-gray-500 text-xs font-mono select-none overflow-hidden">
-                        {connectorCode.split('\n').map((_, i) => (
-                          <div key={i} className="text-right pr-2 leading-6 h-6">
-                            {i + 1}
+                      {/* All Versions List */}
+                      <div className="space-y-3">
+                        {managedVersions.map((version) => (
+                          <div 
+                            key={version.version}
+                            className="p-4 rounded-xl border border-gray-200 hover:border-indigo-200 transition-all"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h3 className="font-semibold text-gray-900">v{version.version}</h3>
+                                  {version.version === activeVersion && (
+                                    <Badge className="bg-green-100 text-green-700">Actief</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  Grootte: {version.size ? `${(version.size / 1024).toFixed(2)} KB` : 'N/A'}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {version.created_at && `Geüpload op ${format(new Date(version.created_at), "d MMM yyyy HH:mm", { locale: nl })}`}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant={version.version === activeVersion ? "default" : "outline"}
+                                  onClick={() => handleSetManagedActiveVersion(version.version, version.url)}
+                                  disabled={version.version === activeVersion}
+                                  className={version.version === activeVersion ? "bg-green-600 hover:bg-green-700" : ""}
+                                >
+                                  {version.version === activeVersion ? "✓ Actief" : "Activeer"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => window.open(version.url)}
+                                >
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
-                      
-                      <textarea
-                        value={connectorCode}
-                        onChange={(e) => {
-                          setConnectorCode(e.target.value);
-                          setIsEditingCode(true);
-                        }}
-                        onKeyDown={(e) => {
-                          // Handle tab key
-                          if (e.key === 'Tab') {
-                            e.preventDefault();
-                            const start = e.target.selectionStart;
-                            const end = e.target.selectionEnd;
-                            const value = e.target.value;
-                            const newValue = value.substring(0, start) + '    ' + value.substring(end);
-                            setConnectorCode(newValue);
-                            setIsEditingCode(true);
-                            // Set cursor position after the tab
-                            setTimeout(() => {
-                              e.target.selectionStart = e.target.selectionEnd = start + 4;
-                            }, 0);
-                          }
-                        }}
-                        className="w-full h-[600px] font-mono text-xs p-4 pl-16 bg-gray-900 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        style={{ 
-                          resize: 'vertical',
-                          minHeight: '400px',
-                          maxHeight: '1000px',
-                          lineHeight: '1.5rem',
-                          whiteSpace: 'pre',
-                          overflowWrap: 'normal',
-                          overflowX: 'auto'
-                        }}
-                        spellCheck="false"
-                        wrap="off"
-                      />
-                    </div>
-
-                    {isEditingCode && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <PackagePlus className="w-4 h-4 text-amber-600" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-amber-900 mb-3">
-                              Opslaan als Nieuwe Versie
-                            </p>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label htmlFor="code-version" className="text-xs">
-                                  Versie Nummer *
-                                </Label>
-                                <Input
-                                  id="code-version"
-                                  placeholder="4.1.0"
-                                  value={newConnector.version}
-                                  onChange={(e) => setNewConnector({ ...newConnector, version: e.target.value })}
-                                  className="mt-1"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="code-description" className="text-xs">
-                                  Beschrijving (optioneel)
-                                </Label>
-                                <Input
-                                  id="code-description"
-                                  placeholder="Custom modificaties..."
-                                  value={newConnector.description}
-                                  onChange={(e) => setNewConnector({ ...newConnector, description: e.target.value })}
-                                  className="mt-1"
-                                />
-                              </div>
-                            </div>
-                            <Button
-                              onClick={handleSaveAsNewVersion}
-                              disabled={!newConnector.version || generateConnectorMutation.isPending}
-                              className="mt-3 bg-amber-600 hover:bg-amber-700"
-                            >
-                              {generateConnectorMutation.isPending ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Opslaan...
-                                </>
-                              ) : (
-                                <>
-                                  <PackagePlus className="w-4 h-4 mr-2" />
-                                  Opslaan als Versie {newConnector.version}
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Version Management Card */}
-              <Card className="border-none shadow-lg">
-                <CardHeader className="border-b border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <Code className="w-5 h-5 text-indigo-600" />
-                      Versie Beheer
-                    </CardTitle>
-                    <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
-                      <DialogTrigger asChild>
-                        <Button className="bg-indigo-600 hover:bg-indigo-700">
-                          <PackagePlus className="w-4 h-4 mr-2" />
-                          Nieuwe Standaard Versie
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Nieuwe Connector Plugin Genereren</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 mt-4">
-                          <div>
-                            <Label htmlFor="version">Versie Nummer *</Label>
-                            <Input
-                              id="version"
-                              placeholder="4.0.0"
-                              value={newConnector.version}
-                              onChange={(e) => setNewConnector({ ...newConnector, version: e.target.value })}
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="description">Beschrijving (optioneel)</Label>
-                            <Input
-                              id="description"
-                              placeholder="Beschrijving van deze versie"
-                              value={newConnector.description}
-                              onChange={(e) => setNewConnector({ ...newConnector, description: e.target.value })}
-                            />
-                          </div>
-                          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                            <p className="text-sm text-blue-800">
-                              De connector plugin bevat de hardcoded platform URL: <strong>https://wphub.pro</strong>
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              onClick={handleGenerateConnector}
-                              disabled={!newConnector.version || generateConnectorMutation.isPending}
-                              className="flex-1"
-                            >
-                              {generateConnectorMutation.isPending ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Genereren...
-                                </>
-                              ) : (
-                                "Plugin Genereren"
-                              )}
-                            </Button>
-                            <Button 
-                              variant="outline"
-                              onClick={() => setShowGenerateDialog(false)}
-                            >
-                              Annuleren
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Actieve Versie voor Downloads</Label>
-                      <Select
-                        value={activeVersion || ""}
-                        onValueChange={handleSetActiveVersion}
-                      >
-                        <SelectTrigger className="mt-2">
-                          <SelectValue placeholder="Selecteer een versie" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {connectors.map((connector) => (
-                            <SelectItem key={connector.id} value={connector.version}>
-                              v{connector.version} - {connector.description || 'Geen beschrijving'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-gray-500 mt-1">Deze versie wordt door gebruikers gedownload</p>
-                    </div>
-
-                    {activeConnector && (
-                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-green-900">Actieve Versie</p>
-                            <p className="text-lg font-bold text-green-700 mt-1">v{activeConnector.version}</p>
-                            <p className="text-xs text-green-600 mt-1">{activeConnector.description}</p>
-                          </div>
-                          <Button 
-                            onClick={() => handleDownloadConnector(activeConnector)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* All Versions List Card */}
-              <Card className="border-none shadow-lg">
-                <CardHeader className="border-b border-gray-100">
-                  <CardTitle>Alle Versies</CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  {connectors.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <Code className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2">Nog geen versies</h3>
-                      <p className="text-gray-500 mb-6">Genereer je eerste connector plugin versie</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {connectors.map((connector) => (
-                        <div 
-                          key={connector.id}
-                          className="p-4 rounded-xl border border-gray-200 hover:border-indigo-200 transition-all"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="font-semibold text-gray-900">v{connector.version}</h3>
-                                {connector.version === activeVersion && (
-                                  <Badge className="bg-green-100 text-green-700 border-green-200">
-                                    Actief
-                                  </Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-gray-600 mb-2">{connector.description}</p>
-                              <p className="text-xs text-gray-500">
-                                Aangemaakt op {connector.created_date 
-                                  ? format(new Date(connector.created_date), "d MMM yyyy HH:mm", { locale: nl })
-                                  : 'N/A'
-                                }
-                              </p>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => handleDownloadConnector(connector)}
-                              >
-                                <Download className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  if (confirm('Weet je zeker dat je deze versie wilt verwijderen?')) {
-                                    deleteConnectorMutation.mutate(connector.id);
-                                  }
-                                }}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   )}
                 </CardContent>
               </Card>
+
             </div>
           </TabsContent>
         </Tabs>

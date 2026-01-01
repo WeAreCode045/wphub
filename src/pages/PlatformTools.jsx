@@ -69,20 +69,6 @@ export default function PlatformTools() {
     }
   }, [user, navigate]);
 
-  // New: Admin Connectors Query
-  const { data: connectors = [], isLoading: connectorsLoading } = useQuery({
-    queryKey: ['admin-connectors'],
-    queryFn: async () => {
-      if (!user || user.role !== 'admin') return [];
-      // Custom caching logic removed, relying on react-query's default caching
-      const conns = await entities.Connector.list("-created_date");
-      return conns;
-    },
-    enabled: !!user && user.role === "admin",
-    staleTime: 0,
-    initialData: [],
-  });
-
   // New: Admin Site Settings Query
   const { data: siteSettings = [], isLoading: settingsLoading } = useQuery({
     queryKey: ['admin-site-settings'],
@@ -225,83 +211,6 @@ export default function PlatformTools() {
     }
   });
 
-  // New: Generate Connector Mutation
-  const generateConnectorMutation = useMutation({
-    mutationFn: async (version) => {
-      const response = await supabase.functions.invoke('generateConnectorPlugin', { body: { version } });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-connectors'] }); // Invalidate react-query cache
-      toast({
-        title: "✅ Connector gegenereerd",
-        description: "De nieuwe connector is succesvol aangemaakt en toegevoegd.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "❌ Fout bij genereren",
-        description: `Er is een fout opgetreden: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // New: Delete Connector Mutation
-  const deleteConnectorMutation = useMutation({
-    mutationFn: async (connectorId) => {
-      await entities.Connector.delete(connectorId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-connectors'] }); // Invalidate react-query cache
-      toast({
-        title: "✅ Connector verwijderd",
-        description: "De connector is succesvol verwijderd.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "❌ Fout bij verwijderen",
-        description: `Er is een fout opgetreden: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // New: Set Active Connector Mutation
-  const setActiveConnectorMutation = useMutation({
-    mutationFn: async (version) => {
-      const settings = await entities.SiteSettings.list();
-      const activeSetting = settings.find(s => s.setting_key === 'active_connector_version');
-
-      if (activeSetting) {
-        await entities.SiteSettings.update(activeSetting.id, {
-          setting_value: version
-        });
-      } else {
-        await entities.SiteSettings.create({
-          setting_key: 'active_connector_version',
-          setting_value: version,
-          description: 'Currently active connector plugin version'
-        });
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-site-settings'] }); // Invalidate react-query cache
-      toast({
-        title: "✅ Actieve connector ingesteld",
-        description: "De actieve connectorversie is succesvol bijgewerkt.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "❌ Fout bij instellen",
-        description: `Er is een fout opgetreden: ${error.message}`,
-        variant: "destructive",
-      });
-    },
-  });
-
 
   const cleanOrphanedSites = async () => {
     if (!confirm(`Weet je zeker dat je ${orphanedSites.length} verweesde sites wilt verwijderen?`)) {
@@ -426,9 +335,8 @@ export default function PlatformTools() {
         </div>
 
         <Tabs defaultValue="orphaned-items">
-          <TabsList className="grid w-full grid-cols-3 md:w-fit">
+          <TabsList className="grid w-full grid-cols-2 md:w-fit">
             <TabsTrigger value="orphaned-items">Verweesde Items</TabsTrigger>
-            <TabsTrigger value="connectors">Connectors</TabsTrigger>
             <TabsTrigger value="general-settings">Algemene Instellingen</TabsTrigger>
           </TabsList>
 
@@ -707,108 +615,6 @@ export default function PlatformTools() {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          <TabsContent value="connectors" className="mt-6">
-            <Card className="border-none shadow-lg">
-              <CardHeader className="border-b border-gray-100">
-                <CardTitle className="flex items-center gap-2">
-                  <FileCode className="w-5 h-5 text-teal-600" />
-                  Connector Beheer
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <p className="text-sm text-gray-600 mb-4">
-                  Beheer en genereer connector plugin versies. De actieve connector wordt gebruikt door alle sites.
-                </p>
-
-                <div className="space-y-4">
-                  <Button
-                    onClick={() => generateConnectorMutation.mutate()}
-                    disabled={generateConnectorMutation.isPending}
-                    className="w-full"
-                  >
-                    {generateConnectorMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Genereren...
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Nieuwe Connector Genereren
-                      </>
-                    )}
-                  </Button>
-
-                  {connectorsLoading ? (
-                    <div className="flex items-center justify-center p-4">
-                      <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
-                    </div>
-                  ) : connectors.length > 0 ? (
-                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                      {connectors.map((connector) => {
-                        const activeConnectorSetting = siteSettings.find(
-                          (s) => s.setting_key === 'active_connector_version'
-                        );
-                        const isActive = activeConnectorSetting?.setting_value === connector.version;
-                        return (
-                          <div key={connector.id} className="flex items-center justify-between text-sm bg-gray-50 p-3 rounded-lg border border-gray-200">
-                            <div className="flex-grow">
-                              <span className="font-medium text-gray-900">Versie {connector.version}</span>
-                              <p className="text-xs text-gray-500">
-                                {new Date(connector.created_date).toLocaleString()}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {isActive && (
-                                <Badge variant="default" className="bg-green-500 hover:bg-green-500">Actief</Badge>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setActiveConnectorMutation.mutate(connector.version)}
-                                disabled={isActive || setActiveConnectorMutation.isPending}
-                                className="h-8 px-3"
-                              >
-                                {setActiveConnectorMutation.isPending && !isActive ? (
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                ) : (
-                                  <Upload className="w-4 h-4 mr-2" />
-                                )}
-                                Instellen als Actief
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => deleteConnectorMutation.mutate(connector.id)}
-                                disabled={deleteConnectorMutation.isPending || isActive}
-                                className="h-8 px-3"
-                              >
-                                {deleteConnectorMutation.isPending && !isActive ? (
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                ) : (
-                                  <Trash2 className="w-4 h-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-blue-600" />
-                        <p className="text-sm font-medium text-blue-900">
-                          Geen connectors gevonden. Genereer de eerste.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="general-settings" className="mt-6">

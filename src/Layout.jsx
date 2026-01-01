@@ -289,13 +289,21 @@ export default function Layout({ children, currentPageName }) {
 
   const loadActiveConnector = async () => {
     try {
-      const settings = await entities.SiteSettings.list();
-      const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
-
-      if (activeVersion) {
-        const connectors = await entities.Connector.list();
-        const connector = connectors.find(c => c.version === activeVersion);
-        setActiveConnector(connector);
+      // Fetch active connector version from Supabase Edge Function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/connectorVersionSettings`,
+        {
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+      const data = await response.json();
+      if (data.version && data.url) {
+        setActiveConnector({
+          version: data.version,
+          file_url: data.url
+        });
       }
     } catch (error) {
       console.error("Error loading connector:", error);
