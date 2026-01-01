@@ -44,33 +44,63 @@ Deno.serve(async (req) => {
 
     const { site_id } = body;
 
-    const { data: site, error: siteError } = await supabase.from('sites').select().eq('id', site_id).single();
+    console.log('[listSiteThemes] === START ===');
+    console.log('[listSiteThemes] Site ID:', site_id);
 
-    if (!site) {
+    const { data: sites, error: sitesError } = await supabase.from('sites').select().eq('id', site_id);
+    
+    if (sitesError || !sites) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Site not found' }),
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (sites.length === 0) {
+      console.log('[listSiteThemes] Site not found');
+      return new Response(
+        JSON.stringify({ error: 'Site not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const response = await fetch(`${site.url}/wp-json/wphub/v1/listThemes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: site.api_key }) });
+    const site = sites[0];
+    console.log('[listSiteThemes] Site:', site.name, site.url);
 
-    const data = await response.json();
+    const wpEndpoint = `${site.url}/wp-json/wphub/v1/listThemes`;
+    console.log('[listSiteThemes] Calling WordPress connector:', wpEndpoint);
 
-    if (data.success) {
+    const wpResponse = await fetch(wpEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: site.api_key }) });
+
+    if (!wpResponse.ok) {
+      const errorText = await wpResponse.text();
+      console.error('[listSiteThemes] WordPress API error:', wpResponse.status, errorText);
       return new Response(
-        JSON.stringify({ success: true, themes: data.themes || [], total: data.total || 0, active_theme: data.active_theme }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Failed to connect to WordPress site', details: errorText, status: wpResponse.status }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } else {
+    }
+
+    const result = await wpResponse.json();
+    console.log('[listSiteThemes] WordPress returned', result.themes?.length || 0, 'themes');
+
+    if (!result.success || !result.themes) {
       return new Response(
-        JSON.stringify({ success: false, error: data.message || 'Failed to list themes', themes: [] }),
+        JSON.stringify({ error: 'Failed to get themes from WordPress', details: result.message || 'Unknown error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-  } catch (error) {
+
+    console.log('[listSiteThemes] === END ===');
+
     return new Response(
-      JSON.stringify({ success: false, error: error.message, themes: [] }),
+      JSON.stringify({ success: true, themes: result.themes, total: result.themes.length, active_theme: result.active_theme }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('[listSiteThemes] ❌ ERROR:', error.message);
+    console.error('[listSiteThemes] Stack:', error.stack);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message, stack: error.stack, themes: [] }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

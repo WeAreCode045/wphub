@@ -78,8 +78,8 @@ Deno.serve(async (req) => {
 
         // Find connector plugin in the list
         const connectorPlugin = result.plugins.find(p => 
-            p.slug === 'wp-plugin-hub-connector' || 
-            p.name === 'WP Plugin Hub Connector'
+            p.slug === 'wphub-connector' || 
+            p.name === 'WP Hub Connector'
         );
 
         if (!connectorPlugin) {
@@ -93,8 +93,8 @@ Deno.serve(async (req) => {
         }
 
         // Get active connector version from settings
-        const { data: settings, error: settingsError } = await supabase.from('sitesettingss').select();
-        const activeVersion = settings.find(s => s.setting_key === 'active_connector_version')?.setting_value;
+        const { data: settings, error: settingsError } = await supabase.from('sitesettings').select();
+        const activeVersion = settings?.find(s => s.setting_key === 'active_connector_version')?.setting_value;
 
         return new Response(
         JSON.stringify({
