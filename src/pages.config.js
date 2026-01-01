@@ -8,6 +8,7 @@ import AccountSettings from './pages/AccountSettings';
 import SiteSettings from './pages/SiteSettings';
 import UserDetail from './pages/UserDetail';
 import AdminDashboard from './pages/AdminDashboard';
+import ConnectorManagement from './pages/ConnectorManagement';
 import PlatformActivities from './pages/PlatformActivities';
 import Teams from './pages/Teams';
 import TeamDetail from './pages/TeamDetail';
@@ -51,6 +52,7 @@ export const PAGES = {
     "SiteSettings": SiteSettings,
     "UserDetail": UserDetail,
     "AdminDashboard": AdminDashboard,
+    "ConnectorManagement": ConnectorManagement,
     "PlatformActivities": PlatformActivities,
     "Teams": Teams,
     "TeamDetail": TeamDetail,
