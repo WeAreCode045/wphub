@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import JSZip from 'npm:jszip@3.10.1';
 import { corsHeaders } from '../_helpers.ts';
 import { ParsePluginZipRequestSchema, z } from '../_shared/schemas.ts';
 
@@ -97,7 +98,6 @@ Deno.serve(async (req) => {
 
         // Parse ZIP
         console.log('[parsePluginZip] Loading ZIP...');
-        const JSZip = (await import('https://cdn.skypack.dev/jszip@3.10.1')).default;
         const zip = await JSZip.loadAsync(uint8Array);
 
         // Helper function to decode string if needed
