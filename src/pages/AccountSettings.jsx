@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User as UserIcon, Mail, Building, Phone, Upload, Check, Copy, CheckCircle, Shield } from "lucide-react";
+import { User as UserIcon, Mail, Building, Phone, Upload, Check, Copy, CheckCircle, Shield, KeyRound, Lock } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge"; // Assuming this component exists
 
@@ -24,6 +24,10 @@ export default function AccountSettings() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copiedUserId, setCopiedUserId] = useState(false);
+  const [copiedClientId, setCopiedClientId] = useState(false);
+  const [copiedClientSecret, setCopiedClientSecret] = useState(false);
+  const connectorClientId = import.meta.env.VITE_CONNECTOR_CLIENT_ID || "";
+  const connectorClientSecret = import.meta.env.VITE_CONNECTOR_CLIENT_SECRET || "";
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -85,6 +89,13 @@ export default function AccountSettings() {
     navigator.clipboard.writeText(text);
     setCopiedUserId(true);
     setTimeout(() => setCopiedUserId(false), 2000);
+  };
+
+  const copyWithFlag = (text, setter) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setter(true);
+    setTimeout(() => setter(false), 2000);
   };
 
   const getInitials = (name) => {
@@ -299,6 +310,78 @@ export default function AccountSettings() {
                   <p className="text-sm text-green-600">
                     Je wijzigingen zijn succesvol opgeslagen
                   </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-lg">
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle>Connector OAuth Credentials</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                Gebruik deze waarden in de WordPress connector plugin (Hub URL, Client ID en Client Secret).
+              </p>
+
+              <div>
+                <Label htmlFor="connector_client_id">Client ID</Label>
+                <div className="relative mt-2">
+                  <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    id="connector_client_id"
+                    value={connectorClientId}
+                    readOnly
+                    className="pl-10 bg-gray-50"
+                    placeholder="Niet ingesteld"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => copyWithFlag(connectorClientId, setCopiedClientId)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                    disabled={!connectorClientId}
+                  >
+                    {copiedClientId ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-gray-400" />
+                    )}
+                  </Button>
+                </div>
+                {!connectorClientId && (
+                  <p className="text-xs text-amber-600 mt-1">Stel VITE_CONNECTOR_CLIENT_ID in de omgeving in.</p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="connector_client_secret">Client Secret</Label>
+                <div className="relative mt-2">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    id="connector_client_secret"
+                    type="password"
+                    value={connectorClientSecret}
+                    readOnly
+                    className="pl-10 bg-gray-50"
+                    placeholder="Niet ingesteld"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => copyWithFlag(connectorClientSecret, setCopiedClientSecret)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                    disabled={!connectorClientSecret}
+                  >
+                    {copiedClientSecret ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-gray-400" />
+                    )}
+                  </Button>
+                </div>
+                {!connectorClientSecret && (
+                  <p className="text-xs text-amber-600 mt-1">Stel VITE_CONNECTOR_CLIENT_SECRET in de omgeving in.</p>
                 )}
               </div>
             </CardContent>
