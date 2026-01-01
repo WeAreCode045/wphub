@@ -104,6 +104,8 @@ class Connector {
         add_action('wp_ajax_wphc_install_plugin', array(\$this, 'install_plugin'));
         add_action('wp_ajax_wphc_install_theme', array(\$this, 'install_theme'));
         add_action('wp_ajax_wphc_get_status', array(\$this, 'get_status'));
+        add_action('wp_ajax_wphc_get_plugins', array(\$this, 'get_plugins'));
+        add_action('wp_ajax_wphc_get_themes', array(\$this, 'get_themes'));
     }
 
     public function activate() {
@@ -127,24 +129,96 @@ class Connector {
     }
 
     public function render_admin_page() {
-        echo '<div class="wrap"><h1>WP Plugin Hub Connector</h1>';
-        echo '<p>Hub URL: ' . esc_url(WPHC_HUB_URL) . '</p>';
-        echo '<button class="button button-primary" onclick="wphc_sync_plugins()">Sync Plugins</button>';
-        echo '<button class="button button-primary" onclick="wphc_sync_themes()">Sync Themes</button>';
-        echo '<div id="wphc-status"></div>';
+        \$nonce = wp_create_nonce('wphc_nonce');
+        echo '<div class="wrap">';
+        echo '<h1>WP Plugin Hub Connector</h1>';
+        echo '<div class="card">';
+        echo '<h2>Hub Configuration</h2>';
+        echo '<p><strong>Hub URL:</strong> ' . esc_url(WPHC_HUB_URL) . '</p>';
+        echo '<p><strong>Version:</strong> ' . esc_html(WPHC_VERSION) . '</p>';
+        echo '<p><strong>Status:</strong> ' . (\$this->verify_connection() ? '<span style="color:green;">✓ Connected</span>' : '<span style="color:red;">✗ Disconnected</span>') . '</p>';
         echo '</div>';
+        
+        echo '<div class="card">';
+        echo '<h2>Synchronization</h2>';
+        echo '<p>Click below to sync plugins and themes from your hub.</p>';
+        echo '<button class="button button-primary" onclick="wphc_sync_plugins()">Sync Plugins</button> ';
+        echo '<button class="button button-primary" onclick="wphc_sync_themes()">Sync Themes</button>';
+        echo '<div id="wphc-status" style="margin-top:10px;"></div>';
+        echo '</div>';
+        
+        echo '<div class="card">';
+        echo '<h2>Installed Plugins from Hub</h2>';
+        echo '<div id="wphc-plugins-list" style="margin-top:10px;">';
+        echo '<p><em>Loading...</em></p>';
+        echo '</div>';
+        echo '</div>';
+        
+        echo '<div class="card">';
+        echo '<h2>Installed Themes from Hub</h2>';
+        echo '<div id="wphc-themes-list" style="margin-top:10px;">';
+        echo '<p><em>Loading...</em></p>';
+        echo '</div>';
+        echo '</div>';
+        
+        echo '<style>
+            .wrap { max-width: 900px; }
+            .card { border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin: 20px 0; }
+            .card h2 { margin-top: 0; }
+            button { margin-right: 10px; }
+            #wphc-status { padding: 10px; border-radius: 4px; }
+            .wphc-success { background-color: #d4edda; color: #155724; }
+            .wphc-error { background-color: #f8d7da; color: #721c24; }
+            .plugin-item, .theme-item { padding: 10px; border: 1px solid #eee; margin: 5px 0; border-radius: 3px; }
+        </style>';
+        
         echo '<script>
+            var wphc_nonce = "' . esc_js(\$nonce) . '";
+            
             function wphc_sync_plugins() {
-                jQuery.post(ajaxurl, {action: "wphc_sync_plugins"}, function(data) {
+                jQuery("#wphc-status").html("<p>Syncing plugins...</p>");
+                jQuery.post(ajaxurl, {
+                    action: "wphc_sync_plugins",
+                    nonce: wphc_nonce
+                }, function(data) {
                     jQuery("#wphc-status").html(data);
                 });
             }
+            
             function wphc_sync_themes() {
-                jQuery.post(ajaxurl, {action: "wphc_sync_themes"}, function(data) {
+                jQuery("#wphc-status").html("<p>Syncing themes...</p>");
+                jQuery.post(ajaxurl, {
+                    action: "wphc_sync_themes",
+                    nonce: wphc_nonce
+                }, function(data) {
                     jQuery("#wphc-status").html(data);
+                });
+            }
+            
+            jQuery(function() {
+                wphc_load_plugins();
+                wphc_load_themes();
+            });
+            
+            function wphc_load_plugins() {
+                jQuery.post(ajaxurl, {
+                    action: "wphc_get_plugins",
+                    nonce: wphc_nonce
+                }, function(data) {
+                    jQuery("#wphc-plugins-list").html(data);
+                });
+            }
+            
+            function wphc_load_themes() {
+                jQuery.post(ajaxurl, {
+                    action: "wphc_get_themes",
+                    nonce: wphc_nonce
+                }, function(data) {
+                    jQuery("#wphc-themes-list").html(data);
                 });
             }
         </script>';
+        echo '</div>';
     }
 
     public function sync_plugins() {
@@ -217,6 +291,50 @@ class Connector {
             'hub_url' => WPHC_HUB_URL,
             'connected' => \$this->verify_connection(),
         ));
+    }
+
+    public function get_plugins() {
+        check_ajax_referer('wphc_nonce');
+
+        \$plugins = PluginManager::getInstance()->get_installed();
+        \$active = PluginManager::getInstance()->get_active();
+
+        if (empty(\$plugins)) {
+            echo '<p><em>No plugins installed</em></p>';
+            wp_die();
+        }
+
+        foreach (\$plugins as \$plugin_file => \$plugin_data) {
+            \$is_active = in_array(\$plugin_file, \$active);
+            echo '<div class="plugin-item">';
+            echo '<strong>' . esc_html(\$plugin_data['Name']) . '</strong> ';
+            echo 'v' . esc_html(\$plugin_data['Version']);
+            echo ' ' . (\$is_active ? '<span style="color:green;">[Active]</span>' : '');
+            echo '</div>';
+        }
+        wp_die();
+    }
+
+    public function get_themes() {
+        check_ajax_referer('wphc_nonce');
+
+        \$themes = ThemeManager::getInstance()->get_installed();
+        \$active = ThemeManager::getInstance()->get_active();
+
+        if (empty(\$themes)) {
+            echo '<p><em>No themes installed</em></p>';
+            wp_die();
+        }
+
+        foreach (\$themes as \$theme) {
+            \$is_active = \$theme->get_stylesheet() === \$active->get_stylesheet();
+            echo '<div class="theme-item">';
+            echo '<strong>' . esc_html(\$theme->get('Name')) . '</strong> ';
+            echo 'v' . esc_html(\$theme->get('Version'));
+            echo ' ' . (\$is_active ? '<span style="color:green;">[Active]</span>' : '');
+            echo '</div>';
+        }
+        wp_die();
     }
 
     private function verify_connection() {
