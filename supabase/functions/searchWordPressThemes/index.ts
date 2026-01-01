@@ -28,21 +28,8 @@ Deno.serve(async (req) => {
     let page = 1;
     let per_page = 20;
 
-    const bodyText = await req.text();
-    console.log('[searchWordPressThemes] Raw body text:', bodyText);
-    console.log('[searchWordPressThemes] Body length:', bodyText.length);
-    console.log('[searchWordPressThemes] Request headers - content-type:', req.headers.get('content-type'));
-
-    if (!bodyText || bodyText.trim() === '') {
-      console.error('[searchWordPressThemes] Empty body received');
-      return new Response(
-        JSON.stringify({ success: false, error: 'Request body is empty' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     try {
-      const parsed = JSON.parse(bodyText);
+      const parsed = await req.json();
       console.log('[searchWordPressThemes] Parsed JSON:', parsed);
       const body = SearchWordPressThemesRequestSchema.parse(parsed);
       search = body.search;
