@@ -51,22 +51,25 @@ function wp_plugin_hub_connector_init() {
         dirname(plugin_basename(__FILE__)) . '/languages'
     );
 
-    if (class_exists('\\WPPluginHub\\Connector')) {
-        \\WPPluginHub\\Connector::getInstance()->init();
+    \$class_name = 'WPPluginHub' . chr(92) . 'Connector';
+    if (class_exists(\$class_name)) {
+        \$class_name::getInstance()->init();
     }
 }
 
 add_action('plugins_loaded', 'wp_plugin_hub_connector_init');
 
 function wp_plugin_hub_connector_activate() {
-    if (class_exists('\\WPPluginHub\\Connector')) {
-        \\WPPluginHub\\Connector::getInstance()->activate();
+    \$class_name = 'WPPluginHub' . chr(92) . 'Connector';
+    if (class_exists(\$class_name)) {
+        \$class_name::getInstance()->activate();
     }
 }
 
 function wp_plugin_hub_connector_deactivate() {
-    if (class_exists('\\WPPluginHub\\Connector')) {
-        \\WPPluginHub\\Connector::getInstance()->deactivate();
+    \$class_name = 'WPPluginHub' . chr(92) . 'Connector';
+    if (class_exists(\$class_name)) {
+        \$class_name::getInstance()->deactivate();
     }
 }
 
