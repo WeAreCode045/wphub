@@ -544,6 +544,11 @@ class Connector {
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
+        // Initialize WordPress filesystem
+        if (!WP_Filesystem()) {
+            return new \WP_Error('filesystem_error', 'Failed to initialize WordPress filesystem', array('status' => 500));
+        }
+
         // Download and extract plugin
         $temp_file = download_url($file_url);
         if (is_wp_error($temp_file)) {
