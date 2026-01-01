@@ -203,7 +203,43 @@ export const supabaseQueries = {
 
   // Subscription Plans
   subscriptionPlans: {
-    list: () => supabase.from('subscription_plans').select('*').order('sort_order', { ascending: true }),
+    list: async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        if (token) {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ action: 'list' }),
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            return data;
+          }
+        }
+
+        // Fallback to direct API (may fail with RLS)
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .select('*')
+          .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+        return data;
+      } catch (err) {
+        console.error('Error in SubscriptionPlan.list:', err);
+        return [];
+      }
+    },
     filter: (filters) => {
       let query = supabase.from('subscription_plans').select('*');
       Object.entries(filters).forEach(([key, value]) => {
@@ -855,9 +891,37 @@ const entities = {
 
   SubscriptionPlan: {
     async list() {
-      const { data, error } = await supabase.from('subscription_plans').select('*');
-      if (error) throw error;
-      return data || [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        if (token) {
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ action: 'list' }),
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            return data || [];
+          }
+        }
+
+        // Fallback to direct API (may fail with RLS)
+        const { data, error } = await supabase.from('subscription_plans').select('*');
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('Error in SubscriptionPlan.list:', err);
+        return [];
+      }
     },
 
     async get(id) {
