@@ -28,44 +28,30 @@ Deno.serve(async (req) => {
     let page = 1;
     let per_page = 20;
 
-    // First, always try to get from query parameters (Supabase invoke sends params as query params)
-    const url = new URL(req.url);
-    const querySearch = url.searchParams.get('search') || undefined;
-    const queryPage = parseInt(url.searchParams.get('page') || '1', 10) || 1;
-    const queryPerPage = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
-
-    if (querySearch) {
-      // Use query parameters if available
-      search = querySearch;
-      page = queryPage;
-      per_page = queryPerPage;
-    } else if (req.method === 'POST') {
-      // Try to parse body if no query params
-      try {
-        const bodyText = await req.text();
-        
-        if (!bodyText || bodyText.trim() === '') {
-          return new Response(
-            JSON.stringify({ success: false, error: 'Search query is required' }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
+    try {
+      const bodyText = await req.text();
+      
+      // If we have a body, parse it
+      if (bodyText && bodyText.trim() !== '') {
         const parsed = JSON.parse(bodyText);
         const body = SearchWordPressThemesRequestSchema.parse(parsed);
         search = body.search;
         page = body.page || 1;
         per_page = body.per_page || 20;
-      } catch (parseError) {
-        console.error('[searchWordPressThemes] Parse error:', parseError);
-        const error = parseError instanceof z.ZodError
-          ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-          : `Invalid request: ${parseError.message}`;
-        return new Response(
-          JSON.stringify({ success: false, error }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      } else {
+        // No body, try query parameters
+        const url = new URL(req.url);
+        search = url.searchParams.get('search') || undefined;
+        page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
+        per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
       }
+    } catch (parseError) {
+      console.error('[searchWordPressThemes] Parse error:', parseError);
+      // Try query parameters as fallback
+      const url = new URL(req.url);
+      search = url.searchParams.get('search') || undefined;
+      page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
+      per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
     }
 
     if (!search) {
