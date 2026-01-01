@@ -34,21 +34,18 @@ Deno.serve(async (req) => {
       page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
       per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
     } else {
-      // POST request - parse the JSON body
+      // Parse and validate request body with Zod
       try {
         const bodyText = await req.text();
-        console.log('[searchWordPressThemes] Body text length:', bodyText.length);
         
         if (!bodyText || bodyText.trim() === '') {
-          console.log('[searchWordPressThemes] Empty body received');
           return new Response(
             JSON.stringify({ success: false, error: 'Search query is required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         
         const parsed = JSON.parse(bodyText);
-        console.log('[searchWordPressThemes] Parsed body:', parsed);
         const body = SearchWordPressThemesRequestSchema.parse(parsed);
         search = body.search;
         page = body.page || 1;
@@ -60,7 +57,7 @@ Deno.serve(async (req) => {
           : `Invalid request: ${parseError.message}`;
         return new Response(
           JSON.stringify({ success: false, error }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
     }

@@ -313,12 +313,10 @@ export default function Themes() {
     setIsSearchingWp(true);
     setWpSearchResults([]);
     try {
-          const response = await supabase.functions.invoke('searchWordPressThemes', {
-        body: {
-          search: wpSearchQuery,
-          page: 1,
-          per_page: 20
-        }
+      const response = await supabase.functions.invoke('searchWordPressThemes', {
+        search: wpSearchQuery,
+        page: 1,
+        per_page: 20
       });
 
       if (response.data.success) {
