@@ -354,9 +354,11 @@ export default function Themes() {
     setWpSearchResults([]);
     try {
       const response = await supabase.functions.invoke('searchWordPressThemes', {
-        search: wpSearchQuery,
-        page: 1,
-        per_page: 20
+        body: JSON.stringify({
+          search: wpSearchQuery,
+          page: 1,
+          per_page: 20
+        })
       });
 
       if (response.data.success) {

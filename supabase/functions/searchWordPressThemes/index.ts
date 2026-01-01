@@ -23,40 +23,37 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Support both GET (query params) and POST (body)
+    // Parse JSON body
     let search: string | undefined;
     let page = 1;
     let per_page = 20;
 
-    // Check query parameters first (Supabase invoke sends params as query params)
-    const url = new URL(req.url);
-    const querySearch = url.searchParams.get('search');
-    
-    if (querySearch) {
-      search = querySearch;
-      page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
-      per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
-      console.log('[searchWordPressThemes] Using query parameters - search:', search);
-    } else {
-      // Fallback to body if no query params
-      try {
-        const bodyText = await req.text();
-        console.log('[searchWordPressThemes] Body length:', bodyText.length);
-        
-        if (bodyText && bodyText.trim() !== '') {
-          const parsed = JSON.parse(bodyText);
-          console.log('[searchWordPressThemes] Parsed body:', parsed);
-          const body = SearchWordPressThemesRequestSchema.parse(parsed);
-          search = body.search;
-          page = body.page || 1;
-          per_page = body.per_page || 20;
-        }
-      } catch (parseError) {
-        console.error('[searchWordPressThemes] Parse error:', parseError);
+    try {
+      const bodyText = await req.text();
+      console.log('[searchWordPressThemes] Body:', bodyText);
+      
+      if (!bodyText || bodyText.trim() === '') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Search query is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      
+      const parsed = JSON.parse(bodyText);
+      const body = SearchWordPressThemesRequestSchema.parse(parsed);
+      search = body.search;
+      page = body.page || 1;
+      per_page = body.per_page || 20;
+    } catch (parseError) {
+      console.error('[searchWordPressThemes] Parse error:', parseError);
+      const error = parseError instanceof z.ZodError
+        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+        : `Invalid request: ${parseError.message}`;
+      return new Response(
+        JSON.stringify({ success: false, error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
-    console.log('[searchWordPressThemes] Final search:', search);
 
     if (!search) {
       return new Response(
