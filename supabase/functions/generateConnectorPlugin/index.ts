@@ -32,10 +32,10 @@ define('WPHC_HUB_URL', '${hubUrl}');
 
 // Autoloader
 spl_autoload_register(function(\$class) {
-    if (strpos(\$class, 'WPPluginHub\\\\') !== 0) {
+    if (strpos(\$class, 'WPPluginHub\\') !== 0) {
         return;
     }
-    \$file = WPHC_PLUGIN_DIR . 'includes/' . str_replace('\\\\', '/', substr(\$class, 13)) . '.php';
+    \$file = WPHC_PLUGIN_DIR . 'includes/' . str_replace('\\', '/', substr(\$class, 13)) . '.php';
     if (file_exists(\$file)) {
         require_once \$file;
     }
@@ -51,22 +51,22 @@ function wp_plugin_hub_connector_init() {
         dirname(plugin_basename(__FILE__)) . '/languages'
     );
 
-    if (class_exists('\\\\WPPluginHub\\\\Connector')) {
-        \\\\WPPluginHub\\\\Connector::getInstance()->init();
+    if (class_exists('\\WPPluginHub\\Connector')) {
+        \\WPPluginHub\\Connector::getInstance()->init();
     }
 }
 
 add_action('plugins_loaded', 'wp_plugin_hub_connector_init');
 
 function wp_plugin_hub_connector_activate() {
-    if (class_exists('\\\\WPPluginHub\\\\Connector')) {
-        \\\\WPPluginHub\\\\Connector::getInstance()->activate();
+    if (class_exists('\\WPPluginHub\\Connector')) {
+        \\WPPluginHub\\Connector::getInstance()->activate();
     }
 }
 
 function wp_plugin_hub_connector_deactivate() {
-    if (class_exists('\\\\WPPluginHub\\\\Connector')) {
-        \\\\WPPluginHub\\\\Connector::getInstance()->deactivate();
+    if (class_exists('\\WPPluginHub\\Connector')) {
+        \\WPPluginHub\\Connector::getInstance()->deactivate();
     }
 }
 
