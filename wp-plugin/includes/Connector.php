@@ -257,6 +257,12 @@ class Connector {
     }
 
     public function handle_oauth_callback() {
+        // Handle direct authentication callback (email/password login)
+        if (isset($_GET['oauth_callback']) && $_GET['oauth_callback'] === '1') {
+            $this->handle_oauth_callback_redirect();
+            return;
+        }
+
         if (!isset($_GET['code']) || $_GET['action'] !== 'wphc_oauth_callback') {
             return;
         }

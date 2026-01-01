@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('WPHC_VERSION', '1.0.11');
+define('WPHC_VERSION', '1.0.12');
 define('WPHC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WPHC_PLUGIN_URL', plugin_dir_url(__FILE__));
 
