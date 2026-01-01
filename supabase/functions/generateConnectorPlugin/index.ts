@@ -118,6 +118,7 @@ class Connector {
         add_action('wp_ajax_wphc_get_status', array(\$this, 'get_status'));
         add_action('wp_ajax_wphc_get_plugins', array(\$this, 'get_plugins'));
         add_action('wp_ajax_wphc_get_themes', array(\$this, 'get_themes'));
+        add_action('wp_ajax_wphc_save_settings', array(\$this, 'save_settings'));
     }
 
     public function activate() {
@@ -142,11 +143,39 @@ class Connector {
 
     public function render_admin_page() {
         \$nonce = wp_create_nonce('wphc_nonce');
+        \$api_key = get_option('wphc_api_key', WPHC_API_KEY);
+        \$hub_url = get_option('wphc_hub_url', WPHC_HUB_URL);
+        
         echo '<div class="wrap">';
         echo '<h1>WP Plugin Hub Connector</h1>';
+        
+        // Settings Card
+        echo '<div class="card">';
+        echo '<h2>Settings</h2>';
+        echo '<table class="form-table">';
+        echo '<tr>';
+        echo '<th scope="row"><label for="wphc_hub_url">Hub URL</label></th>';
+        echo '<td>';
+        echo '<input type="url" id="wphc_hub_url" name="wphc_hub_url" value="' . esc_attr(\$hub_url) . '" class="regular-text" />';
+        echo '<p class="description">The base URL of your WP Plugin Hub instance</p>';
+        echo '</td>';
+        echo '</tr>';
+        echo '<tr>';
+        echo '<th scope="row"><label for="wphc_api_key">API Key</label></th>';
+        echo '<td>';
+        echo '<input type="password" id="wphc_api_key" name="wphc_api_key" value="' . esc_attr(\$api_key) . '" class="regular-text" />';
+        echo '<p class="description">Your hub API key for authentication</p>';
+        echo '</td>';
+        echo '</tr>';
+        echo '</table>';
+        echo '<button class="button button-primary" onclick="wphc_save_settings()">Save Settings</button>';
+        echo '<div id="wphc-settings-status"></div>';
+        echo '</div>';
+        
+        // Hub Configuration Card
         echo '<div class="card">';
         echo '<h2>Hub Configuration</h2>';
-        echo '<p><strong>Hub URL:</strong> ' . esc_url(WPHC_HUB_URL) . '</p>';
+        echo '<p><strong>Connected Hub URL:</strong> ' . esc_url(\$hub_url) . '</p>';
         echo '<p><strong>Version:</strong> ' . esc_html(WPHC_VERSION) . '</p>';
         echo '<p><strong>Status:</strong> ' . (\$this->verify_connection() ? '<span style="color:green;">✓ Connected</span>' : '<span style="color:red;">✗ Disconnected</span>') . '</p>';
         echo '</div>';
@@ -175,17 +204,45 @@ class Connector {
         
         echo '<style>
             .wrap { max-width: 900px; }
-            .card { border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin: 20px 0; }
+            .card { border: 1px solid #ddd; border-radius: 4px; padding: 15px; margin: 20px 0; background: white; }
             .card h2 { margin-top: 0; }
-            button { margin-right: 10px; }
+            button { margin-right: 10px; margin-top: 10px; }
             #wphc-status { padding: 10px; border-radius: 4px; }
-            .wphc-success { background-color: #d4edda; color: #155724; }
-            .wphc-error { background-color: #f8d7da; color: #721c24; }
+            #wphc-settings-status { padding: 10px; margin-top: 10px; border-radius: 4px; }
+            .wphc-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+            .wphc-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
             .plugin-item, .theme-item { padding: 10px; border: 1px solid #eee; margin: 5px 0; border-radius: 3px; }
+            .form-table th { width: 200px; }
+            input[type="url"], input[type="password"] { width: 100%; max-width: 400px; }
         </style>';
         
         echo '<script>
             var wphc_nonce = "' . esc_js(\$nonce) . '";
+            
+            function wphc_save_settings() {
+                var api_key = document.getElementById("wphc_api_key").value;
+                var hub_url = document.getElementById("wphc_hub_url").value;
+                
+                if (!api_key || !hub_url) {
+                    jQuery("#wphc-settings-status").html("<p class=\"wphc-error\">Please fill in all fields</p>");
+                    return;
+                }
+                
+                jQuery("#wphc-settings-status").html("<p>Saving...</p>");
+                jQuery.post(ajaxurl, {
+                    action: "wphc_save_settings",
+                    nonce: wphc_nonce,
+                    api_key: api_key,
+                    hub_url: hub_url
+                }, function(data) {
+                    if (data.success) {
+                        jQuery("#wphc-settings-status").html("<p class=\"wphc-success\">✓ Settings saved successfully</p>");
+                        setTimeout(function() { location.reload(); }, 1500);
+                    } else {
+                        jQuery("#wphc-settings-status").html("<p class=\"wphc-error\">✗ Error: " + data.data + "</p>");
+                    }
+                });
+            }
             
             function wphc_sync_plugins() {
                 jQuery("#wphc-status").html("<p>Syncing plugins...</p>");
@@ -236,11 +293,12 @@ class Connector {
     public function sync_plugins() {
         check_ajax_referer('wphc_nonce');
 
+        \$api_key = get_option('wphc_api_key', WPHC_API_KEY);
         \$response = wp_remote_get(
             \$this->api_endpoint . '/connectors/plugins',
             array(
                 'headers' => array(
-                    'Authorization' => 'Bearer ' . WPHC_API_KEY,
+                    'Authorization' => 'Bearer ' . \$api_key,
                     'Content-Type' => 'application/json',
                 ),
             )
@@ -258,11 +316,12 @@ class Connector {
     public function sync_themes() {
         check_ajax_referer('wphc_nonce');
 
+        \$api_key = get_option('wphc_api_key', WPHC_API_KEY);
         \$response = wp_remote_get(
             \$this->api_endpoint . '/connectors/themes',
             array(
                 'headers' => array(
-                    'Authorization' => 'Bearer ' . WPHC_API_KEY,
+                    'Authorization' => 'Bearer ' . \$api_key,
                     'Content-Type' => 'application/json',
                 ),
             )
@@ -275,6 +334,28 @@ class Connector {
         \$body = json_decode(wp_remote_retrieve_body(\$response), true);
         \$this->log('Synced ' . count(\$body['themes'] ?? []) . ' themes');
         wp_send_json_success('Themes synced: ' . count(\$body['themes'] ?? []));
+    }
+
+    public function save_settings() {
+        check_ajax_referer('wphc_nonce');
+        check_admin_ajax();
+        current_user_can('manage_options') || wp_die('Access denied');
+
+        \$api_key = sanitize_text_field(\$_POST['api_key'] ?? '');
+        \$hub_url = esc_url_raw(\$_POST['hub_url'] ?? '');
+
+        if (empty(\$api_key) || empty(\$hub_url)) {
+            wp_send_json_error('API key and hub URL are required', 400);
+        }
+
+        update_option('wphc_api_key', \$api_key);
+        update_option('wphc_hub_url', \$hub_url);
+
+        // Update the api_endpoint
+        \$this->api_endpoint = rtrim(\$hub_url, '/') . '/api';
+
+        \$this->log('Settings updated: ' . \$hub_url);
+        wp_send_json_success('Settings saved successfully');
     }
 
     public function install_plugin() {
@@ -350,11 +431,12 @@ class Connector {
     }
 
     private function verify_connection() {
+        \$api_key = get_option('wphc_api_key', WPHC_API_KEY);
         \$response = wp_remote_get(
             \$this->api_endpoint . '/connectors/version',
             array(
                 'headers' => array(
-                    'Authorization' => 'Bearer ' . WPHC_API_KEY,
+                    'Authorization' => 'Bearer ' . \$api_key,
                 ),
                 'timeout' => 5,
             )
