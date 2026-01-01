@@ -35,18 +35,10 @@ Deno.serve(async (req) => {
       per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
     } else {
       // Parse and validate request body with Zod
-      let body;
       try {
-        const contentLength = req.headers.get('content-length');
-        if (!contentLength || contentLength === '0') {
-          return new Response(
-            JSON.stringify({ error: 'Request body is required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        const requestBody = await req.json();
-        body = SearchWordPressThemesRequestSchema.parse(requestBody);
+        const bodyText = await req.text();
+        const parsed = JSON.parse(bodyText);
+        const body = SearchWordPressThemesRequestSchema.parse(parsed);
         search = body.search;
         page = body.page || 1;
         per_page = body.per_page || 20;
@@ -54,7 +46,9 @@ Deno.serve(async (req) => {
         console.error('[searchWordPressThemes] Validation error:', parseError);
         const error = parseError instanceof z.ZodError
           ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-          : `Invalid request: ${parseError.message}`;
+          : parseError.message === 'Unexpected end of JSON input' 
+            ? 'Request body is required'
+            : `Invalid request: ${parseError.message}`;
         return new Response(
           JSON.stringify({ error }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
