@@ -3,7 +3,7 @@
  * Plugin Name: WP Hub Connector
  * Plugin URI: https://wphub.pro
  * Description: Connector plugin for WPHub Pro - Manages plugins and themes from your hub
- * Version: 1.0.27
+ * Version: 1.0.30
  * Author: Code045
  * Author URI: https://wphub.pro
  * License: GPL v2 or later
@@ -24,6 +24,11 @@ if (!defined('WPHC_VERSION')) {
 }
 define('WPHC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WPHC_PLUGIN_URL', plugin_dir_url(__FILE__));
+
+// Platform URL - set this to your platform's base URL
+if (!defined('WPHUB_PLATFORM_URL')) {
+    define('WPHUB_PLATFORM_URL', 'https://ossyxxlplvqakowiwbok.supabase.co');
+}
 
 // Autoloader
 spl_autoload_register(function($class) {
