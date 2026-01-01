@@ -622,11 +622,12 @@ export default function SiteDetail() {
 
   // Theme handlers
   const installThemeMutation = useMutation({
-    mutationFn: async ({ theme_id, download_url }) => {
+    mutationFn: async ({ theme_id, theme_slug, download_url }) => {
       const response = await supabase.functions.invoke('installTheme', {
         body: {
           site_id: siteId,
           theme_id,
+          theme_slug,
           download_url
         }
       });
@@ -694,6 +695,7 @@ export default function SiteDetail() {
 
     installThemeMutation.mutate({
       theme_id: theme.id,
+      theme_slug: theme.slug,
       download_url: latestVersion.download_url
     });
   };
@@ -701,7 +703,8 @@ export default function SiteDetail() {
   const handleInstallThemeFromWp = (wpTheme) => {
     installThemeMutation.mutate({
       theme_id: null,
-      download_url: wpTheme.download_url
+      theme_slug: wpTheme.slug,
+      download_url: wpTheme.download_link
     });
   };
 

@@ -441,6 +441,15 @@ export const TestSiteConnectionRequestSchema = z.object({
 
 export type TestSiteConnectionRequest = z.infer<typeof TestSiteConnectionRequestSchema>;
 
+export const InstallThemeRequestSchema = z.object({
+  site_id: z.string().uuid(),
+  theme_slug: z.string().min(1),
+  theme_id: z.string().uuid().optional(),
+  download_url: z.string().url().optional(),
+});
+
+export type InstallThemeRequest = z.infer<typeof InstallThemeRequestSchema>;
+
 export const ActivateThemeRequestSchema = z.object({
   site_id: z.string().uuid(),
   theme_slug: z.string().min(1),

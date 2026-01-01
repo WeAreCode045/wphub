@@ -104,6 +104,12 @@ class Connector {
             'permission_callback' => '__return_true',
         ));
 
+        register_rest_route('wphub/v1', '/downloadTheme', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'rest_download_theme'),
+            'permission_callback' => '__return_true',
+        ));
+
         register_rest_route('wphub/v1', '/updateDebugSettings', array(
             'methods' => 'POST',
             'callback' => array($this, 'rest_update_debug_settings'),
@@ -506,6 +512,48 @@ class Connector {
         return array(
             'success' => true,
             'message' => 'Plugin downloaded and installed successfully',
+        );
+    }
+
+    public function rest_download_theme($request) {
+        $body = $request->get_json_params();
+        $api_key = isset($body['api_key']) ? sanitize_text_field($body['api_key']) : '';
+        
+        if (!$this->validate_api_key($api_key)) {
+            return new \WP_Error('invalid_api_key', 'Invalid API key', array('status' => 401));
+        }
+
+        $file_url = isset($body['file_url']) ? esc_url_raw($body['file_url']) : '';
+        $theme_slug = isset($body['theme_slug']) ? sanitize_text_field($body['theme_slug']) : '';
+        
+        if (empty($file_url)) {
+            return new \WP_Error('missing_file_url', 'File URL is required', array('status' => 400));
+        }
+
+        // Include required WordPress files
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/theme.php';
+
+        // Initialize WordPress filesystem
+        if (!WP_Filesystem()) {
+            return new \WP_Error('filesystem_error', 'Failed to initialize WordPress filesystem', array('status' => 500));
+        }
+
+        $temp_file = download_url($file_url);
+        if (is_wp_error($temp_file)) {
+            return new \WP_Error('download_failed', $temp_file->get_error_message(), array('status' => 500));
+        }
+
+        $unzip_result = unzip_file($temp_file, get_theme_root());
+        @unlink($temp_file);
+
+        if (is_wp_error($unzip_result)) {
+            return new \WP_Error('unzip_failed', $unzip_result->get_error_message(), array('status' => 500));
+        }
+
+        return array(
+            'success' => true,
+            'message' => 'Theme downloaded and installed successfully',
         );
     }
 
