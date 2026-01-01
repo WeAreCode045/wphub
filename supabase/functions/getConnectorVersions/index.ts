@@ -23,7 +23,7 @@ Deno.serve(async (req: Request) => {
 
     // List all files in the connector bucket
     const { data: files, error } = await supabase.storage
-      .from('wp-plugin-hub-connector')
+      .from('Connectors')
       .list('', {
         limit: 100,
         offset: 0,
@@ -41,11 +41,11 @@ Deno.serve(async (req: Request) => {
     const versions = (files || [])
       .filter((file: any) => file.name.endsWith('.zip'))
       .map((file: any) => {
-        // Extract version from filename: wp-plugin-hub-connector-1.0.0.zip
-        const match = file.name.match(/wp-plugin-hub-connector-(.+)\.zip/);
+        // Extract version from filename: wphub-connector-1.0.3.zip
+        const match = file.name.match(/wphub-connector-(.+)\.zip/);
         const version = match ? match[1] : 'unknown';
         
-        const publicUrl = `${supaUrl}/storage/v1/object/public/wp-plugin-hub-connector/${file.name}`;
+        const publicUrl = `${supaUrl}/storage/v1/object/public/Connectors/${file.name}`;
 
         return {
           version,
