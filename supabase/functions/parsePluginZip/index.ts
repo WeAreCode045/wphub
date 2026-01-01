@@ -127,12 +127,6 @@ Deno.serve(async (req) => {
         console.log('[parsePluginZip] Decoded entries count:', decodedEntries.length);
         console.log('[parsePluginZip] First 10 decoded files:', decodedEntries.slice(0, 10));
 
-                if (decodedEntriesError || !decodedEntries) {
-            return new Response(
-        JSON.stringify({ error: 'Database error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-        }
         if (decodedEntries.length === 0) {
             return new Response(
         JSON.stringify({ 
@@ -155,12 +149,6 @@ Deno.serve(async (req) => {
         console.log('[parsePluginZip] Found', phpFiles.length, 'eligible PHP files (root or 1 level deep)');
         console.log('[parsePluginZip] PHP files:', phpFiles);
 
-                if (phpFilesError || !phpFiles) {
-            return new Response(
-        JSON.stringify({ error: 'Database error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-        }
         if (phpFiles.length === 0) {
             return new Response(
         JSON.stringify({ 
