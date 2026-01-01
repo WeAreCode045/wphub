@@ -74,6 +74,8 @@ import {
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
+import { format } from 'date-fns';
+import { nl } from 'date-fns/locale';
 import SendMessageDialog from "../components/messaging/SendMessageDialog";
 import SendNotificationDialog from "../components/messaging/SendNotificationDialog";
 
@@ -288,8 +290,12 @@ export default function SiteDetail() {
       });
       return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['site', siteId] });
+    onSuccess: (data) => {
+      // Update site cache with health check data
+      queryClient.setQueryData(['site', siteId], (oldSite) => ({
+        ...oldSite,
+        health_check: data
+      }));
       alert('✅ Health check voltooid');
     },
     onError: (error) => {
