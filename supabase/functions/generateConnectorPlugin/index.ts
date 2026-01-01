@@ -1,4 +1,5 @@
 import JSZip from 'npm:jszip@3.10.1';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { authMeWithToken, extractBearerFromReq, uploadToStorage, jsonResponse } from '../_helpers.ts';
 import { corsHeaders } from '../_helpers.ts';
 
