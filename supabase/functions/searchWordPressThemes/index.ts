@@ -23,52 +23,57 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse request body - try JSON first, then text
+    // Parse request parameters from URL query or body
     let search: string | undefined;
     let page = 1;
     let per_page = 20;
 
-    let parsed: any;
-    try {
-      // Try parsing as JSON first
-      parsed = await req.json();
-      console.log('[searchWordPressThemes] Successfully parsed as JSON:', parsed);
-    } catch (jsonError) {
-      console.log('[searchWordPressThemes] JSON parsing failed, trying text:', jsonError.message);
+    // First, try to extract from query parameters
+    const url = new URL(req.url);
+    const querySearch = url.searchParams.get('search');
+    const queryPage = url.searchParams.get('page');
+    const queryPerPage = url.searchParams.get('per_page');
+
+    console.log('[searchWordPressThemes] Query params:', { querySearch, queryPage, queryPerPage });
+
+    if (querySearch) {
+      // Parameters found in query string
+      search = querySearch;
+      page = queryPage ? parseInt(queryPage, 10) : 1;
+      per_page = queryPerPage ? parseInt(queryPerPage, 10) : 20;
+      console.log('[searchWordPressThemes] Using query parameters:', { search, page, per_page });
+    } else {
+      // Try to parse from body
+      let parsed: any = {};
       try {
-        // Fallback to text parsing
         const bodyText = await req.text();
-        console.log('[searchWordPressThemes] Body as text:', bodyText);
+        console.log('[searchWordPressThemes] Body text:', bodyText);
         
-        if (!bodyText || bodyText.trim() === '' || bodyText === '[object Object]') {
-          throw new Error('Empty or invalid body');
+        if (bodyText && bodyText.trim() !== '' && bodyText !== '[object Object]') {
+          parsed = JSON.parse(bodyText);
+          console.log('[searchWordPressThemes] Parsed body:', parsed);
         }
-        
-        parsed = JSON.parse(bodyText);
-        console.log('[searchWordPressThemes] Parsed from text:', parsed);
-      } catch (textError) {
-        console.error('[searchWordPressThemes] Both JSON and text parsing failed:', textError.message);
+      } catch (parseError) {
+        console.error('[searchWordPressThemes] Parse error:', parseError.message);
+        // Continue - we'll validate below
+      }
+
+      try {
+        const body = SearchWordPressThemesRequestSchema.parse(parsed);
+        search = body.search;
+        page = body.page || 1;
+        per_page = body.per_page || 20;
+        console.log('[searchWordPressThemes] Using body parameters:', { search, page, per_page });
+      } catch (validateError) {
+        console.error('[searchWordPressThemes] Validation error:', validateError);
+        const error = validateError instanceof z.ZodError
+          ? `Validation error: ${validateError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+          : `Validation failed: ${validateError.message}`;
         return new Response(
-          JSON.stringify({ success: false, error: `Failed to parse request: ${textError.message}` }),
+          JSON.stringify({ success: false, error }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-    }
-
-    try {
-      const body = SearchWordPressThemesRequestSchema.parse(parsed);
-      search = body.search;
-      page = body.page || 1;
-      per_page = body.per_page || 20;
-    } catch (validateError) {
-      console.error('[searchWordPressThemes] Validation error:', validateError);
-      const error = validateError instanceof z.ZodError
-        ? `Validation error: ${validateError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-        : `Validation failed: ${validateError.message}`;
-      return new Response(
-        JSON.stringify({ success: false, error }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     if (!search) {
