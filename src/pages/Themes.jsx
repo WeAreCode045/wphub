@@ -354,10 +354,6 @@ export default function Themes() {
     setWpSearchResults([]);
     try {
       const response = await supabase.functions.invoke('searchWordPressThemes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: {
           search: wpSearchQuery,
           page: 1,

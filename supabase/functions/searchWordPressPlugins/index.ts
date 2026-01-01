@@ -23,54 +23,46 @@ Deno.serve(async (req) => {
       );
         }
 
-        // Parse request parameters from URL query or body
+        // Support both POST (JSON body) and GET (query params) to avoid 405 on production invoke
         let search: string | undefined;
         let page = 1;
         let per_page = 20;
 
-        // First, try to extract from query parameters
+        // First, always try to get from query parameters (Supabase invoke sends params as query params)
         const url = new URL(req.url);
-        const querySearch = url.searchParams.get('search');
-        const queryPage = url.searchParams.get('page');
-        const queryPerPage = url.searchParams.get('per_page');
-
-        console.log('[searchWordPressPlugins] Query params:', { querySearch, queryPage, queryPerPage });
+        const querySearch = url.searchParams.get('search') || undefined;
+        const queryPage = parseInt(url.searchParams.get('page') || '1', 10) || 1;
+        const queryPerPage = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
 
         if (querySearch) {
-            // Parameters found in query string
+            // Use query parameters if available
             search = querySearch;
-            page = queryPage ? parseInt(queryPage, 10) : 1;
-            per_page = queryPerPage ? parseInt(queryPerPage, 10) : 20;
-            console.log('[searchWordPressPlugins] Using query parameters:', { search, page, per_page });
-        } else {
-            // Try to parse from body
-            let parsed: any = {};
+            page = queryPage;
+            per_page = queryPerPage;
+        } else if (req.method === 'POST') {
+            // Try to parse body if no query params
             try {
                 const bodyText = await req.text();
-                console.log('[searchWordPressPlugins] Body text:', bodyText);
                 
-                if (bodyText && bodyText.trim() !== '' && bodyText !== '[object Object]') {
-                    parsed = JSON.parse(bodyText);
-                    console.log('[searchWordPressPlugins] Parsed body:', parsed);
+                if (!bodyText || bodyText.trim() === '') {
+                    return new Response(
+                        JSON.stringify({ error: 'Search query is required' }),
+                        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    );
                 }
-            } catch (parseError) {
-                console.error('[searchWordPressPlugins] Parse error:', parseError.message);
-                // Continue - we'll validate below
-            }
-
-            try {
+                
+                const parsed = JSON.parse(bodyText);
                 const validated = SearchWordPressPluginsRequestSchema.parse(parsed);
                 search = validated.search;
                 page = validated.page || 1;
                 per_page = validated.per_page || 20;
-                console.log('[searchWordPressPlugins] Using body parameters:', { search, page, per_page });
-            } catch (validateError) {
-                console.error('[searchWordPressPlugins] Validation error:', validateError);
-                const error = validateError instanceof z.ZodError
-                    ? `Validation error: ${validateError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-                    : `Validation failed: ${validateError.message}`;
+            } catch (parseError) {
+                console.error('[searchWordPressPlugins] Validation error:', parseError);
+                const error = parseError instanceof z.ZodError
+                    ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+                    : `Invalid request: ${parseError.message}`;
                 return new Response(
-                    JSON.stringify({ success: false, error }),
+                    JSON.stringify({ error }),
                     { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
                 );
             }
@@ -111,10 +103,10 @@ Deno.serve(async (req) => {
 
         console.log('[searchWordPressPlugins] === END ===');
 
-        return new Response(JSON.stringify({ success: true, info: data.info, plugins }), { status: 200, headers: { ...corsHeaders, 'content-type': 'application/json' } });
+        return new Response(JSON.stringify({ success: true, info: data.info, plugins }), { headers: { 'content-type': 'application/json' } });
 
     } catch (error: any) {
         console.error('[searchWordPressPlugins] ❌ ERROR:', error?.message || error);
-        return new Response(JSON.stringify({ success: false, error: (error?.message || String(error)) }), { status: 500, headers: { ...corsHeaders, 'content-type': 'application/json' } });
+        return new Response(JSON.stringify({ error: (error?.message || String(error)) }), { status: 500, headers: { 'content-type': 'application/json' } });
     }
 });
