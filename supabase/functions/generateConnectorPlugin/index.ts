@@ -7,9 +7,74 @@ function generateConnectorPluginCode(apiKey: string, hubUrl: string, version: st
   return `<?php
 /**
  * Plugin Name: WP Plugin Hub Connector
+ * Plugin URI: ${hubUrl}
+ * Description: Connector plugin for WP Plugin Hub - Manages plugins and themes from your hub
  * Version: ${version}
+ * Author: WP Plugin Hub
+ * Author URI: ${hubUrl}
+ * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: wp-plugin-hub-connector
+ * Domain Path: /languages
  */
-// Minimal connector placeholder
+
+// Prevent direct access
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Define plugin constants
+define('WPHC_VERSION', '${version}');
+define('WPHC_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('WPHC_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('WPHC_API_KEY', '${apiKey}');
+define('WPHC_HUB_URL', '${hubUrl}');
+
+// Require helper files
+require_once WPHC_PLUGIN_DIR . 'includes/class-connector.php';
+require_once WPHC_PLUGIN_DIR . 'includes/class-plugin-manager.php';
+require_once WPHC_PLUGIN_DIR . 'includes/class-theme-manager.php';
+
+/**
+ * Initialize the connector plugin
+ */
+function wp_plugin_hub_connector_init() {
+    // Load translations
+    load_plugin_textdomain(
+        'wp-plugin-hub-connector',
+        false,
+        dirname(plugin_basename(__FILE__)) . '/languages'
+    );
+
+    // Initialize the connector
+    if (class_exists('\\WPPluginHub\\Connector')) {
+        \\WPPluginHub\\Connector::getInstance()->init();
+    }
+}
+
+add_action('plugins_loaded', 'wp_plugin_hub_connector_init');
+
+/**
+ * Activation hook
+ */
+function wp_plugin_hub_connector_activate() {
+    if (class_exists('\\WPPluginHub\\Connector')) {
+        \\WPPluginHub\\Connector::getInstance()->activate();
+    }
+}
+
+register_activation_hook(__FILE__, 'wp_plugin_hub_connector_activate');
+
+/**
+ * Deactivation hook
+ */
+function wp_plugin_hub_connector_deactivate() {
+    if (class_exists('\\WPPluginHub\\Connector')) {
+        \\WPPluginHub\\Connector::getInstance()->deactivate();
+    }
+}
+
+register_deactivation_hook(__FILE__, 'wp_plugin_hub_connector_deactivate');
 `;
 }
 
