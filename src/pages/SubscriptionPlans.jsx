@@ -55,8 +55,30 @@ export default function SubscriptionPlans() {
     queryKey: ['admin-subscription-plans'],
     queryFn: async () => {
       if (!user || user.role !== 'admin') return [];
-      const allPlans = await entities.SubscriptionPlan.list();
-      return allPlans;
+      try {
+        const token = await (window.__supabase?.auth?.getSession?.()).then(
+          (data) => data?.data?.session?.access_token
+        );
+        
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'list' }),
+          }
+        );
+        
+        if (!response.ok) throw new Error('Failed to fetch plans');
+        return await response.json();
+      } catch (error) {
+        console.error('Error fetching plans:', error);
+        // Fallback to direct API access
+        return await entities.SubscriptionPlan.list();
+      }
     },
     enabled: !!user && user.role === "admin",
     staleTime: 5 * 60 * 1000,
@@ -65,7 +87,24 @@ export default function SubscriptionPlans() {
 
   const createPlanMutation = useMutation({
     mutationFn: async (planData) => {
-      return entities.SubscriptionPlan.create(planData);
+      const token = await (window.__supabase?.auth?.getSession?.()).then(
+        (data) => data?.data?.session?.access_token
+      );
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'create', plan: planData }),
+        }
+      );
+      
+      if (!response.ok) throw new Error('Failed to create plan');
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-subscription-plans'] });
@@ -87,7 +126,24 @@ export default function SubscriptionPlans() {
 
   const updatePlanMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      return entities.SubscriptionPlan.update(id, data);
+      const token = await (window.__supabase?.auth?.getSession?.()).then(
+        (data) => data?.data?.session?.access_token
+      );
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'update', plan: { ...data, id } }),
+        }
+      );
+      
+      if (!response.ok) throw new Error('Failed to update plan');
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-subscription-plans'] });
@@ -108,7 +164,26 @@ export default function SubscriptionPlans() {
   });
 
   const deletePlanMutation = useMutation({
-    mutationFn: (planId) => entities.SubscriptionPlan.delete(planId),
+    mutationFn: async (planId) => {
+      const token = await (window.__supabase?.auth?.getSession?.()).then(
+        (data) => data?.data?.session?.access_token
+      );
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manageSubscriptionPlans`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'delete', plan: { id: planId } }),
+        }
+      );
+      
+      if (!response.ok) throw new Error('Failed to delete plan');
+      return await response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-subscription-plans'] });
       toast({
