@@ -23,31 +23,44 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse and validate request body with Zod
-    let body;
-    try {
-      const contentLength = req.headers.get('content-length');
-      if (!contentLength || contentLength === '0') {
+    // Support both POST (JSON body) and GET (query params) to avoid 405 on production invoke
+    let search: string | undefined;
+    let page = 1;
+    let per_page = 20;
+
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      search = url.searchParams.get('search') || undefined;
+      page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
+      per_page = parseInt(url.searchParams.get('per_page') || '20', 10) || 20;
+    } else {
+      // Parse and validate request body with Zod
+      let body;
+      try {
+        const contentLength = req.headers.get('content-length');
+        if (!contentLength || contentLength === '0') {
+          return new Response(
+            JSON.stringify({ error: 'Request body is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        const requestBody = await req.json();
+        body = SearchWordPressThemesRequestSchema.parse(requestBody);
+        search = body.search;
+        page = body.page || 1;
+        per_page = body.per_page || 20;
+      } catch (parseError) {
+        console.error('[searchWordPressThemes] Validation error:', parseError);
+        const error = parseError instanceof z.ZodError
+          ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
+          : `Invalid request: ${parseError.message}`;
         return new Response(
-          JSON.stringify({ error: 'Request body is required' }),
+          JSON.stringify({ error }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
-      const requestBody = await req.json();
-      body = SearchWordPressThemesRequestSchema.parse(requestBody);
-    } catch (parseError) {
-      console.error('[searchWordPressThemes] Validation error:', parseError);
-      const error = parseError instanceof z.ZodError
-        ? `Validation error: ${parseError.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-        : `Invalid request: ${parseError.message}`;
-      return new Response(
-        JSON.stringify({ error }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
-
-    const { search, page = 1, per_page = 20 } = body;
 
     if (!search) {
       return new Response(
