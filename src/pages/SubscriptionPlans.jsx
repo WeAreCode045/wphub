@@ -55,16 +55,21 @@ export default function SubscriptionPlans() {
     }
   }, [user, navigate]);
 
-  const { data: plans = [], isLoading } = useQuery({
+  const { data: plans = [], isLoading, error: queryError } = useQuery({
     queryKey: ['admin-subscription-plans'],
     queryFn: async () => {
-      if (!user || user.role !== 'admin') return [];
+      if (!user || user.role !== 'admin') {
+        console.log('SubscriptionPlans: user not admin or not loaded');
+        return [];
+      }
       try {
+        console.log('SubscriptionPlans: fetching plans');
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         
         if (!token) {
-          console.warn('No auth token available, using direct API access');
+          console.warn('SubscriptionPlans: No auth token available');
+          setFetchError('No authentication token available');
           return await entities.SubscriptionPlan.list();
         }
         
@@ -81,14 +86,25 @@ export default function SubscriptionPlans() {
         );
         
         if (!response.ok) {
-          console.error(`Function returned ${response.status}:`, await response.text());
+          const errorText = await response.text();
+          console.error(`SubscriptionPlans edge function error ${response.status}:`, errorText);
+          setFetchError(`Failed to fetch plans (${response.status})`);
           throw new Error(`Failed to fetch plans (${response.status})`);
         }
-        return await response.json();
+        const data = await response.json();
+        console.log('SubscriptionPlans: plans fetched', data);
+        setFetchError(null);
+        return data;
       } catch (error) {
         console.error('Error fetching plans:', error);
+        setFetchError(error.message);
         // Fallback to direct API access
-        return await entities.SubscriptionPlan.list();
+        try {
+          return await entities.SubscriptionPlan.list();
+        } catch (fallbackError) {
+          console.error('Fallback failed:', fallbackError);
+          return [];
+        }
       }
     },
     enabled: !!user && user.role === "admin",
