@@ -154,16 +154,40 @@ Deno.serve(async (req) => {
       themeData.name = themeFolder || 'Unknown Theme';
     }
 
-    // Try to find screenshot
+    // Try to find and upload screenshot
     let screenshotUrl = '';
     for (const [path, file] of Object.entries(zip.files)) {
       const fileName = path.toLowerCase();
       if (fileName.endsWith('screenshot.png') || fileName.endsWith('screenshot.jpg') || fileName.endsWith('screenshot.jpeg')) {
         const parts = path.split('/');
-        if (parts.length <= 2) {
+        if (parts.length <= 2 && !file.dir) {
           // Found screenshot at theme root level
-          // Note: We can't easily extract and upload the screenshot here
-          // The screenshot_url would need to be set separately if needed
+          try {
+            const screenshotData = await file.async('arraybuffer');
+            const ext = path.substring(path.lastIndexOf('.')).toLowerCase();
+            const uploadPath = `${themeData.slug}${ext}`;
+            
+            console.log('[parseThemeZip] Uploading screenshot:', uploadPath);
+            
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('Theme')
+              .upload(uploadPath, screenshotData, {
+                contentType: fileName.endsWith('.png') ? 'image/png' : 'image/jpeg',
+                upsert: true
+              });
+
+            if (!uploadError && uploadData) {
+              const { data: { publicUrl } } = supabase.storage
+                .from('Theme')
+                .getPublicUrl(uploadPath);
+              screenshotUrl = publicUrl;
+              console.log('[parseThemeZip] Screenshot uploaded:', screenshotUrl);
+            } else {
+              console.error('[parseThemeZip] Screenshot upload error:', uploadError);
+            }
+          } catch (screenshotError) {
+            console.error('[parseThemeZip] Error processing screenshot:', screenshotError);
+          }
           break;
         }
       }
