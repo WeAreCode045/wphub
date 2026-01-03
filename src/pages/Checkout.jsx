@@ -74,6 +74,13 @@ export default function Checkout() {
 
   // If a plan is selected, show the checkout form
   if (selectedPriceId) {
+    // Find the selected plan details
+    const selectedPlan = subscriptions.find(plan => 
+      plan.stripe_price_monthly_id === selectedPriceId || 
+      plan.stripe_price_yearly_id === selectedPriceId
+    );
+    const isYearly = selectedPlan?.stripe_price_yearly_id === selectedPriceId;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4">
         <div className="mx-auto max-w-3xl">
@@ -90,6 +97,8 @@ export default function Checkout() {
             <CheckoutForm
               priceId={selectedPriceId}
               quantity={1}
+              selectedPlan={selectedPlan}
+              billingPeriod={isYearly ? "yearly" : "monthly"}
               onCancel={() => setSelectedPriceId(null)}
             />
           </div>

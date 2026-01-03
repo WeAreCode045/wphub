@@ -19,7 +19,12 @@ export default function AccountSettings() {
     company: "",
     phone: "",
     avatar_url: "",
-    two_fa_enabled: false
+    two_fa_enabled: false,
+    billing_address: "",
+    billing_city: "",
+    billing_postal_code: "",
+    billing_country: "NL",
+    vat_number: ""
   });
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -39,7 +44,12 @@ export default function AccountSettings() {
       company: currentUser.company || "",
       phone: currentUser.phone || "",
       avatar_url: currentUser.avatar_url || "",
-      two_fa_enabled: currentUser.two_fa_enabled || false
+      two_fa_enabled: currentUser.two_fa_enabled || false,
+      billing_address: currentUser.billing_address || "",
+      billing_city: currentUser.billing_city || "",
+      billing_postal_code: currentUser.billing_postal_code || "",
+      billing_country: currentUser.billing_country || "NL",
+      vat_number: currentUser.vat_number || ""
     });
   };
 
@@ -72,7 +82,12 @@ export default function AccountSettings() {
     updateUserMutation.mutate({
       company: formData.company,
       phone: formData.phone,
-      two_fa_enabled: formData.two_fa_enabled
+      two_fa_enabled: formData.two_fa_enabled,
+      billing_address: formData.billing_address,
+      billing_city: formData.billing_city,
+      billing_postal_code: formData.billing_postal_code,
+      billing_country: formData.billing_country,
+      vat_number: formData.vat_number
     });
     
     // If 2FA is being disabled, clear session
@@ -230,6 +245,79 @@ export default function AccountSettings() {
                       className="pl-10"
                     />
                   </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-lg">
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle>Factuurgegevens</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <Label htmlFor="billing_address">Adres</Label>
+                  <Input
+                    id="billing_address"
+                    value={formData.billing_address}
+                    onChange={(e) => setFormData({ ...formData, billing_address: e.target.value })}
+                    placeholder="Straatnaam en huisnummer"
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="billing_city">Stad</Label>
+                  <Input
+                    id="billing_city"
+                    value={formData.billing_city}
+                    onChange={(e) => setFormData({ ...formData, billing_city: e.target.value })}
+                    placeholder="Amsterdam"
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="billing_postal_code">Postcode</Label>
+                  <Input
+                    id="billing_postal_code"
+                    value={formData.billing_postal_code}
+                    onChange={(e) => setFormData({ ...formData, billing_postal_code: e.target.value })}
+                    placeholder="1234 AB"
+                    className="mt-2"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="billing_country">Land</Label>
+                  <select
+                    id="billing_country"
+                    value={formData.billing_country}
+                    onChange={(e) => setFormData({ ...formData, billing_country: e.target.value })}
+                    className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="NL">Nederland</option>
+                    <option value="BE">België</option>
+                    <option value="DE">Duitsland</option>
+                    <option value="FR">Frankrijk</option>
+                    <option value="GB">Verenigd Koninkrijk</option>
+                    <option value="US">Verenigde Staten</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label htmlFor="vat_number">BTW-nummer (optioneel)</Label>
+                  <Input
+                    id="vat_number"
+                    value={formData.vat_number}
+                    onChange={(e) => setFormData({ ...formData, vat_number: e.target.value.toUpperCase() })}
+                    placeholder="NL123456789B01"
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Voor zakelijke klanten binnen de EU
+                  </p>
                 </div>
               </div>
             </CardContent>

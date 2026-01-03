@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   EmbeddedCheckoutProvider,
@@ -7,9 +7,8 @@ import {
 import { supabase } from "@/api/supabaseClient";
 import { useValidateCoupon } from "@/hooks/useStripeElements";
 
-const stripePromise = loadStripe(
-  import.meta.env.VITE_STRIPE_PUBLIC_KEY
-);
+const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
 
 /**
  * CheckoutForm Component
@@ -18,9 +17,12 @@ const stripePromise = loadStripe(
  * - Stripe Embedded Checkout
  * - Coupon code validation and discount display
  * - Real-time discount calculation
+ * - Plan details overview
  * 
  * @param {string} priceId - Stripe Price ID for the product
  * @param {number} quantity - Quantity of items (default: 1)
+ * @param {Object} selectedPlan - Selected subscription plan details
+ * @param {string} billingPeriod - "monthly" or "yearly"
  * @param {Object} metadata - Additional metadata to pass to Stripe
  * @param {Function} onSuccess - Callback when checkout session is created
  * @param {Function} onCancel - Callback when user cancels
@@ -28,6 +30,8 @@ const stripePromise = loadStripe(
 export default function CheckoutForm({
   priceId,
   quantity = 1,
+  selectedPlan = null,
+  billingPeriod = "monthly",
   metadata = {},
   onSuccess,
   onCancel,
@@ -38,7 +42,30 @@ export default function CheckoutForm({
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState(null);
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [clientSecret, setClientSecret] = useState(null);
+  const [user, setUser] = useState(null);
   const validateCouponMutation = useValidateCoupon();
+
+  useEffect(() => {
+    async function loadUserData() {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data, error } = await supabase
+            .from('users')
+            .select('billing_address, billing_city, billing_postal_code, billing_country, vat_number')
+            .eq('id', authUser.id)
+            .single();
+          if (!error && data) {
+            setUser(data);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading user data:', err);
+      }
+    }
+    loadUserData();
+  }, []);
 
   const handleValidateCoupon = async (e) => {
     e.preventDefault();
@@ -81,59 +108,101 @@ export default function CheckoutForm({
     setCouponError(null);
   };
 
-  const fetchClientSecret = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  useEffect(() => {
+    let isMounted = true;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Not authenticated");
+    async function loadClientSecret() {
+      if (!priceId) {
+        setError("Select a plan to continue to checkout.");
+        return;
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            price_id: priceId,
-            quantity,
-            coupon_code: appliedCoupon?.code || null,
-            metadata,
-          }),
+      if (!stripePublicKey) {
+        setError("Stripe public key is missing. Add VITE_STRIPE_PUBLIC_KEY to your environment.");
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error("Not authenticated");
         }
-      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to create checkout session");
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              price_id: priceId,
+              quantity,
+              coupon_code: appliedCoupon?.code || null,
+              billing_details: user ? {
+                address: {
+                  line1: user.billing_address || undefined,
+                  city: user.billing_city || undefined,
+                  postal_code: user.billing_postal_code || undefined,
+                  country: user.billing_country || undefined,
+                },
+                tax_id: user.vat_number ? {
+                  type: 'eu_vat',
+                  value: user.vat_number,
+                } : undefined,
+              } : undefined,
+              metadata: {
+                ...metadata,
+                plan_name: selectedPlan?.name,
+                billing_period: billingPeriod,
+              },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create checkout session");
+        }
+
+        const payload = await response.json();
+        const secret = payload.clientSecret;
+        const session = payload.sessionId;
+
+        if (!secret) {
+          throw new Error("Checkout session did not return a client secret.");
+        }
+
+        if (!isMounted) return;
+        setClientSecret(secret);
+
+        if (onSuccess && session) {
+          onSuccess(session);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        if (!isMounted) return;
+        setError(message);
+        console.error("Checkout error:", err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-
-      const { clientSecret, sessionId } = await response.json();
-      
-      // Call onSuccess callback if provided
-      if (onSuccess && sessionId) {
-        onSuccess(sessionId);
-      }
-
-      return clientSecret;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
-      setError(message);
-      console.error("Checkout error:", err);
-      throw err;
-    } finally {
-      setIsLoading(false);
     }
+
+    loadClientSecret();
+
+    return () => {
+      isMounted = false;
+    };
   }, [priceId, quantity, metadata, onSuccess, appliedCoupon]);
 
-  const options = {
-    fetchClientSecret,
-  };
+  const options = clientSecret ? { clientSecret } : undefined;
 
   if (error) {
     return (
@@ -156,6 +225,77 @@ export default function CheckoutForm({
 
   return (
     <div className="w-full max-w-2xl space-y-6">
+      {/* Plan Details Overview */}
+      {selectedPlan && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
+          <h3 className="mb-4 text-lg font-semibold text-blue-900">Plan Details</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-slate-700">Plan:</span>
+              <span className="font-semibold text-slate-900">{selectedPlan.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-700">Billing Period:</span>
+              <span className="font-semibold text-slate-900">
+                {billingPeriod === "monthly" ? "Monthly" : "Yearly"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-700">Price:</span>
+              <span className="text-xl font-bold text-slate-900">
+                €{billingPeriod === "monthly" 
+                  ? (selectedPlan.monthly_price_cents / 100).toFixed(2)
+                  : (selectedPlan.yearly_price_cents / 100).toFixed(2)}
+                <span className="text-sm font-normal text-slate-600">
+                  /{billingPeriod === "monthly" ? "month" : "year"}
+                </span>
+              </span>
+            </div>
+            {selectedPlan.trial_days > 0 && (
+              <div className="flex justify-between">
+                <span className="text-slate-700">Trial Period:</span>
+                <span className="font-semibold text-green-700">
+                  {selectedPlan.trial_days} days free
+                </span>
+              </div>
+            )}
+            <div className="pt-3 border-t border-blue-300">
+              <div className="flex justify-between">
+                <span className="text-slate-700">Start Date:</span>
+                <span className="font-semibold text-slate-900">
+                  {new Date().toLocaleDateString('nl-NL', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </span>
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="text-slate-700">Next Billing Date:</span>
+                <span className="font-semibold text-slate-900">
+                  {(() => {
+                    const startDate = new Date();
+                    const trialDays = selectedPlan.trial_days || 0;
+                    const nextBilling = new Date(startDate);
+                    nextBilling.setDate(nextBilling.getDate() + trialDays);
+                    if (billingPeriod === "monthly") {
+                      nextBilling.setMonth(nextBilling.getMonth() + 1);
+                    } else {
+                      nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+                    }
+                    return nextBilling.toLocaleDateString('nl-NL', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    });
+                  })()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Coupon Section */}
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <h3 className="mb-3 font-semibold text-slate-900">Have a coupon?</h3>
@@ -211,9 +351,18 @@ export default function CheckoutForm({
           <span className="ml-2 text-blue-700">Loading checkout...</span>
         </div>
       )}
-      <EmbeddedCheckoutProvider stripe={stripePromise} options={options}>
-        <EmbeddedCheckout />
-      </EmbeddedCheckoutProvider>
+
+      {!options && !isLoading && (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
+          Unable to load payment form. Please double-check your Stripe key and select a plan.
+        </div>
+      )}
+
+      {options && stripePromise && (
+        <EmbeddedCheckoutProvider stripe={stripePromise} options={options}>
+          <EmbeddedCheckout />
+        </EmbeddedCheckoutProvider>
+      )}
     </div>
   );
 }

@@ -8,6 +8,19 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!);
 interface CreateCheckoutSessionRequest {
   price_id: string;
   quantity?: number;
+  coupon_code?: string;
+  billing_details?: {
+    address?: {
+      line1?: string;
+      city?: string;
+      postal_code?: string;
+      country?: string;
+    };
+    tax_id?: {
+      type: string;
+      value: string;
+    };
+  };
   metadata?: Record<string, string>;
   success_url?: string;
   cancel_url?: string;
@@ -35,6 +48,8 @@ serve(async (req) => {
     const {
       price_id,
       quantity = 1,
+      coupon_code,
+      billing_details,
       metadata = {},
       success_url,
       cancel_url,
@@ -63,13 +78,22 @@ serve(async (req) => {
       );
     }
 
+    // Get payment configuration from settings
+    const { data: paymentConfigSetting } = await supabase
+      .from('site_settings')
+      .select('setting_value')
+      .eq('setting_key', 'stripe_payment_configuration')
+      .single();
+
+    const paymentConfiguration = paymentConfigSetting?.setting_value || null;
+
     // Determine return URLs
     const baseUrl = Deno.env.get('VITE_APP_URL') || 'http://localhost:5173';
     const returnUrl = success_url || `${baseUrl}/checkout/return`;
     const cancelUrl = cancel_url || `${baseUrl}/checkout`;
 
-    // Create checkout session in embedded mode
-    const session = await stripe.checkout.sessions.create({
+    // Prepare session params
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       ui_mode: 'embedded',
       line_items: [
         {
@@ -77,16 +101,52 @@ serve(async (req) => {
           quantity,
         },
       ],
-      mode: 'subscription', // or 'payment' or 'setup' depending on use case
+      mode: 'subscription',
       customer: user.stripe_customer_id,
       customer_email: user.email,
       return_url: `${returnUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      customer_update: {
+        address: 'auto',
+        name: 'auto',
+      },
+      billing_address_collection: 'auto',
+      tax_id_collection: {
+        enabled: true,
+      },
       metadata: {
         platform_user_id: caller.id,
         created_at: new Date().toISOString(),
         ...metadata,
       },
-    });
+    };
+
+    // Add payment configuration if set
+    if (paymentConfiguration) {
+      sessionParams.payment_method_configuration = paymentConfiguration;
+    }
+
+    // Add coupon if provided
+    if (coupon_code) {
+      sessionParams.discounts = [{ coupon: coupon_code }];
+    }
+
+    // Add custom fields for VAT number if provided
+    if (billing_details?.tax_id?.value) {
+      sessionParams.invoice_creation = {
+        enabled: true,
+        invoice_data: {
+          custom_fields: [
+            {
+              name: 'VAT Number',
+              value: billing_details.tax_id.value,
+            },
+          ],
+        },
+      };
+    }
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     return jsonResponse({
       clientSecret: session.client_secret,

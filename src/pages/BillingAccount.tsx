@@ -46,6 +46,17 @@ interface PaymentMethod {
   exp_month: number;
   exp_year: number;
   is_default: boolean;
+  type?: string;
+}
+
+interface PaymentMethodType {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  verificationSteps: string[];
+  supportedCountries: string[];
+  processingTime: string;
 }
 
 export default function BillingPage() {
@@ -1059,6 +1070,8 @@ function PaymentMethodTab({
 }: PaymentMethodTabProps) {
   const queryClient = useQueryClient();
   const [showCardForm, setShowCardForm] = useState(false);
+  const [showPaymentTypeSelector, setShowPaymentTypeSelector] = useState(false);
+  const [selectedPaymentType, setSelectedPaymentType] = useState<PaymentMethodType | null>(null);
   const [cardholderName, setCardholderName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1066,6 +1079,99 @@ function PaymentMethodTab({
   const stripeRef = React.useRef<any>(null);
   const cardElementRef = React.useRef<any>(null);
   const clientSecretRef = React.useRef<string | null>(null);
+
+  // Available payment method types
+  const availablePaymentMethods: PaymentMethodType[] = [
+    {
+      id: 'card',
+      name: 'Credit or Debit Card',
+      description: 'Visa, Mastercard, American Express',
+      icon: '💳',
+      verificationSteps: [
+        'Enter your card details (number, expiry, CVC)',
+        'Provide cardholder name matching the card',
+        'Card will be verified with a small authorization (released immediately)',
+        'Ready to use instantly after verification'
+      ],
+      supportedCountries: ['Worldwide'],
+      processingTime: 'Instant'
+    },
+    {
+      id: 'sepa_debit',
+      name: 'SEPA Direct Debit',
+      description: 'Bank account debit for EU customers',
+      icon: '🏦',
+      verificationSteps: [
+        'Provide your IBAN (International Bank Account Number)',
+        'Confirm account holder name',
+        'Accept SEPA Direct Debit mandate',
+        'Verification takes 1-3 business days',
+        'First payment may be delayed until verification completes'
+      ],
+      supportedCountries: ['EU countries'],
+      processingTime: '1-3 business days'
+    },
+    {
+      id: 'ideal',
+      name: 'iDEAL',
+      description: 'Popular payment method in the Netherlands',
+      icon: '🇳🇱',
+      verificationSteps: [
+        'Select your bank from the list',
+        'You will be redirected to your bank\'s website',
+        'Log in and authorize the payment',
+        'Return to complete setup',
+        'Ready to use immediately after authorization'
+      ],
+      supportedCountries: ['Netherlands'],
+      processingTime: 'Instant'
+    },
+    {
+      id: 'bancontact',
+      name: 'Bancontact',
+      description: 'Popular payment method in Belgium',
+      icon: '🇧🇪',
+      verificationSteps: [
+        'You will be redirected to Bancontact',
+        'Log in with your Bancontact credentials',
+        'Authorize the payment setup',
+        'Return to complete setup',
+        'Ready to use immediately'
+      ],
+      supportedCountries: ['Belgium'],
+      processingTime: 'Instant'
+    },
+    {
+      id: 'us_bank_account',
+      name: 'US Bank Account (ACH)',
+      description: 'Direct debit from US bank account',
+      icon: '🇺🇸',
+      verificationSteps: [
+        'Provide your bank account and routing number',
+        'Confirm account holder name',
+        'Verify ownership via micro-deposits (1-2 small deposits)',
+        'Enter micro-deposit amounts to confirm',
+        'Verification takes 1-3 business days'
+      ],
+      supportedCountries: ['United States'],
+      processingTime: '1-3 business days'
+    },
+    {
+      id: 'paypal',
+      name: 'PayPal',
+      description: 'Pay with your PayPal account',
+      icon: '🅿️',
+      verificationSteps: [
+        'You will be redirected to PayPal',
+        'Log in to your PayPal account',
+        'Authorize recurring payments',
+        'Return to complete setup',
+        'Ready to use immediately'
+      ],
+      supportedCountries: ['Worldwide (varies by region)'],
+      processingTime: 'Instant'
+    }
+  ];
 
   // Mutation for setting default payment method
   const setDefaultMutation = useMutation({
@@ -1289,16 +1395,141 @@ function PaymentMethodTab({
     }
   };
 
-  if (paymentMethods.length === 0 && !showCardForm) {
+  if (paymentMethods.length === 0 && !showCardForm && !showPaymentTypeSelector) {
     return (
       <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
         <p className="text-slate-600 mb-4">No payment methods on file.</p>
         <button
-          onClick={() => setShowCardForm(true)}
+          onClick={() => setShowPaymentTypeSelector(true)}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
         >
           Add Payment Method
         </button>
+      </div>
+    );
+  }
+
+  // Show payment type selector
+  if (showPaymentTypeSelector && !selectedPaymentType) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-slate-900">
+              Select Payment Method Type
+            </h2>
+            <button
+              onClick={() => setShowPaymentTypeSelector(false)}
+              className="text-sm text-slate-600 hover:text-slate-900"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            {availablePaymentMethods.map((method) => (
+              <button
+                key={method.id}
+                onClick={() => setSelectedPaymentType(method)}
+                className="text-left p-4 border-2 border-slate-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">{method.icon}</span>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-slate-900 group-hover:text-blue-600">
+                      {method.name}
+                    </h3>
+                    <p className="text-sm text-slate-600 mt-1">
+                      {method.description}
+                    </p>
+                    <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                      <span>⏱️ {method.processingTime}</span>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show verification steps for selected payment type
+  if (selectedPaymentType && !showCardForm) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setSelectedPaymentType(null)}
+                className="text-slate-600 hover:text-slate-900"
+              >
+                ← Back
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{selectedPaymentType.icon}</span>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {selectedPaymentType.name}
+                </h2>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Method Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-900 mb-2">About This Payment Method</h3>
+              <p className="text-sm text-blue-700 mb-3">{selectedPaymentType.description}</p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-blue-900">Processing Time:</span>
+                  <p className="text-blue-700">{selectedPaymentType.processingTime}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-blue-900">Supported Regions:</span>
+                  <p className="text-blue-700">{selectedPaymentType.supportedCountries.join(', ')}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Verification Steps */}
+            <div>
+              <h3 className="font-semibold text-slate-900 mb-4">Verification Steps</h3>
+              <ol className="space-y-3">
+                {selectedPaymentType.verificationSteps.map((step, index) => (
+                  <li key={index} className="flex gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
+                      {index + 1}
+                    </span>
+                    <span className="text-slate-700 pt-0.5">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {/* Action Button */}
+            <div className="pt-4 border-t">
+              <button
+                onClick={() => {
+                  if (selectedPaymentType.id === 'card') {
+                    setShowCardForm(true);
+                  } else {
+                    alert(`${selectedPaymentType.name} setup will be implemented. For now, please use Credit/Debit Card.`);
+                    setSelectedPaymentType(null);
+                  }
+                }}
+                className="w-full px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-medium"
+              >
+                Continue with {selectedPaymentType.name}
+              </button>
+              <p className="text-xs text-center text-slate-500 mt-3">
+                By continuing, you agree to authorize recurring payments using this method
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1371,12 +1602,22 @@ function PaymentMethodTab({
     <div className="space-y-6">
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="p-8 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900 mb-2">
-            Saved Payment Methods
-          </h2>
-          <p className="text-sm text-slate-600">
-            Select a payment method to use for your subscription.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 mb-2">
+                Saved Payment Methods
+              </h2>
+              <p className="text-sm text-slate-600">
+                Select a default payment method for your subscription.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowPaymentTypeSelector(true)}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all text-sm font-medium"
+            >
+              + Add Payment Method
+            </button>
+          </div>
         </div>
 
         <div className="divide-y divide-slate-200">

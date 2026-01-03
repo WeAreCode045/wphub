@@ -64,6 +64,7 @@ export default function FinanceSettings() {
     text_color: "#111827"
   });
   const [defaultPaymentMethod, setDefaultPaymentMethod] = useState("");
+  const [paymentConfiguration, setPaymentConfiguration] = useState("");
   const [discountForm, setDiscountForm] = useState({
     code: "",
     description: "",
@@ -138,13 +139,15 @@ export default function FinanceSettings() {
         accent_color: settings.find(s => s.setting_key === 'invoice_accent_color')?.setting_value || "#6366f1",
         item_background_color: settings.find(s => s.setting_key === 'invoice_item_bg_color')?.setting_value || "#f9fafb",
         text_color: settings.find(s => s.setting_key === 'invoice_text_color')?.setting_value || "#111827",
-        default_payment_method: settings.find(s => s.setting_key === 'stripe_default_payment_method')?.setting_value || ""
+        default_payment_method: settings.find(s => s.setting_key === 'stripe_default_payment_method')?.setting_value || "",
+        payment_configuration: settings.find(s => s.setting_key === 'stripe_payment_configuration')?.setting_value || ""
       };
     },
     enabled: !!user && user.role === "admin",
     onSuccess: (data) => {
       setInvoiceSettings(data);
       setDefaultPaymentMethod(data.default_payment_method);
+      setPaymentConfiguration(data.payment_configuration);
     }
   });
 
@@ -281,6 +284,33 @@ export default function FinanceSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoice-settings'] });
       alert('✅ Default payment method saved successfully!');
+    },
+    onError: (error) => {
+      alert('❌ Error saving: ' + error.message);
+    }
+  });
+
+  const savePaymentConfigurationMutation = useMutation({
+    mutationFn: async (configId) => {
+      const existingSettings = await entities.SiteSettings.list();
+      const existing = existingSettings.find(s => s.setting_key === 'stripe_payment_configuration');
+      
+      if (existing) {
+        await entities.SiteSettings.update(existing.id, {
+          setting_value: configId,
+          description: 'Stripe payment configuration ID for payment methods'
+        });
+      } else {
+        await entities.SiteSettings.create({
+          setting_key: 'stripe_payment_configuration',
+          setting_value: configId,
+          description: 'Stripe payment configuration ID for payment methods'
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoice-settings'] });
+      alert('✅ Payment configuration saved successfully!');
     },
     onError: (error) => {
       alert('❌ Error saving: ' + error.message);
@@ -759,6 +789,50 @@ export default function FinanceSettings() {
                     <p className="text-gray-700">Webhooks zijn actief en ontvangen events van Stripe</p>
                   </div>
                 </div>
+
+                <div>
+                  <Label htmlFor="payment-configuration">Payment Configuration ID</Label>
+                  <Input
+                    id="payment-configuration"
+                    placeholder="pmc_xxxxxxxxxxxxx (Stripe Payment Configuration ID)"
+                    className="mt-2"
+                    value={paymentConfiguration}
+                    onChange={(e) => setPaymentConfiguration(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-600 mt-2">
+                    Enter your Stripe Payment Configuration ID to control which payment methods are available. You can create and manage payment configurations in your <a href="https://dashboard.stripe.com/settings/payment_method_configurations" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Stripe Dashboard</a>.
+                  </p>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => savePaymentConfigurationMutation.mutate(paymentConfiguration)}
+                    disabled={savePaymentConfigurationMutation.isPending || !paymentConfiguration.trim()}
+                  >
+                    {savePaymentConfigurationMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Save Payment Configuration
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {paymentConfiguration && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      <strong>Current Configuration:</strong> {paymentConfiguration}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      This configuration controls which payment methods (cards, wallets, bank transfers, etc.) are available during checkout.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
