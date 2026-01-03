@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   EmbeddedCheckoutProvider,
@@ -34,7 +34,7 @@ export default function CheckoutForm({
   selectedPlan = null,
   billingPeriod = "monthly",
   couponCode = null,
-  metadata = {},
+  metadata = null,
   onSuccess,
   onCancel,
 }) {
@@ -42,6 +42,7 @@ export default function CheckoutForm({
   const [error, setError] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
   const [user, setUser] = useState(null);
+  const lastRequestKeyRef = useRef(null);
 
   useEffect(() => {
     async function loadUserData() {
@@ -63,6 +64,14 @@ export default function CheckoutForm({
     }
     loadUserData();
   }, []);
+
+  const metadataPayload = useMemo(() => ({
+    ...(metadata || {}),
+    plan_name: selectedPlan?.name,
+    billing_period: billingPeriod,
+  }), [metadata, selectedPlan?.name, billingPeriod]);
+
+  const metadataKey = useMemo(() => JSON.stringify(metadataPayload || {}), [metadataPayload]);
 
   useEffect(() => {
     let isMounted = true;
@@ -106,11 +115,7 @@ export default function CheckoutForm({
                 value: user.vat_number,
               } : undefined,
             } : undefined,
-            metadata: {
-              ...metadata,
-              plan_name: selectedPlan?.name,
-              billing_period: billingPeriod,
-            },
+            metadata: metadataPayload,
           }),
         }
       );
@@ -137,6 +142,15 @@ export default function CheckoutForm({
     };
 
     async function loadClientSecret() {
+      const requestKey = `${priceId || ""}::${couponCode || ""}::${billingPeriod}::${metadataKey}`;
+
+      // Avoid creating multiple Embedded Checkout instances for the same state
+      if (clientSecret && lastRequestKeyRef.current === requestKey) {
+        return;
+      }
+
+      lastRequestKeyRef.current = requestKey;
+
       if (!priceId) {
         setError("Select a plan to continue to checkout.");
         return;
@@ -186,7 +200,7 @@ export default function CheckoutForm({
     return () => {
       isMounted = false;
     };
-  }, [priceId, quantity, metadata, onSuccess, couponCode, billingPeriod]);
+  }, [priceId, quantity, metadataPayload, metadataKey, onSuccess, couponCode, billingPeriod, clientSecret]);
 
   const options = useMemo(() => 
     clientSecret ? { clientSecret } : undefined, 
