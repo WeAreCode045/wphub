@@ -446,7 +446,7 @@ export default function Layout({ children, currentPageName }) {
     { title: "Themes", url: createPageUrl("Themes"), icon: Palette },
     { title: "Projecten", url: createPageUrl("Projects"), icon: Briefcase },
     { title: "Berichten", url: createPageUrl("UserMessages"), icon: Mail }, // Changed from Messages
-    { title: "Billing", url: createPageUrl("BillingAccount"), icon: CreditCard },
+    { title: "MySubscription", url: createPageUrl("BillingAccount"), icon: CreditCard },
   ];
 
   const teamsWorkspaceItems = [

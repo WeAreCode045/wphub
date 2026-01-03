@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import CheckoutForm from "@/components/CheckoutForm";
 
@@ -10,14 +10,25 @@ import CheckoutForm from "@/components/CheckoutForm";
  */
 export default function Checkout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [subscriptions, setSubscriptions] = useState([]);
   const [selectedPriceId, setSelectedPriceId] = useState(null);
+  const [billingPeriod, setBillingPeriod] = useState("monthly");
   const [error, setError] = useState(null);
 
   useEffect(() => {
     loadPlans();
   }, []);
+
+  // Pick up preselected price from querystring if provided
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const priceId = params.get("price_id");
+    if (priceId) {
+      setSelectedPriceId(priceId);
+    }
+  }, [location.search]);
 
   async function loadPlans() {
     try {
@@ -98,6 +109,29 @@ export default function Checkout() {
           <p className="text-lg text-gray-600">
             Select a subscription plan to get started
           </p>
+          <div className="mt-6 inline-flex rounded-lg border border-gray-200 bg-white p-1 shadow-sm">
+            <button
+              onClick={() => setBillingPeriod("monthly")}
+              className={`px-6 py-2 rounded-md text-sm font-semibold transition-all ${
+                billingPeriod === "monthly"
+                  ? "bg-blue-600 text-white shadow"
+                  : "text-gray-700 hover:text-gray-900"
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingPeriod("yearly")}
+              className={`px-6 py-2 rounded-md text-sm font-semibold transition-all ${
+                billingPeriod === "yearly"
+                  ? "bg-blue-600 text-white shadow"
+                  : "text-gray-700 hover:text-gray-900"
+              }`}
+            >
+              Yearly
+              <span className="ml-2 text-xs font-semibold text-green-600">Save 20%</span>
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -134,19 +168,36 @@ export default function Checkout() {
                   </p>
 
                   <div className="mb-6">
-                    {plan.stripe_price_monthly_id && (
-                      <div className="mb-2 flex items-baseline">
-                        <span className="text-4xl font-bold text-gray-900">
-                          €{plan.monthly_price_cents ? (plan.monthly_price_cents / 100).toFixed(2) : "0.00"}
-                        </span>
-                        <span className="ml-2 text-gray-600">/maand</span>
-                      </div>
-                    )}
-                    {plan.trial_days > 0 && (
-                      <p className="text-sm text-green-600">
-                        {plan.trial_days} dagen gratis proberen
-                      </p>
-                    )}
+                    {(() => {
+                      const isMonthly = billingPeriod === "monthly";
+                      const priceId = isMonthly
+                        ? plan.stripe_price_monthly_id
+                        : plan.stripe_price_yearly_id;
+                      const cents = isMonthly
+                        ? plan.monthly_price_cents
+                        : plan.yearly_price_cents;
+                      const label = isMonthly ? "/maand" : "/jaar";
+
+                      if (!priceId && !cents) {
+                        return <p className="text-sm text-gray-500">Price not available</p>;
+                      }
+
+                      return (
+                        <>
+                          <div className="mb-2 flex items-baseline">
+                            <span className="text-4xl font-bold text-gray-900">
+                              €{cents ? (cents / 100).toFixed(2) : "0.00"}
+                            </span>
+                            <span className="ml-2 text-gray-600">{label}</span>
+                          </div>
+                          {plan.trial_days > 0 && (
+                            <p className="text-sm text-green-600">
+                              {plan.trial_days} dagen gratis proberen
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {plan.features && plan.features.length > 0 && (
@@ -175,13 +226,20 @@ export default function Checkout() {
                 </div>
 
                 <div className="border-t px-6 py-6">
-                  <button
-                    onClick={() => handleSelectPlan(plan.stripe_price_monthly_id)}
-                    className="w-full rounded bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-                    disabled={!plan.stripe_price_monthly_id}
-                  >
-                    Get Started
-                  </button>
+                  {(() => {
+                    const priceId = billingPeriod === "monthly"
+                      ? plan.stripe_price_monthly_id
+                      : plan.stripe_price_yearly_id;
+                    return (
+                      <button
+                        onClick={() => handleSelectPlan(priceId)}
+                        className="w-full rounded bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                        disabled={!priceId}
+                      >
+                        {billingPeriod === "monthly" ? "Select Monthly" : "Select Yearly"}
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             ))}

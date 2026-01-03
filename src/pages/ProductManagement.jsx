@@ -111,6 +111,7 @@ export default function ProductManagement() {
             trial_days: data.trial_days,
             position: data.position,
             is_public: data.is_public,
+            currency: 'eur',
             features: {
               limits_sites: data.limits_sites,
               feature_projects: data.feature_projects,
@@ -123,8 +124,15 @@ export default function ProductManagement() {
       );
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(error.error || `HTTP ${response.status}: Failed to create plan`);
+        const errorText = await response.text().catch(() => 'Unknown error');
+        let message = `HTTP ${response.status}: Failed to create plan`;
+        try {
+          const parsed = JSON.parse(errorText);
+          message = parsed.error || message;
+        } catch {
+          if (errorText) message = `${message} - ${errorText}`;
+        }
+        throw new Error(message);
       }
 
       return response.json();
@@ -142,7 +150,58 @@ export default function ProductManagement() {
 
   // Update plan mutation
   const updatePlanMutation = useMutation({
-    mutationFn: ({ id, data }) => entities.SubscriptionPlan.update(id, data),
+    mutationFn: async ({ id, data }) => {
+      const supabaseClient = await getSupabase();
+      const { data: { session }, error: sessionError } = await supabaseClient.supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        throw new Error('Authentication failed. Please log in again.');
+      }
+
+      const token = session.access_token;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) throw new Error('Supabase URL not configured');
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/admin-update-plan`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          plan_id: id,
+          name: data.name,
+          description: data.description,
+          monthly_price_cents: Math.round(data.monthly_price_cents * 100),
+          yearly_price_cents: Math.round(data.yearly_price_cents * 100),
+          trial_days: data.trial_days,
+          position: data.position,
+          is_public: data.is_public,
+          currency: 'eur',
+          features: {
+            limits_sites: data.limits_sites,
+            feature_projects: data.feature_projects,
+            feature_local_plugins: data.feature_local_plugins,
+            feature_local_themes: data.feature_local_themes,
+            feature_team_invites: data.feature_team_invites,
+          },
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        let message = `HTTP ${response.status}: Failed to update plan`;
+        try {
+          const parsed = JSON.parse(errorText);
+          message = parsed.error || message;
+        } catch {
+          if (errorText) message = `${message} - ${errorText}`;
+        }
+        throw new Error(message);
+      }
+
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
       setEditingPlan(null);

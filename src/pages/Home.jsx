@@ -26,6 +26,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { supabase } from "@/api/supabaseClient";
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 export default function Home() {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
@@ -58,13 +61,22 @@ export default function Home() {
   const { data: subscriptionPlans = [], isLoading: isLoadingPlans } = useQuery({
     queryKey: ['public-subscription-plans'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subscription_plans")
-        .select("*")
-        .eq("is_public", true)
-        .order("position", { ascending: true });
+      // Use anon REST call so authenticated users also bypass any auth-specific RLS restrictions
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/subscription_plans?select=*&is_public=eq.true&order=position.asc`,
+        {
+          headers: {
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+          },
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`Failed to load plans (${response.status})`);
+      }
+
+      const data = await response.json();
       return data || [];
     },
     staleTime: 5 * 60 * 1000,

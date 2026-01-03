@@ -11,10 +11,14 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { supabase } from "@/api/supabaseClient";
 import { useUserSubscription, useAllSubscriptions } from "../hooks/useSubscriptionFeatures";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 interface Invoice {
   id: string;
@@ -56,9 +60,31 @@ export default function BillingPage() {
   const [upcomingInvoice, setUpcomingInvoice] = useState<UpcomingInvoice | null>(
     null
   );
-  const [activeTab, setActiveTab] = useState<"overview" | "invoices" | "payment">(
+  const [activeTab, setActiveTab] = useState<"overview" | "details" | "invoices" | "payment">(
     "overview"
   );
+
+  // Public subscription plans (for upgrade/downgrade)
+  const { data: plans = [] } = useQuery({
+    queryKey: ["public-subscription-plans"],
+    queryFn: async () => {
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/subscription_plans?select=*&is_public=eq.true&order=position.asc`,
+        {
+          headers: {
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+          },
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to load plans (${response.status})`);
+      }
+      const data = await response.json();
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Fetch payment methods from edge function
   const { data: paymentMethods = [], isLoading: paymentMethodsLoading } = useQuery({
@@ -152,7 +178,7 @@ export default function BillingPage() {
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-slate-900 mb-8">Billing & Account</h1>
+        <h1 className="text-3xl font-bold text-slate-900 mb-8">My Subscription</h1>
 
         {/* Tabs */}
         <div className="flex border-b border-slate-200 mb-8">
@@ -160,6 +186,11 @@ export default function BillingPage() {
             label="Overview"
             isActive={activeTab === "overview"}
             onClick={() => setActiveTab("overview")}
+          />
+          <TabButton
+            label="Subscription Details"
+            isActive={activeTab === "details"}
+            onClick={() => setActiveTab("details")}
           />
           <TabButton
             label="Invoices"
@@ -181,7 +212,13 @@ export default function BillingPage() {
             upcomingInvoice={upcomingInvoice}
             onRefresh={() => loadBillingData()}
             paymentMethods={paymentMethods}
+            plans={plans}
           />
+        )}
+
+        {/* Subscription Details Tab */}
+        {activeTab === "details" && (
+          <SubscriptionDetailsTab subscription={subscription} upcomingInvoice={upcomingInvoice} />
         )}
 
         {/* Invoices Tab */}
@@ -235,9 +272,11 @@ interface OverviewTabProps {
   upcomingInvoice: UpcomingInvoice | null;
   onRefresh: () => void;
   paymentMethods?: PaymentMethod[];
+  plans?: any[];
 }
 
-function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefresh, paymentMethods = [] }: OverviewTabProps) {
+function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefresh, paymentMethods = [], plans = [] }: OverviewTabProps) {
+  const navigate = useNavigate();
   const [isCanceling, setIsCanceling] = useState(false);
   const [isPausing, setIsPausing] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
@@ -247,6 +286,15 @@ function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefres
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [pauseReason, setPauseReason] = useState("");
   const [showPauseModal, setShowPauseModal] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
+
+  const currentPlan = plans.find((p) => p.name === subscription?.plan_name);
+  const currentPriceCents = currentPlan?.monthly_price_cents ?? null;
+  const handleSelectPlan = (plan: any) => {
+    const priceId = billingPeriod === "monthly" ? plan.stripe_price_monthly_id : plan.stripe_price_yearly_id;
+    if (!priceId) return;
+    navigate(`/Checkout?price_id=${priceId}`);
+  };
 
   const handleAcceptSubscription = async (pendingSubscription: any) => {
     // Check if user has any payment methods
@@ -432,6 +480,98 @@ function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefres
     }
   };
 
+  const renderPlansSection = () => {
+    if (!plans || plans.length === 0) return null;
+
+    return (
+      <div className="bg-white rounded-lg border border-slate-200 p-6">
+        <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Abonnementen</h3>
+            <p className="text-sm text-slate-600">Kies een plan om te upgraden of downgraden</p>
+          </div>
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+            <button
+              onClick={() => setBillingPeriod("monthly")}
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                billingPeriod === "monthly"
+                  ? "bg-blue-600 text-white shadow"
+                  : "text-slate-700 hover:text-slate-900"
+              }`}
+            >
+              Maandelijks
+            </button>
+            <button
+              onClick={() => setBillingPeriod("yearly")}
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${
+                billingPeriod === "yearly"
+                  ? "bg-blue-600 text-white shadow"
+                  : "text-slate-700 hover:text-slate-900"
+              }`}
+            >
+              Jaarlijks
+              <span className="ml-2 text-xs font-semibold text-green-600">-20%</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          {plans.map((plan) => {
+            const isCurrent = plan.name === subscription?.plan_name;
+            const cents = billingPeriod === "monthly" ? plan.monthly_price_cents : plan.yearly_price_cents;
+            const priceId = billingPeriod === "monthly" ? plan.stripe_price_monthly_id : plan.stripe_price_yearly_id;
+            const label = billingPeriod === "monthly" ? "/maand" : "/jaar";
+            const isHigher = currentPriceCents !== null && cents > currentPriceCents;
+            const isLower = currentPriceCents !== null && cents < currentPriceCents;
+            const buttonLabel = isCurrent
+              ? "Jouw huidige plan"
+              : isHigher
+                ? "Upgrade"
+                : isLower
+                  ? "Downgrade"
+                  : "Selecteer";
+
+            return (
+              <div key={plan.id} className={`rounded-lg border ${isCurrent ? "border-blue-500" : "border-slate-200"} bg-white shadow-sm p-6 flex flex-col gap-4`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h4 className="text-xl font-semibold text-slate-900">{plan.name}</h4>
+                    <p className="text-sm text-slate-600">{plan.description}</p>
+                  </div>
+                  {isCurrent && (
+                    <span className="px-3 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">Jouw huidige plan</span>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-slate-900">€{cents ? (cents / 100).toFixed(2) : "0.00"}</span>
+                    <span className="text-slate-600">{label}</span>
+                  </div>
+                  {plan.trial_days > 0 && (
+                    <p className="text-sm text-green-600 mt-1">{plan.trial_days} dagen gratis proberen</p>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => handleSelectPlan(plan)}
+                  disabled={!priceId || isCurrent}
+                  className={`w-full rounded-lg px-4 py-3 font-semibold transition-all ${
+                    isCurrent
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
+                >
+                  {buttonLabel}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   if (!subscription?.is_active) {
     // Check if user has pending subscriptions
     const pendingSubscriptions = allSubscriptions.filter(
@@ -486,19 +626,16 @@ function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefres
     }
 
     return (
-      <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
-        <h2 className="text-xl font-semibold text-slate-900 mb-4">
-          No Active Subscription
-        </h2>
-        <p className="text-slate-600 mb-6">
-          You don't currently have an active subscription. Browse our plans to get started.
-        </p>
-        <a
-          href="/pricing"
-          className="inline-block px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-        >
-          View Plans
-        </a>
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
+          <h2 className="text-xl font-semibold text-slate-900 mb-4">
+            No Active Subscription
+          </h2>
+          <p className="text-slate-600 mb-6">
+            You don't currently have an active subscription. Browse our plans to get started.
+          </p>
+        </div>
+        {renderPlansSection()}
       </div>
     );
   }
@@ -616,6 +753,9 @@ function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefres
         </div>
       )}
 
+      {/* Available Plans */}
+      {renderPlansSection()}
+
       {/* Payment Method Selector Modal for Subscription Acceptance */}
       {showPaymentSelector && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -712,6 +852,90 @@ function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefres
               >
                 {isPausing ? "Pausing..." : "Pause Now"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Subscription Details Tab Component
+ */
+interface SubscriptionDetailsTabProps {
+  subscription: any;
+  upcomingInvoice: UpcomingInvoice | null;
+}
+
+function SubscriptionDetailsTab({ subscription, upcomingInvoice }: SubscriptionDetailsTabProps) {
+  if (!subscription) {
+    return (
+      <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
+        <h2 className="text-xl font-semibold text-slate-900 mb-4">Geen actief abonnement</h2>
+        <p className="text-slate-600">Selecteer een plan om te starten.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-8 grid md:grid-cols-2 gap-6">
+        <div>
+          <p className="text-sm text-slate-600">Plan</p>
+          <p className="text-lg font-semibold text-slate-900">{subscription.plan_name}</p>
+        </div>
+        <div>
+          <p className="text-sm text-slate-600">Status</p>
+          <p className="text-lg font-semibold">
+            <span className="inline-block px-3 py-1 text-sm rounded-full bg-green-100 text-green-700">
+              {subscription.status}
+            </span>
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-slate-600">Startdatum</p>
+          <p className="text-slate-900">
+            {subscription.start_date
+              ? new Date(subscription.start_date).toLocaleDateString()
+              : "-"}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-slate-600">Volgende facturering</p>
+          <p className="text-slate-900">
+            {subscription.period_end_date
+              ? new Date(subscription.period_end_date).toLocaleDateString()
+              : "-"}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-slate-600">Subscription ID</p>
+          <p className="text-sm font-mono text-slate-600">
+            {subscription.subscription_id?.slice(0, 24)}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm text-slate-600">Klant</p>
+          <p className="text-sm font-mono text-slate-600">
+            {subscription.customer_id || "-"}
+          </p>
+        </div>
+      </div>
+
+      {upcomingInvoice && (
+        <div className="bg-white rounded-lg border border-slate-200 p-8">
+          <h3 className="text-lg font-semibold text-slate-900 mb-4">Volgende factuur</h3>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <p className="text-sm text-slate-600">Bedrag</p>
+              <p className="text-2xl font-semibold text-slate-900">€{(upcomingInvoice.amount_due / 100).toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-600">Datum</p>
+              <p className="text-slate-900">
+                {new Date((upcomingInvoice.next_payment_attempt || Date.now()) * 1000).toLocaleDateString()}
+              </p>
             </div>
           </div>
         </div>
