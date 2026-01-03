@@ -6,6 +6,11 @@ import {
 } from "@stripe/react-stripe-js";
 import { supabase } from "@/api/supabaseClient";
 import { useValidateCoupon } from "@/hooks/useStripeElements";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle2, Gift, Loader2 } from "lucide-react";
 
 const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
@@ -236,20 +241,22 @@ export default function CheckoutForm({
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6">
-        <h3 className="mb-2 font-semibold text-red-900">
-          Checkout Error
-        </h3>
-        <p className="text-red-700">{error}</p>
-        {onCancel && (
-          <button
-            onClick={onCancel}
-            className="mt-4 rounded bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-          >
-            Go Back
-          </button>
-        )}
-      </div>
+      <Alert variant="destructive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription className="ml-2">
+          <h3 className="font-semibold mb-2">Checkout Error</h3>
+          <p className="text-sm">{error}</p>
+          {onCancel && (
+            <Button
+              onClick={onCancel}
+              variant="outline"
+              className="mt-4"
+            >
+              Go Back
+            </Button>
+          )}
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -257,133 +264,152 @@ export default function CheckoutForm({
     <div className="w-full space-y-6">
       {/* Plan Details Overview */}
       {selectedPlan && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
-          <h3 className="mb-4 text-lg font-semibold text-blue-900">Plan Details</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-slate-700">Plan:</span>
-              <span className="font-semibold text-slate-900">{selectedPlan.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-700">Billing Period:</span>
-              <span className="font-semibold text-slate-900">
-                {billingPeriod === "monthly" ? "Monthly" : "Yearly"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-700">Price:</span>
-              <span className="text-xl font-bold text-slate-900">
-                €{billingPeriod === "monthly" 
-                  ? (selectedPlan.monthly_price_cents / 100).toFixed(2)
-                  : (selectedPlan.yearly_price_cents / 100).toFixed(2)}
-                <span className="text-sm font-normal text-slate-600">
-                  /{billingPeriod === "monthly" ? "month" : "year"}
-                </span>
-              </span>
-            </div>
-            {selectedPlan.trial_days > 0 && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <h3 className="font-semibold text-blue-900 mb-4">Plan Details</h3>
+            <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-slate-700">Trial Period:</span>
-                <span className="font-semibold text-green-700">
-                  {selectedPlan.trial_days} days free
+                <span className="text-slate-700">Plan:</span>
+                <span className="font-semibold text-slate-900">{selectedPlan.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-700">Billing Period:</span>
+                <span className="font-semibold text-slate-900">
+                  {billingPeriod === "monthly" ? "Monthly" : "Yearly"}
                 </span>
               </div>
-            )}
-            <div className="pt-3 border-t border-blue-300">
               <div className="flex justify-between">
-                <span className="text-slate-700">Start Date:</span>
-                <span className="font-semibold text-slate-900">
-                  {new Date().toLocaleDateString('nl-NL', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
+                <span className="text-slate-700">Price:</span>
+                <span className="text-xl font-bold text-slate-900">
+                  €{billingPeriod === "monthly" 
+                    ? (selectedPlan.monthly_price_cents / 100).toFixed(2)
+                    : (selectedPlan.yearly_price_cents / 100).toFixed(2)}
+                  <span className="text-sm font-normal text-slate-600">
+                    /{billingPeriod === "monthly" ? "month" : "year"}
+                  </span>
                 </span>
               </div>
-              <div className="flex justify-between mt-2">
-                <span className="text-slate-700">Next Billing Date:</span>
-                <span className="font-semibold text-slate-900">
-                  {(() => {
-                    const startDate = new Date();
-                    const trialDays = selectedPlan.trial_days || 0;
-                    const nextBilling = new Date(startDate);
-                    nextBilling.setDate(nextBilling.getDate() + trialDays);
-                    if (billingPeriod === "monthly") {
-                      nextBilling.setMonth(nextBilling.getMonth() + 1);
-                    } else {
-                      nextBilling.setFullYear(nextBilling.getFullYear() + 1);
-                    }
-                    return nextBilling.toLocaleDateString('nl-NL', { 
+              {selectedPlan.trial_days > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-700">Trial Period:</span>
+                  <span className="font-semibold text-green-700">
+                    {selectedPlan.trial_days} days free
+                  </span>
+                </div>
+              )}
+              <div className="pt-3 border-t border-blue-300 mt-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-700">Start Date:</span>
+                  <span className="font-semibold text-slate-900">
+                    {new Date().toLocaleDateString('nl-NL', { 
                       year: 'numeric', 
                       month: 'long', 
                       day: 'numeric' 
-                    });
-                  })()}
-                </span>
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm mt-2">
+                  <span className="text-slate-700">Next Billing Date:</span>
+                  <span className="font-semibold text-slate-900">
+                    {(() => {
+                      const startDate = new Date();
+                      const trialDays = selectedPlan.trial_days || 0;
+                      const nextBilling = new Date(startDate);
+                      nextBilling.setDate(nextBilling.getDate() + trialDays);
+                      if (billingPeriod === "monthly") {
+                        nextBilling.setMonth(nextBilling.getMonth() + 1);
+                      } else {
+                        nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+                      }
+                      return nextBilling.toLocaleDateString('nl-NL', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      });
+                    })()}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Coupon Section */}
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <h3 className="mb-3 font-semibold text-slate-900">Have a coupon?</h3>
-        
-        {appliedCoupon ? (
-          <div className="flex items-center justify-between rounded-lg bg-green-50 p-3 border border-green-200">
-            <div>
-              <p className="font-medium text-green-900">
-                ✓ Coupon applied: <span className="text-green-700">{appliedCoupon.code}</span>
-              </p>
-              <p className="text-sm text-green-700">
-                Discount: {appliedCoupon.type === 'percentage' 
-                  ? `${appliedCoupon.discount}%` 
-                  : `$${(appliedCoupon.discount / 100).toFixed(2)}`}
-              </p>
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Gift className="h-4 w-4" />
+            Have a coupon?
+          </h3>
+          
+          {appliedCoupon ? (
+            <div className="flex items-center justify-between rounded-lg bg-green-50 p-4 border border-green-200">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-medium text-green-900">
+                    Coupon applied: <span className="text-green-700">{appliedCoupon.code}</span>
+                  </p>
+                  <p className="text-sm text-green-700 mt-1">
+                    Discount: {appliedCoupon.type === 'percentage' 
+                      ? `${appliedCoupon.discount}%` 
+                      : `€${(appliedCoupon.discount / 100).toFixed(2)}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleRemoveCoupon}
+                className="text-sm font-medium text-green-600 hover:text-green-700 underline"
+              >
+                Remove
+              </button>
             </div>
-            <button
-              onClick={handleRemoveCoupon}
-              className="text-sm font-medium text-green-600 hover:text-green-700 underline"
-            >
-              Remove
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleValidateCoupon} className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Enter coupon code"
-              value={couponCode}
-              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-              disabled={isValidatingCoupon}
-              className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-100"
-            />
-            <button
-              type="submit"
-              disabled={isValidatingCoupon || !couponCode.trim()}
-              className="rounded-lg bg-slate-600 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
-            >
-              {isValidatingCoupon ? "Validating..." : "Apply"}
-            </button>
-          </form>
-        )}
-        
-        {couponError && (
-          <p className="mt-2 text-sm text-red-600">{couponError}</p>
-        )}
-      </div>
+          ) : (
+            <form onSubmit={handleValidateCoupon} className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Enter coupon code"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                disabled={isValidatingCoupon}
+                className="flex-1"
+              />
+              <Button
+                type="submit"
+                disabled={isValidatingCoupon || !couponCode.trim()}
+                size="sm"
+              >
+                {isValidatingCoupon && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {isValidatingCoupon ? "Validating..." : "Apply"}
+              </Button>
+            </form>
+          )}
+          
+          {couponError && (
+            <Alert variant="destructive" className="mt-3">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{couponError}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Checkout Section */}
       {isLoading ? (
-        <div className="flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 p-8">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-300 border-t-blue-600 mr-3"></div>
-          <span className="text-blue-700 font-medium">Preparing payment form...</span>
-        </div>
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6 flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />
+            <span className="text-blue-700 font-medium">Preparing payment form...</span>
+          </CardContent>
+        </Card>
       ) : !options ? (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
-          Unable to load payment form. Please double-check your Stripe key and select a plan.
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Unable to load payment form. Please double-check your Stripe key and select a plan.
+          </AlertDescription>
+        </Alert>
       ) : (
         options && stripePromise && (
           <EmbeddedCheckoutProvider stripe={stripePromise} options={options}>
