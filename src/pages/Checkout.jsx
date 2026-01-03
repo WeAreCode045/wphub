@@ -96,8 +96,8 @@ export default function Checkout() {
             Back to Plans
           </Button>
           
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-            {/* Left Column - Plan Summary */}
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            {/* Left Column - Order Summary with Coupon & Date Info */}
             <div className="lg:col-span-1">
               <Card className="sticky top-20">
                 <CardHeader>
@@ -110,12 +110,39 @@ export default function Checkout() {
                   {selectedPlan && (
                     <>
                       <div>
-                        <h3 className="font-semibold text-lg text-gray-900 mb-2">
+                        <h3 className="font-semibold text-lg text-gray-900 mb-1">
                           {selectedPlan.name}
                         </h3>
                         <p className="text-sm text-gray-600 mb-4">
                           {selectedPlan.description}
                         </p>
+                        
+                        {/* Billing Period Toggle */}
+                        <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+                          <span className={`text-sm font-medium ${!isYearly ? 'text-gray-900' : 'text-gray-600'}`}>Monthly</span>
+                          <button
+                            onClick={() => {
+                              const newPriceId = !isYearly 
+                                ? selectedPlan.stripe_price_yearly_id 
+                                : selectedPlan.stripe_price_monthly_id;
+                              if (newPriceId) {
+                                setSelectedPriceId(newPriceId);
+                              }
+                            }}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              isYearly ? 'bg-blue-600' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                isYearly ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                          <span className={`text-sm font-medium ${isYearly ? 'text-gray-900' : 'text-gray-600'}`}>Yearly</span>
+                          {isYearly && <span className="text-xs font-semibold text-green-600 ml-auto">Save 20%</span>}
+                        </div>
+
                         <div className="flex items-baseline gap-2">
                           <span className="text-4xl font-bold text-gray-900">
                             €{isYearly 
@@ -128,9 +155,9 @@ export default function Checkout() {
                         </div>
                       </div>
 
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold text-sm text-gray-900 mb-3">What's Included</h4>
-                        {selectedPlan.features && selectedPlan.features.length > 0 ? (
+                      {selectedPlan.features && selectedPlan.features.length > 0 && (
+                        <div className="border-t pt-4">
+                          <h4 className="font-semibold text-sm text-gray-900 mb-3">What's Included</h4>
                           <ul className="space-y-2">
                             {selectedPlan.features.map((feature, idx) => (
                               <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
@@ -141,13 +168,111 @@ export default function Checkout() {
                               </li>
                             ))}
                           </ul>
-                        ) : (
-                          <p className="text-sm text-gray-600">See plan details above</p>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       {selectedPlan.trial_days > 0 && (
                         <div className="rounded-lg bg-green-50 p-4 border border-green-200">
+                          <p className="text-sm font-semibold text-green-900">
+                            ✓ {selectedPlan.trial_days} days free trial
+                          </p>
+                          <p className="text-xs text-green-700 mt-1">
+                            No payment required during trial period
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Start & End Date Info */}
+                      <div className="border-t pt-4 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Start Date:</span>
+                          <span className="font-semibold text-gray-900">
+                            {new Date().toLocaleDateString('nl-NL', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Next Billing:</span>
+                          <span className="font-semibold text-gray-900">
+                            {(() => {
+                              const startDate = new Date();
+                              const trialDays = selectedPlan.trial_days || 0;
+                              const nextBilling = new Date(startDate);
+                              nextBilling.setDate(nextBilling.getDate() + trialDays);
+                              if (!isYearly) {
+                                nextBilling.setMonth(nextBilling.getMonth() + 1);
+                              } else {
+                                nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+                              }
+                              return nextBilling.toLocaleDateString('nl-NL', { 
+                                year: 'numeric', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              });
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Coupon Section in Summary */}
+                      <div className="border-t pt-4">
+                        <CheckoutForm
+                          priceId={selectedPriceId}
+                          quantity={1}
+                          selectedPlan={selectedPlan}
+                          billingPeriod={isYearly ? "yearly" : "monthly"}
+                          onCancel={() => setSelectedPriceId(null)}
+                          summaryOnly={true}
+                        />
+                      </div>
+
+                      {/* Pricing Summary */}
+                      <div className="border-t pt-4 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Subtotal:</span>
+                          <span className="font-semibold text-gray-900">
+                            €{isYearly 
+                              ? (selectedPlan.yearly_price_cents / 100).toFixed(2) 
+                              : (selectedPlan.monthly_price_cents / 100).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-lg font-bold pt-2 border-t">
+                          <span>Total:</span>
+                          <span className="text-blue-600">
+                            €{isYearly 
+                              ? (selectedPlan.yearly_price_cents / 100).toFixed(2) 
+                              : (selectedPlan.monthly_price_cents / 100).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Column - Payment Form Only */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Complete Your Purchase</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CheckoutForm
+                    priceId={selectedPriceId}
+                    quantity={1}
+                    selectedPlan={selectedPlan}
+                    billingPeriod={isYearly ? "yearly" : "monthly"}
+                    onCancel={() => setSelectedPriceId(null)}
+                    summaryOnly={false}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
                           <p className="text-sm font-semibold text-green-900">
                             ✓ {selectedPlan.trial_days} days free trial
                           </p>
