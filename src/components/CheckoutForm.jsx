@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   EmbeddedCheckoutProvider,
@@ -9,7 +9,6 @@ import { useValidateCoupon } from "@/hooks/useStripeElements";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Gift, Loader2 } from "lucide-react";
 
 const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
@@ -237,26 +236,31 @@ export default function CheckoutForm({
     };
   }, [priceId, quantity, metadata, onSuccess, appliedCoupon]);
 
-  const options = clientSecret ? { clientSecret } : undefined;
+  const options = useMemo(() => 
+    clientSecret ? { clientSecret } : undefined, 
+    [clientSecret]
+  );
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription className="ml-2">
-          <h3 className="font-semibold mb-2">Checkout Error</h3>
-          <p className="text-sm">{error}</p>
-          {onCancel && (
-            <Button
-              onClick={onCancel}
-              variant="outline"
-              className="mt-4"
-            >
-              Go Back
-            </Button>
-          )}
-        </AlertDescription>
-      </Alert>
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-red-900">Checkout Error</h3>
+            <p className="text-red-700 mt-1">{error}</p>
+            {onCancel && (
+              <Button
+                onClick={onCancel}
+                variant="outline"
+                className="mt-4"
+              >
+                Go Back
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -387,10 +391,10 @@ export default function CheckoutForm({
           )}
           
           {couponError && (
-            <Alert variant="destructive" className="mt-3">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{couponError}</AlertDescription>
-            </Alert>
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+              <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-red-600">{couponError}</p>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -404,19 +408,17 @@ export default function CheckoutForm({
           </CardContent>
         </Card>
       ) : !options ? (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-yellow-800">
             Unable to load payment form. Please double-check your Stripe key and select a plan.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        options && stripePromise && (
-          <EmbeddedCheckoutProvider stripe={stripePromise} options={options}>
-            <EmbeddedCheckout />
-          </EmbeddedCheckoutProvider>
-        )
-      )}
+          </p>
+        </div>
+      ) : stripePromise && options ? (
+        <EmbeddedCheckoutProvider stripe={stripePromise} options={options} key={`checkout-${clientSecret}`}>
+          <EmbeddedCheckout />
+        </EmbeddedCheckoutProvider>
+      ) : null}
     </div>
   );
 }
