@@ -131,9 +131,9 @@ serve(async (req) => {
     let usersWithoutStripe: any[] = [];
     
     try {
-      // First, get ALL users to see the data
-      console.log('[SYNC] Step 1: Getting ALL users...');
-      const allUsersUrl = `${supabaseApiUrl}/rest/v1/users?select=id,email,stripe_customer_id&limit=10`;
+      // Get ALL users (without filter) and filter client-side
+      console.log('[SYNC] Getting ALL users...');
+      const allUsersUrl = `${supabaseApiUrl}/rest/v1/users?select=id,email,stripe_customer_id`;
       console.log('[SYNC] All users URL:', allUsersUrl);
       
       const allUsersResponse = await fetch(allUsersUrl, {
@@ -145,59 +145,34 @@ serve(async (req) => {
 
       console.log('[SYNC] All users response status:', allUsersResponse.status);
       const allUsersText = await allUsersResponse.text();
-      console.log('[SYNC] All users response:', allUsersText);
+      console.log('[SYNC] All users response length:', allUsersText.length);
+      console.log('[SYNC] All users response (first 500 chars):', allUsersText.substring(0, 500));
       
       let allUsers: any[] = [];
       try {
         allUsers = JSON.parse(allUsersText);
         console.log('[SYNC] Total users found:', allUsers.length);
+        
         if (allUsers.length > 0) {
-          console.log('[SYNC] Sample user:', allUsers[0]);
-          // Check how many have null stripe_customer_id
-          const usersWithNull = allUsers.filter(u => u.stripe_customer_id === null);
-          console.log('[SYNC] Users with null stripe_customer_id:', usersWithNull.length);
-          console.log('[SYNC] Sample user with null:', usersWithNull[0]);
+          console.log('[SYNC] First 3 users:');
+          allUsers.slice(0, 3).forEach((u, i) => {
+            console.log(`[SYNC]   User ${i+1}: id=${u.id}, email=${u.email}, stripe_customer_id=${u.stripe_customer_id}`);
+          });
+        }
+        
+        // Filter users without stripe_customer_id
+        usersWithoutStripe = allUsers.filter(u => !u.stripe_customer_id || u.stripe_customer_id === null || u.stripe_customer_id === '');
+        console.log(`[SYNC] Filtered: ${usersWithoutStripe.length} users without stripe_customer_id`);
+        
+        if (usersWithoutStripe.length > 0) {
+          console.log('[SYNC] Users without stripe_customer_id:');
+          usersWithoutStripe.slice(0, 3).forEach((u, i) => {
+            console.log(`[SYNC]   User ${i+1}: id=${u.id}, email=${u.email}`);
+          });
         }
       } catch (parseErr) {
-        console.error('[SYNC] Failed to parse all users:', parseErr);
-      }
-      
-      // Now try the filtered query
-      console.log('[SYNC] Step 2: Getting users with stripe_customer_id=is.null...');
-      const queryUrl = `${supabaseApiUrl}/rest/v1/users?stripe_customer_id=is.null&select=id,email`;
-      console.log('[SYNC] Query URL:', queryUrl);
-      
-      const restResponse = await fetch(queryUrl, {
-        headers: {
-          'apikey': serviceRoleKey,
-          'Authorization': `Bearer ${serviceRoleKey}`,
-        },
-      });
-
-      console.log('[SYNC] REST API response status:', restResponse.status);
-      
-      if (!restResponse.ok) {
-        const errorText = await restResponse.text();
-        console.error('[SYNC] REST API error:', restResponse.status, errorText);
-        return jsonResponse({ 
-          error: `REST API error: ${restResponse.status} ${errorText}` 
-        }, 500);
-      }
-
-      const responseText = await restResponse.text();
-      console.log('[SYNC] REST API response text:', responseText);
-      
-      try {
-        usersWithoutStripe = JSON.parse(responseText);
-      } catch (parseErr) {
-        console.error('[SYNC] Failed to parse response:', parseErr);
-        usersWithoutStripe = [];
-      }
-      
-      console.log(`[SYNC] Found ${usersWithoutStripe?.length || 0} users without stripe_customer_id`);
-      
-      if (usersWithoutStripe && usersWithoutStripe.length > 0) {
-        console.log('[SYNC] First user:', usersWithoutStripe[0]);
+        console.error('[SYNC] Failed to parse users:', parseErr);
+        return jsonResponse({ error: 'Failed to parse users response' }, 500);
       }
     } catch (fetchErr) {
       console.error('[SYNC] Fetch error:', fetchErr);
