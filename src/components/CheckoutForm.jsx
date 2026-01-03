@@ -171,7 +171,7 @@ export default function CheckoutForm({
 
         const payload = await response.json();
         const secret = payload.clientSecret;
-        const session = payload.sessionId;
+        const sessionId = payload.sessionId;
 
         if (!secret) {
           throw new Error("Checkout session did not return a client secret.");
@@ -180,8 +180,8 @@ export default function CheckoutForm({
         if (!isMounted) return;
         setClientSecret(secret);
 
-        if (onSuccess && session) {
-          onSuccess(session);
+        if (onSuccess && sessionId) {
+          onSuccess(sessionId);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
