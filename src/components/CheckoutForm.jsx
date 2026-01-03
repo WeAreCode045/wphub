@@ -5,7 +5,7 @@ import {
   EmbeddedCheckout,
 } from "@stripe/react-stripe-js";
 import { supabase } from "@/api/supabaseClient";
-import { useCouponValidation } from "@/hooks/useStripeElements";
+import { useValidateCoupon } from "@/hooks/useStripeElements";
 
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLIC_KEY
@@ -37,7 +37,8 @@ export default function CheckoutForm({
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState(null);
-  const { validateCoupon, isValidating } = useCouponValidation();
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const validateCouponMutation = useValidateCoupon();
 
   const handleValidateCoupon = async (e) => {
     e.preventDefault();
@@ -48,7 +49,12 @@ export default function CheckoutForm({
 
     try {
       setCouponError(null);
-      const result = await validateCoupon(couponCode, priceId);
+      setIsValidatingCoupon(true);
+      const result = await validateCouponMutation.mutateAsync({
+        code: couponCode,
+        subscription_id: undefined,
+        amount: undefined,
+      });
       
       if (result.valid) {
         setAppliedCoupon({
@@ -64,6 +70,8 @@ export default function CheckoutForm({
     } catch (err) {
       setCouponError(err.message || "Failed to validate coupon");
       setAppliedCoupon(null);
+    } finally {
+      setIsValidatingCoupon(false);
     }
   };
 
@@ -178,15 +186,15 @@ export default function CheckoutForm({
               placeholder="Enter coupon code"
               value={couponCode}
               onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-              disabled={isValidating}
+              disabled={isValidatingCoupon}
               className="flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-100"
             />
             <button
               type="submit"
-              disabled={isValidating || !couponCode.trim()}
+              disabled={isValidatingCoupon || !couponCode.trim()}
               className="rounded-lg bg-slate-600 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
             >
-              {isValidating ? "Validating..." : "Apply"}
+              {isValidatingCoupon ? "Validating..." : "Apply"}
             </button>
           </form>
         )}
