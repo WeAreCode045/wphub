@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAllSubscriptions } from "../hooks/useSubscriptionFeatures";
+import { supabase } from "@/api/supabaseClient";
 import CheckoutForm from "@/components/CheckoutForm";
 
 /**
@@ -10,8 +10,36 @@ import CheckoutForm from "@/components/CheckoutForm";
  */
 export default function Checkout() {
   const navigate = useNavigate();
-  const { data: subscriptions = [], isLoading } = useAllSubscriptions();
+  const [isLoading, setIsLoading] = useState(true);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [selectedPriceId, setSelectedPriceId] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    loadPlans();
+  }, []);
+
+  async function loadPlans() {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch public subscription plans
+      const { data: plansData, error: plansError } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("is_public", true)
+        .order("position", { ascending: true });
+
+      if (plansError) throw plansError;
+      setSubscriptions(plansData || []);
+    } catch (err) {
+      console.error("Error loading plans:", err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const handleSelectPlan = (priceId) => {
     setSelectedPriceId(priceId);
@@ -19,7 +47,7 @@ export default function Checkout() {
 
   const handleCancel = () => {
     setSelectedPriceId(null);
-    navigate("/billing-account");
+    navigate("/BillingAccount");
   };
 
   if (isLoading) {
@@ -72,13 +100,19 @@ export default function Checkout() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-8 rounded-lg border border-red-200 bg-red-50 p-4">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
         {subscriptions.length === 0 ? (
           <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-8 text-center">
             <p className="mb-4 text-yellow-700">
               No subscription plans available at the moment.
             </p>
             <button
-              onClick={() => navigate("/billing-account")}
+              onClick={() => navigate("/BillingAccount")}
               className="rounded bg-yellow-600 px-6 py-2 font-semibold text-white hover:bg-yellow-700"
             >
               Back to Billing
@@ -100,12 +134,14 @@ export default function Checkout() {
                   </p>
 
                   <div className="mb-6">
-                    <div className="mb-2 flex items-baseline">
-                      <span className="text-4xl font-bold text-gray-900">
-                        ${(plan.price / 100).toFixed(2)}
-                      </span>
-                      <span className="ml-2 text-gray-600">/month</span>
-                    </div>
+                    {plan.stripe_price_monthly_id && (
+                      <div className="mb-2 flex items-baseline">
+                        <span className="text-4xl font-bold text-gray-900">
+                          ${plan.price ? (plan.price / 100).toFixed(2) : "0.00"}
+                        </span>
+                        <span className="ml-2 text-gray-600">/month</span>
+                      </div>
+                    )}
                     {plan.trial_days > 0 && (
                       <p className="text-sm text-green-600">
                         {plan.trial_days}-day free trial
@@ -140,8 +176,9 @@ export default function Checkout() {
 
                 <div className="border-t px-6 py-6">
                   <button
-                    onClick={() => handleSelectPlan(plan.stripe_price_id)}
-                    className="w-full rounded bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 transition-colors"
+                    onClick={() => handleSelectPlan(plan.stripe_price_monthly_id)}
+                    className="w-full rounded bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                    disabled={!plan.stripe_price_monthly_id}
                   >
                     Get Started
                   </button>
@@ -153,7 +190,7 @@ export default function Checkout() {
 
         <div className="mt-8 text-center">
           <button
-            onClick={() => navigate("/billing-account")}
+            onClick={() => navigate("/BillingAccount")}
             className="text-blue-600 hover:text-blue-700 font-medium"
           >
             Back to Billing
