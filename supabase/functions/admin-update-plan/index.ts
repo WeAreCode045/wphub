@@ -1,35 +1,6 @@
 import Stripe from "https://esm.sh/stripe@17.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from '../_helpers.ts';
-
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!);
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-// Helper to extract JWT payload (already validated by Supabase)
-function getJWTPayload(token: string) {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(atob(parts[1]));
-    return payload;
-  } catch (e) {
-    console.error("Failed to parse JWT:", e);
-    return null;
-  }
-}
-
-function jsonResponse(data: any, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}
+import { authMeWithToken, extractBearerFromReq, jsonResponse, corsHeaders } from '../_helpers.ts';
 
 interface UpdatePlanRequest {
   plan_id: number;
@@ -60,42 +31,45 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Get auth header and extract user ID from JWT payload
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      console.error("No Authorization header");
-      return jsonResponse({ error: "Unauthorized" }, 401);
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const payload = getJWTPayload(token);
+    // Authenticate user using helper
+    const token = extractBearerFromReq(req);
+    const caller = await authMeWithToken(token);
     
-    if (!payload || !payload.sub) {
-      console.error("Invalid JWT payload");
-      return jsonResponse({ error: "Unauthorized" }, 401);
+    if (!caller) {
+      return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
-    const userId = payload.sub;
-    console.log("User ID from JWT:", userId);
+    // Check if caller is admin by fetching from users table via REST API
+    const supa = Deno.env.get('SUPABASE_URL')?.replace(/\/$/, '') || '';
+    const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    // Check if user is admin by querying the users table
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", userId)
-      .single();
-
-    if (userError) {
-      console.error("User lookup error:", userError.message);
-      return jsonResponse({ error: "User not found" }, 404);
+    const adminRes = await fetch(`${supa}/rest/v1/users?id=eq.${encodeURIComponent(caller.id)}`, {
+      headers: { 
+        apikey: serviceKey!, 
+        Authorization: `Bearer ${serviceKey}` 
+      }
+    });
+    
+    if (!adminRes.ok) {
+      return jsonResponse({ error: 'Failed to verify admin' }, 500);
+    }
+    
+    const adminArr = await adminRes.json();
+    const admin = adminArr?.[0];
+    
+    if (!admin || admin.role !== 'admin') {
+      return jsonResponse({ error: 'Admin access required' }, 403);
     }
 
-    if (!userData || userData.role !== "admin") {
-      console.log("User role:", userData?.role, "- Admin access required");
-      return jsonResponse({ error: "Admin access required" }, 403);
-    }
+    console.log("Admin verified for user:", caller.id);
 
-    console.log("Admin verified for user:", userId);
+    // Initialize Supabase client for database operations
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    
+    // Initialize Stripe
+    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!);
 
     const body = (await req.json()) as UpdatePlanRequest;
     const {

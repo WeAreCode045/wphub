@@ -156,10 +156,37 @@ export default function ProductManagement() {
 
   // Delete plan mutation
   const deletePlanMutation = useMutation({
-    mutationFn: (id) => entities.SubscriptionPlan.delete(id),
+    mutationFn: async (id) => {
+      const { supabase } = await getSupabase();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session?.access_token) {
+        throw new Error('Authentication failed. Please log in again.');
+      }
+      
+      const token = session.access_token;
+      const response = await fetch(
+        'https://ossyxxlplvqakowiwbok.supabase.co/functions/v1/admin-delete-plan',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ plan_id: id }),
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to delete plan`);
+      }
+      
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
-      toast.success("Abonnementsplan succesvol verwijderd");
+      toast.success("Abonnementsplan en Stripe product succesvol verwijderd");
     },
     onError: (error) => {
       toast.error("Fout bij verwijderen abonnement: " + error.message);
