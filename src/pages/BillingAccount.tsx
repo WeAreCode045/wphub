@@ -239,11 +239,14 @@ interface OverviewTabProps {
 
 function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefresh, paymentMethods = [] }: OverviewTabProps) {
   const [isCanceling, setIsCanceling] = useState(false);
+  const [isPausing, setIsPausing] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
   const [acceptingSubscriptionId, setAcceptingSubscriptionId] = useState<string | null>(null);
   const [showPaymentSelector, setShowPaymentSelector] = useState(false);
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
+  const [pauseReason, setPauseReason] = useState("");
+  const [showPauseModal, setShowPauseModal] = useState(false);
 
   const handleAcceptSubscription = async (pendingSubscription: any) => {
     // Check if user has any payment methods
@@ -348,6 +351,84 @@ function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefres
       alert(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setIsCanceling(false);
+    }
+  };
+
+  const handlePauseSubscription = async () => {
+    if (!subscription?.subscription_id) return;
+
+    try {
+      setIsPausing(true);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pause-subscription`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            subscription_id: subscription.subscription_id,
+            pause_reason: pauseReason || null,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to pause subscription");
+      }
+
+      alert("Subscription paused successfully. You can resume it anytime.");
+      setShowPauseModal(false);
+      setPauseReason("");
+      onRefresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "An error occurred");
+    } finally {
+      setIsPausing(false);
+    }
+  };
+
+  const handleResumeSubscription = async () => {
+    if (!subscription?.subscription_id) return;
+
+    try {
+      setIsPausing(true);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pause-subscription`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            subscription_id: subscription.subscription_id,
+            resume: true,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to resume subscription");
+      }
+
+      alert("Subscription resumed successfully.");
+      onRefresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "An error occurred");
+    } finally {
+      setIsPausing(false);
     }
   };
 
@@ -470,13 +551,31 @@ function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefres
         </div>
 
         {/* Actions */}
-        <div className="flex gap-4">
+        <div className="flex gap-4 flex-wrap">
           <a
             href="/pricing"
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
           >
             Change Plan
           </a>
+          {subscription.status === "active" && (
+            <button
+              onClick={() => setShowPauseModal(true)}
+              disabled={isPausing}
+              className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:bg-slate-300 transition-all"
+            >
+              {isPausing ? "Pausing..." : "Pause Subscription"}
+            </button>
+          )}
+          {subscription.status === "paused" && (
+            <button
+              onClick={handleResumeSubscription}
+              disabled={isPausing}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-slate-300 transition-all"
+            >
+              {isPausing ? "Resuming..." : "Resume Subscription"}
+            </button>
+          )}
           <button
             onClick={handleCancelSubscription}
             disabled={isCanceling}
@@ -566,6 +665,52 @@ function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefres
                 className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-slate-300 transition-all"
               >
                 {isAccepting ? "Accepting..." : "Accept & Pay"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pause Subscription Modal */}
+      {showPauseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-slate-900 mb-4">
+              Pause Subscription
+            </h3>
+            <p className="text-slate-600 mb-6">
+              Your subscription will be paused immediately. You can resume it anytime without losing your data or plan benefits.
+            </p>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-slate-900 mb-2">
+                Reason for pause (optional)
+              </label>
+              <textarea
+                value={pauseReason}
+                onChange={(e) => setPauseReason(e.target.value)}
+                placeholder="Tell us why you're pausing..."
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:outline-none text-sm"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowPauseModal(false);
+                  setPauseReason("");
+                }}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-900 rounded-lg hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePauseSubscription}
+                disabled={isPausing}
+                className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:bg-slate-300 transition-all"
+              >
+                {isPausing ? "Pausing..." : "Pause Now"}
               </button>
             </div>
           </div>

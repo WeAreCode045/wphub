@@ -416,8 +416,9 @@ export default function FinanceSettings() {
         </div>
 
         <Tabs defaultValue="discounts" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="discounts">Kortingscodes</TabsTrigger>
+            <TabsTrigger value="coupons">Coupons (Stripe)</TabsTrigger>
             <TabsTrigger value="stripe">Stripe Instellingen</TabsTrigger>
             <TabsTrigger value="vat">BTW & Facturatie</TabsTrigger>
           </TabsList>
@@ -577,6 +578,150 @@ export default function FinanceSettings() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Stripe Coupons Tab */}
+          <TabsContent value="coupons" className="space-y-6">
+            <Card className="border-none shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Tag className="w-5 h-5" />
+                  Coupon Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-900">
+                    <strong>Stripe Coupons:</strong> Create and manage promotional coupon codes that users can apply during checkout. Coupons are stored in your database and synced with Stripe.
+                  </p>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => {
+                      setEditingDiscount(null);
+                      setDiscountForm({
+                        code: "",
+                        description: "",
+                        discount_type: "percentage",
+                        percentage_off: 0,
+                        amount_off: 0,
+                        currency: "EUR",
+                        applies_to_plans: [],
+                        duration: "once",
+                        duration_in_months: 1,
+                        max_redemptions: null,
+                        is_active: true,
+                        valid_from: "",
+                        expires_at: ""
+                      });
+                      setShowDiscountDialog(true);
+                    }}
+                    className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Coupon
+                  </Button>
+                </div>
+
+                {/* Coupons List */}
+                <div className="space-y-3">
+                  {discounts && discounts.length > 0 ? (
+                    discounts.map(coupon => (
+                      <Card key={coupon.id} className="border-none shadow-md hover:shadow-lg transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="text-sm font-bold text-gray-900">{coupon.code}</h3>
+                                <Badge className={coupon.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}>
+                                  {coupon.is_active ? "Active" : "Inactive"}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-gray-600 mb-3">{coupon.description}</p>
+                              
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-1">Discount</p>
+                                  <p className="font-semibold text-gray-900">
+                                    {coupon.discount_type === "percentage" 
+                                      ? `${coupon.percentage_off}%` 
+                                      : `€${(coupon.amount_off / 100).toFixed(2)}`}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-1">Valid Until</p>
+                                  <p className="text-sm text-gray-900">
+                                    {coupon.expires_at 
+                                      ? format(new Date(coupon.expires_at), "dd MMM yyyy", { locale: nl })
+                                      : "No expiry"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-1">Max Uses</p>
+                                  <p className="font-semibold text-gray-900">
+                                    {coupon.max_redemptions || "Unlimited"}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-1">Used</p>
+                                  <p className="font-semibold text-gray-900">
+                                    {coupon.times_redeemed || 0}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingDiscount(coupon.id);
+                                  setDiscountForm({
+                                    code: coupon.code,
+                                    description: coupon.description || "",
+                                    discount_type: coupon.discount_type,
+                                    percentage_off: coupon.percentage_off || 0,
+                                    amount_off: coupon.amount_off || 0,
+                                    currency: coupon.currency || "EUR",
+                                    applies_to_plans: coupon.applies_to_plans || [],
+                                    duration: "once",
+                                    duration_in_months: 1,
+                                    max_redemptions: coupon.max_redemptions,
+                                    is_active: coupon.is_active,
+                                    valid_from: coupon.valid_from || "",
+                                    expires_at: coupon.expires_at || ""
+                                  });
+                                  setShowDiscountDialog(true);
+                                }}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (confirm(`Delete coupon "${coupon.code}"?`)) {
+                                    deleteDiscountMutation.mutate(coupon.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No coupons yet. Create one to get started!</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Stripe Settings Tab */}

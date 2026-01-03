@@ -38,6 +38,7 @@ import SubscriptionOverview from './pages/SubscriptionOverview';
 import ProductManagement from './pages/ProductManagement';
 import Checkout from './pages/Checkout';
 import CheckoutReturn from './pages/CheckoutReturn';
+import AdminSubscriptionDashboard from './pages/AdminSubscriptionDashboard';
 import __Layout from './Layout.jsx';
 
 
@@ -83,6 +84,7 @@ export const PAGES = {
     "ProductManagement": ProductManagement,
     "Checkout": Checkout,
     "CheckoutReturn": CheckoutReturn,
+    "AdminSubscriptionDashboard": AdminSubscriptionDashboard,
 }
 
 export const pagesConfig = {

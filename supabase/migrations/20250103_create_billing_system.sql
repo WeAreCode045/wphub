@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS stripe.prices (
   lookup_key VARCHAR(255),
   metadata JSONB,
   nickname VARCHAR(255),
-  product_id VARCHAR(255) NOT NULL REFERENCES stripe.products(id),
+  product_id VARCHAR(255) REFERENCES stripe.products(id),
   recurring JSONB,
   tax_behavior VARCHAR(50),
   tiers_mode VARCHAR(50),
@@ -116,6 +116,19 @@ CREATE TABLE IF NOT EXISTS stripe.prices (
   unit_amount_decimal VARCHAR(255),
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+-- Add product_id column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'stripe' 
+    AND table_name = 'prices' 
+    AND column_name = 'product_id'
+  ) THEN
+    ALTER TABLE stripe.prices ADD COLUMN product_id VARCHAR(255);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_stripe_prices_product_id 
 ON stripe.prices(product_id);
@@ -163,6 +176,19 @@ CREATE TABLE IF NOT EXISTS stripe.subscriptions (
   trial_start BIGINT,
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+
+-- Add customer_id column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'stripe' 
+    AND table_name = 'subscriptions' 
+    AND column_name = 'customer_id'
+  ) THEN
+    ALTER TABLE stripe.subscriptions ADD COLUMN customer_id VARCHAR(255);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_stripe_subscriptions_customer_id 
 ON stripe.subscriptions(customer_id);
