@@ -11,6 +11,7 @@
 -- ============================================================================
 
 ALTER TABLE public.users
+ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user',
 ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255) UNIQUE,
 ADD COLUMN IF NOT EXISTS billing_email VARCHAR(255),
 ADD COLUMN IF NOT EXISTS subscription_updated_at TIMESTAMP WITH TIME ZONE;

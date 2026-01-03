@@ -52,12 +52,38 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const decoded = jwtDecode<JWTPayload>(token);
+    let decoded: JWTPayload;
+    
+    try {
+      decoded = jwtDecode<JWTPayload>(token);
+    } catch (decodeErr) {
+      console.error("JWT decode error:", decodeErr);
+      return error("Invalid Authorization token", 401);
+    }
+    
     const userId = decoded.sub;
-    const isAdmin = decoded.user_metadata?.role === "admin";
 
-    if (!userId || !isAdmin) {
-      return error("Unauthorized: admin role required", 403);
+    if (!userId) {
+      return error("Invalid token: missing user ID", 401);
+    }
+
+    // Check user role from database instead of JWT metadata
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (userError || !userData) {
+      console.error("User lookup error:", userError);
+      return error("User not found", 404);
+    }
+
+    const isAdmin = userData.role === "admin";
+    console.log("Auth debug - userId:", userId, "role:", userData.role, "isAdmin:", isAdmin);
+
+    if (!isAdmin) {
+      return error("Unauthorized: admin role required (user role: " + userData.role + ")", 403);
     }
 
     const body = (await req.json()) as UpdatePlanRequest;

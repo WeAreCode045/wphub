@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { entities, functions } from "@/api/entities";
+import { getSupabase } from "@/api/getSupabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,15 @@ export default function ProductManagement() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
+  // Check admin status
+  useEffect(() => {
+    if (user && !user.role) {
+      toast.error('Your role has not been set. Contact an administrator.');
+    } else if (user && user.role !== 'admin') {
+      toast.error(`You do not have permission to access this page. Your role: ${user.role}`);
+    }
+  }, [user]);
+
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
       name: '',
@@ -70,15 +80,23 @@ export default function ProductManagement() {
   // Create plan mutation - calls edge function to create in Stripe
   const createPlanMutation = useMutation({
     mutationFn: async (data) => {
-      const { data: { session } } = await (await import('@/api/supabaseClient')).supabase.auth.getSession();
-      const token = session?.access_token;
+      // Get Supabase client and session
+      const supabaseClient = await getSupabase();
+      const { data: { session }, error: sessionError } = await supabaseClient.supabase.auth.getSession();
 
-      if (!token) {
-        throw new Error('Not authenticated');
+      if (sessionError || !session?.access_token) {
+        throw new Error('Authentication failed. Please log in again.');
+      }
+
+      const token = session.access_token;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      if (!supabaseUrl) {
+        throw new Error('Supabase URL not configured');
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-plan`,
+        `${supabaseUrl}/functions/v1/admin-create-plan`,
         {
           method: 'POST',
           headers: {
@@ -105,8 +123,8 @@ export default function ProductManagement() {
       );
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create plan');
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(error.error || `HTTP ${response.status}: Failed to create plan`);
       }
 
       return response.json();
