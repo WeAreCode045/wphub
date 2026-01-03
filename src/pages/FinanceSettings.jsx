@@ -148,6 +148,33 @@ export default function FinanceSettings() {
     }
   });
 
+  const { data: stripePaymentMethodsData = { payment_methods: [], total: 0 }, isLoading: isLoadingPaymentMethods } = useQuery({
+    queryKey: ['stripe-payment-methods'],
+    queryFn: async () => {
+      const { supabase: supabaseClient } = await import('@/api/supabaseClient');
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      
+      if (!session?.access_token) throw new Error('Not authenticated');
+      
+      const response = await fetch(
+        `${Deno.env.get('VITE_SUPABASE_URL') || 'https://ossyxxlplvqakowiwbok.supabase.co'}/functions/v1/list-stripe-payment-methods`,
+        {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch payment methods');
+      }
+      
+      return response.json();
+    },
+    enabled: !!user && user.role === "admin",
+  });
+
   const createDiscountMutation = useMutation({
     mutationFn: (data) => entities.DiscountCode.create(data),
     onSuccess: () => {
@@ -609,6 +636,63 @@ export default function FinanceSettings() {
                     <p className="text-xs text-gray-600 mt-1">
                       This payment method will be used when assigning subscriptions to users without a payment method.
                     </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Available Payment Methods
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-900">
+                    <strong>Available Stripe Payment Methods:</strong> Select and copy any payment method ID to use as default.
+                  </p>
+                </div>
+
+                {isLoadingPaymentMethods ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  </div>
+                ) : stripePaymentMethodsData.payment_methods.length > 0 ? (
+                  <div className="space-y-3">
+                    {stripePaymentMethodsData.payment_methods.map((method) => (
+                      <div key={method.id} className="p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 transition-colors">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-mono text-sm font-semibold text-gray-900 break-all">{method.id}</p>
+                            {method.card && (
+                              <p className="text-sm text-gray-600 mt-1">
+                                {method.card.brand.toUpperCase()} •••• {method.card.last4} 
+                                (Exp: {String(method.card.exp_month).padStart(2, '0')}/{method.card.exp_year})
+                              </p>
+                            )}
+                            {method.billing_details?.name && (
+                              <p className="text-sm text-gray-600">{method.billing_details.name}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(method.id);
+                              alert('✅ Payment method ID copied to clipboard!');
+                            }}
+                            className="ml-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors flex-shrink-0 whitespace-nowrap"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center">
+                    <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-600">No payment methods found in Stripe</p>
                   </div>
                 )}
               </CardContent>
