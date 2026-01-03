@@ -33,6 +33,9 @@ import AdminSupportTickets from './pages/AdminSupportTickets';
 import Themes from './pages/Themes';
 import ThemeDetail from './pages/ThemeDetail';
 import Login from './pages/Login';
+import BillingAccount from './pages/BillingAccount';
+import SubscriptionOverview from './pages/SubscriptionOverview';
+import ProductManagement from './pages/ProductManagement';
 import __Layout from './Layout.jsx';
 
 
@@ -44,6 +47,7 @@ export const PAGES = {
     "PluginDetail": PluginDetail,
     "UserManager": UserManager,
     "AccountSettings": AccountSettings,
+    "BillingAccount": BillingAccount,
     "SiteSettings": SiteSettings,
     "UserDetail": UserDetail,
     "AdminDashboard": AdminDashboard,
@@ -72,6 +76,9 @@ export const PAGES = {
     "Themes": Themes,
     "ThemeDetail": ThemeDetail,
     "Login": Login,
+    "BillingAccount": BillingAccount,
+    "SubscriptionOverview": SubscriptionOverview,
+    "ProductManagement": ProductManagement,
 }
 
 export const pagesConfig = {

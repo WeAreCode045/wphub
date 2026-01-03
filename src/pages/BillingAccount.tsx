@@ -12,7 +12,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/AuthContext";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/api/supabaseClient";
 import { useUserSubscription } from "@/hooks/useSubscriptionFeatures";
 
 interface Invoice {

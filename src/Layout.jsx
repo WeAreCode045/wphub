@@ -445,7 +445,7 @@ export default function Layout({ children, currentPageName }) {
     { title: "Themes", url: createPageUrl("Themes"), icon: Palette },
     { title: "Projecten", url: createPageUrl("Projects"), icon: Briefcase },
     { title: "Berichten", url: createPageUrl("UserMessages"), icon: Mail }, // Changed from Messages
-    // Subscription item removed
+    { title: "Billing", url: createPageUrl("BillingAccount"), icon: CreditCard },
   ];
 
   const teamsWorkspaceItems = [
@@ -468,7 +468,9 @@ export default function Layout({ children, currentPageName }) {
   ];
 
   const businessItems = [
-    { title: "Financieel", url: createPageUrl("FinanceSettings"), icon: DollarSign }
+    { title: "Financieel", url: createPageUrl("FinanceSettings"), icon: DollarSign },
+    { title: "Abonnementen", url: createPageUrl("SubscriptionOverview"), icon: Users },
+    { title: "Producten", url: createPageUrl("ProductManagement"), icon: Package },
   ];
 
   const controlRoomItems = [

@@ -897,6 +897,76 @@ const entities = {
       const { error } = await supabase.from('plan_groups').delete().eq('id', id);
       if (error) throw error;
     }
+  },
+
+  SubscriptionPlan: {
+    async list() {
+      const { data, error } = await supabase.from('subscription_plans').select('*').order('position', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(id) {
+      const { data, error } = await supabase.from('subscription_plans').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+
+    async filter(filters) {
+      let query = supabase.from('subscription_plans').select('*');
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value);
+      });
+      const { data, error } = await query.order('position', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+
+    async create(data) {
+      const { data: result, error } = await supabase.from('subscription_plans').insert(data).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async update(id, data) {
+      const { data: result, error } = await supabase.from('subscription_plans').update(data).eq('id', id).select().single();
+      if (error) throw error;
+      return result;
+    },
+
+    async delete(id) {
+      const { error } = await supabase.from('subscription_plans').delete().eq('id', id);
+      if (error) throw error;
+    }
+  },
+
+  UserSubscription: {
+    async list() {
+      // Use the RPC function to get user subscriptions with plan details
+      const { data, error } = await supabase.rpc('get_user_active_subscription', {});
+      if (error) throw error;
+      return data || [];
+    },
+
+    async get(userId) {
+      const { data, error } = await supabase.rpc('get_user_active_subscription', { user_id: userId });
+      if (error) throw error;
+      return data?.[0] || null;
+    },
+
+    async filter(filters) {
+      // For now, just return all - could be enhanced with more complex filtering
+      const { data, error } = await supabase.rpc('get_user_active_subscription', {});
+      if (error) throw error;
+      let filtered = data || [];
+      
+      // Apply client-side filtering if needed
+      if (filters.status) {
+        filtered = filtered.filter(sub => sub.status === filters.status);
+      }
+      
+      return filtered;
+    }
   }
 };
 
