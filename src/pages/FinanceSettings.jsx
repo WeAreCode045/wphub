@@ -287,6 +287,48 @@ export default function FinanceSettings() {
     }
   });
 
+  const syncStripeCustomersMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL || 'https://ossyxxlplvqakowiwbok.supabase.co'}/functions/v1/admin-sync-stripe-customers`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to sync Stripe customers');
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      const { summary, results } = data;
+      let message = `✅ Stripe klanten gesynchroniseerd!\n\n`;
+      message += `Totaal verwerkt: ${summary.total}\n`;
+      message += `Nieuw aangemaakt: ${summary.created}\n`;
+      message += `Gekoppeld aan bestaande: ${summary.linked}\n`;
+      
+      if (summary.errors > 0) {
+        message += `Fouten: ${summary.errors}`;
+      }
+
+      alert(message);
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => {
+      alert('❌ Synchronisatie mislukt: ' + (error.message || 'Unknown error'));
+    }
+  });
+
   const resetForm = () => {
     setEditingDiscount(null);
     setDiscountForm({
@@ -695,6 +737,53 @@ export default function FinanceSettings() {
                     <p className="text-gray-600">No payment methods found in Stripe</p>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Stripe Klanten Synchroniseren
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-900 mb-2">
+                    <strong>Ontbrekende Stripe Klanten Aanmaken:</strong> Alle users zonder stripe_customer_id zullen worden verwerkt.
+                  </p>
+                  <p className="text-xs text-amber-700 space-y-1">
+                    <div>• <strong>Controle:</strong> Eerst wordt gecontroleerd of er al een Stripe customer bestaat met dezelfde e-mailadres</div>
+                    <div>• <strong>Koppelen:</strong> Bestaande customers worden gekoppeld aan de user</div>
+                    <div>• <strong>Aanmaken:</strong> Nieuwe customers worden aangemaakt indien nodig</div>
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => {
+                    if (confirm('Weet je zeker dat je alle ontbrekende Stripe klanten wilt aanmaken/koppelen? Dit kan even duren...')) {
+                      syncStripeCustomersMutation.mutate();
+                    }
+                  }}
+                  disabled={syncStripeCustomersMutation.isPending}
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700"
+                >
+                  {syncStripeCustomersMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Synchroniseren...
+                    </>
+                  ) : (
+                    <>
+                      <Users className="w-4 h-4 mr-2" />
+                      Stripe Klanten Synchroniseren
+                    </>
+                  )}
+                </Button>
+
+                <p className="text-xs text-gray-600 pt-2 border-t">
+                  ℹ️ Deze operatie kan enkele minuten duren, afhankelijk van het aantal users. Sluit deze pagina niet af tijdens het synchroniseren.
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
