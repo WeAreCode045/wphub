@@ -690,6 +690,13 @@ function PaymentMethodTab({
 }: PaymentMethodTabProps) {
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
+  const [showCardForm, setShowCardForm] = useState(false);
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+  const [cardholderName, setCardholderName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Mutation for setting default payment method
   const setDefaultMutation = useMutation({
@@ -727,16 +734,209 @@ function PaymentMethodTab({
     },
   });
 
-  if (paymentMethods.length === 0) {
+  const handleAddPaymentMethod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      // Step 1: Create setup intent
+      console.log('[PAYMENT] Creating setup intent');
+      const setupResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/create-setup-intent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!setupResponse.ok) {
+        const data = await setupResponse.json();
+        throw new Error(data.error || "Failed to create setup intent");
+      }
+
+      const setupData = await setupResponse.json();
+      const { client_secret, customer_id } = setupData;
+
+      console.log('[PAYMENT] Setup intent created, client_secret:', client_secret);
+
+      // Step 2: Load Stripe (we'll use a simple approach without installing @stripe/react-stripe-js)
+      const stripeUrl = "https://js.stripe.com/v3/";
+      if (!(window as any).Stripe) {
+        await new Promise((resolve) => {
+          const script = document.createElement("script");
+          script.src = stripeUrl;
+          script.onload = resolve;
+          document.body.appendChild(script);
+        });
+      }
+
+      const Stripe = (window as any).Stripe;
+      const stripe = Stripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
+
+      // Step 3: Create elements and card element
+      const elements = stripe.elements({
+        clientSecret: client_secret,
+      });
+
+      const cardElement = elements.create("card", {
+        hidePostalCode: true,
+        style: {
+          base: {
+            fontSize: "16px",
+            color: "#424770",
+            "::placeholder": {
+              color: "#aab7c4",
+            },
+          },
+          invalid: {
+            color: "#fa755a",
+          },
+        },
+      });
+
+      // Remove any existing card element
+      const cardContainer = document.getElementById("card-element");
+      if (cardContainer) {
+        cardContainer.innerHTML = "";
+      }
+
+      // Mount the card element
+      cardElement.mount("#card-element");
+
+      // Step 4: Confirm the setup intent
+      console.log('[PAYMENT] Confirming setup intent');
+      const confirmResult = await stripe.confirmCardSetup(client_secret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: cardholderName,
+          },
+        },
+      });
+
+      if (confirmResult.error) {
+        throw new Error(confirmResult.error.message);
+      }
+
+      console.log('[PAYMENT] Setup intent confirmed');
+
+      // Step 5: Confirm with backend
+      const confirmResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/confirm-setup-intent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            setup_intent_id: confirmResult.setupIntent.id,
+          }),
+        }
+      );
+
+      if (!confirmResponse.ok) {
+        const data = await confirmResponse.json();
+        throw new Error(data.error || "Failed to confirm payment method");
+      }
+
+      console.log('[PAYMENT] Payment method added successfully');
+
+      // Reset form and refresh
+      setShowCardForm(false);
+      setCardNumber("");
+      setCardExpiry("");
+      setCardCvc("");
+      setCardholderName("");
+      
+      // Refresh payment methods
+      queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
+      onPaymentMethodUpdated();
+      
+      alert("Payment method added successfully!");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to add payment method";
+      setError(errorMessage);
+      console.error('[PAYMENT] Error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (paymentMethods.length === 0 && !showCardForm) {
     return (
       <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
         <p className="text-slate-600 mb-4">No payment methods on file.</p>
         <button
-          disabled={true}
-          className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+          onClick={() => setShowCardForm(true)}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
         >
-          Add Payment Method (Coming Soon)
+          Add Payment Method
         </button>
+      </div>
+    );
+  }
+
+  if (showCardForm) {
+    return (
+      <div className="bg-white rounded-lg border border-slate-200 p-8 max-w-md">
+        <h2 className="text-lg font-semibold text-slate-900 mb-6">Add Payment Method</h2>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleAddPaymentMethod} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Cardholder Name
+            </label>
+            <input
+              type="text"
+              value={cardholderName}
+              onChange={(e) => setCardholderName(e.target.value)}
+              placeholder="John Doe"
+              required
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Card Details
+            </label>
+            <div id="card-element" className="px-3 py-2 border border-slate-300 rounded-lg"></div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setShowCardForm(false);
+                setError(null);
+              }}
+              className="flex-1 px-4 py-2 border border-slate-300 text-slate-900 rounded-lg hover:bg-slate-50 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || !cardholderName}
+              className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-slate-300 transition-all"
+            >
+              {isSubmitting ? "Adding..." : "Add Card"}
+            </button>
+          </div>
+        </form>
       </div>
     );
   }
@@ -790,10 +990,10 @@ function PaymentMethodTab({
       </div>
 
       <button
-        disabled={true}
-        className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+        onClick={() => setShowCardForm(true)}
+        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
       >
-        Add Payment Method (Coming Soon)
+        Add Another Payment Method
       </button>
     </div>
   );
