@@ -107,9 +107,8 @@ export default function BillingPage() {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-payment-methods`,
         {
-          method: "POST",
+          method: "GET",
           headers: {
-            "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
         }
@@ -134,24 +133,8 @@ export default function BillingPage() {
 
   async function loadBillingData() {
     try {
-      // Load invoices
-      const { data: customer } = await supabase
-        .from("stripe.customers")
-        .select("id")
-        .eq("metadata->platform_user_id", user?.id)
-        .single();
-
-      if (customer) {
-        const { data: invoicesData } = await supabase
-          .from("stripe.invoices")
-          .select("*")
-          .eq("customer_id", customer.id)
-          .order("created", { ascending: false });
-
-        if (invoicesData) {
-          setInvoices(invoicesData);
-        }
-      }
+      // Skip direct stripe schema queries (not exposed via REST); rely on functions for billing info
+      setInvoices([]);
 
       // Load upcoming invoice if subscription is active
       if (subscription?.subscription_id) {

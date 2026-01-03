@@ -103,19 +103,19 @@ export function useAllSubscriptions() {
         .from("user_subscriptions")
         .select(
           `
-          id,
           subscription_id,
           plan_name,
           status,
           period_end_date,
           plan_features,
           is_active,
-          created_at,
-          metadata
+          current_period_end,
+          cancel_at_period_end,
+          product_id
         `
         )
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .order("current_period_end", { ascending: false });
 
       if (error) {
         console.error("Error fetching all subscriptions:", error);
