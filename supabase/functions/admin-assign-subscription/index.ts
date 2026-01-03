@@ -133,31 +133,61 @@ serve(async (req) => {
     const customer = await stripe.customers.retrieve(customerId);
     let defaultPaymentMethod = customer.invoice_settings?.default_payment_method as string | null;
     
-    // If no payment method, check for platform default setting
+    console.log('[ASSIGN] Customer default payment method:', defaultPaymentMethod || 'None');
+    
+    // If no payment method, try to use first available payment method on customer
     if (!defaultPaymentMethod) {
-      const { data: settingsData } = await supabaseClient
-        .from('site_settings')
-        .select('setting_value')
-        .eq('setting_key', 'stripe_default_payment_method')
-        .single();
+      console.log('[ASSIGN] No default payment method, checking for available payment methods...');
       
-      if (settingsData?.setting_value) {
-        defaultPaymentMethod = settingsData.setting_value;
+      const paymentMethods = await stripe.customers.listPaymentMethods(customerId, {
+        limit: 1,
+      });
+      
+      if (paymentMethods.data.length > 0) {
+        defaultPaymentMethod = paymentMethods.data[0].id;
+        console.log('[ASSIGN] Found payment method:', defaultPaymentMethod);
         
-        // Attach the default payment method to the customer
-        try {
-          await stripe.paymentMethods.attach(defaultPaymentMethod, {
-            customer: customerId,
-          });
+        // Set as default for the customer
+        await stripe.customers.update(customerId, {
+          invoice_settings: {
+            default_payment_method: defaultPaymentMethod,
+          },
+        });
+        console.log('[ASSIGN] Set as default payment method');
+      } else {
+        console.log('[ASSIGN] No payment methods available for customer');
+        
+        // Check for platform default setting
+        const { data: settingsData } = await supabaseClient
+          .from('site_settings')
+          .select('setting_value')
+          .eq('setting_key', 'stripe_default_payment_method')
+          .single();
+        
+        if (settingsData?.setting_value) {
+          defaultPaymentMethod = settingsData.setting_value;
+          console.log('[ASSIGN] Using platform default payment method:', defaultPaymentMethod);
           
-          // Set as default for the customer
-          await stripe.customers.update(customerId, {
-            invoice_settings: {
-              default_payment_method: defaultPaymentMethod,
-            },
-          });
-        } catch (e) {
-          console.error('Failed to attach default payment method:', e);
+          // Attach the default payment method to the customer
+          try {
+            await stripe.paymentMethods.attach(defaultPaymentMethod, {
+              customer: customerId,
+            });
+            
+            // Set as default for the customer
+            await stripe.customers.update(customerId, {
+              invoice_settings: {
+                default_payment_method: defaultPaymentMethod,
+              },
+            });
+            console.log('[ASSIGN] Attached platform default payment method');
+          } catch (e) {
+            console.error('[ASSIGN] Failed to attach default payment method:', e);
+            return jsonResponse({ error: 'Gebruiker heeft geen betalingsmethode ingesteld. Voeg eerst een betalingsmethode toe.' }, 400);
+          }
+        } else {
+          console.error('[ASSIGN] No payment methods available and no platform default set');
+          return jsonResponse({ error: 'Gebruiker heeft geen betalingsmethode ingesteld. Voeg eerst een betalingsmethode toe.' }, 400);
         }
       }
     }
