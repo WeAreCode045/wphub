@@ -41,25 +41,41 @@ Deno.serve(async (req) => {
   try {
     // Verify token and check admin role
     const token = extractBearerFromReq(req);
+    console.log("Token extracted:", token ? "Yes (length: " + token.length + ")" : "No");
+    
     const caller = await authMeWithToken(token);
+    console.log("Auth result:", caller ? "Success - User ID: " + caller.id : "Failed");
+    
     if (!caller) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      console.error("authMeWithToken returned null - token invalid or expired");
+      return jsonResponse({ error: "Unauthorized - invalid or expired token" }, 401);
     }
 
     // Check if caller is admin by querying users table
+    console.log("Checking admin status for user:", caller.id);
+    console.log("SUPABASE_URL:", SUPABASE_URL);
+    console.log("SERVICE_KEY exists:", SERVICE_KEY ? "Yes" : "No");
+    
     const adminRes = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(caller.id)}`, {
       headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
     });
+    console.log("Admin check response status:", adminRes.status);
+    
     if (!adminRes.ok) {
-      console.error("Failed to verify admin status");
+      console.error("Failed to verify admin status - HTTP", adminRes.status);
+      const errorText = await adminRes.text();
+      console.error("Error response:", errorText);
       return jsonResponse({ error: "Failed to verify admin" }, 500);
     }
     const adminArr = await adminRes.json();
+    console.log("Admin query result:", adminArr);
     const admin = adminArr?.[0];
     if (!admin || admin.role !== "admin") {
       console.log("User role:", admin?.role, "User ID:", caller.id);
       return jsonResponse({ error: "Admin access required" }, 403);
     }
+    
+    console.log("Admin verified successfully");
 
     const body = (await req.json()) as CreatePlanRequest;
     const {

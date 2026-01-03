@@ -7,20 +7,38 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 }
 
 export async function authMeWithToken(token: string | null) {
-  if (!token) return null;
+  if (!token) {
+    console.log('[authMeWithToken] No token provided');
+    return null;
+  }
   // If token equals the service role key, treat as privileged service user
   if (SERVICE_KEY && token === SERVICE_KEY) {
+    console.log('[authMeWithToken] Token is service role key');
     return { id: 'service-role', role: 'service_role', email: null, service_role: true };
   }
   const url = `${SUPABASE_URL}/auth/v1/user`;
+  console.log('[authMeWithToken] Calling auth API:', url);
+  console.log('[authMeWithToken] SERVICE_KEY available:', SERVICE_KEY ? 'Yes' : 'No');
   const headers: Record<string,string> = {
     Authorization: `Bearer ${token}`,
     apikey: SERVICE_KEY,
     'Content-Type': 'application/json'
   };
   const res = await fetch(url, { headers });
-  if (!res.ok) return null;
-  try { return await res.json(); } catch { return null; }
+  console.log('[authMeWithToken] Auth API response status:', res.status);
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error('[authMeWithToken] Auth API error:', errorText);
+    return null;
+  }
+  try { 
+    const user = await res.json();
+    console.log('[authMeWithToken] User authenticated:', user.id);
+    return user;
+  } catch (e) {
+    console.error('[authMeWithToken] Failed to parse response:', e);
+    return null;
+  }
 }
 
 export async function uploadToStorage(fileName: string, bytes: Uint8Array, bucket = 'uploads', contentType = 'application/octet-stream') {
