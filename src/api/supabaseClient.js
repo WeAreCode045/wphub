@@ -949,13 +949,12 @@ const entities = {
       const { data, error } = await supabase
         .from('user_subscriptions')
         .select(`
-          id,
           user_id,
-          stripe_subscription_id,
-          plan_id,
+          subscription_id,
           status,
           current_period_end,
-          subscription_plans(name, metadata)
+          plan_name,
+          plan_features
         `)
         .eq('user_id', user.id)
         .in('status', ['active', 'past_due']);
@@ -963,12 +962,11 @@ const entities = {
       if (error) throw error;
       
       return (data || []).map(sub => ({
-        subscription_id: sub.id,
-        stripe_subscription_id: sub.stripe_subscription_id,
-        plan_name: sub.subscription_plans?.name,
+        subscription_id: sub.subscription_id,
+        plan_name: sub.plan_name,
         status: sub.status,
-        period_end_date: new Date(sub.current_period_end * 1000).toISOString().split('T')[0],
-        plan_metadata: sub.subscription_plans?.metadata,
+        period_end_date: sub.current_period_end,
+        plan_metadata: sub.plan_features,
         is_past_due: sub.status === 'past_due'
       }));
     },
@@ -977,32 +975,32 @@ const entities = {
       const { data, error } = await supabase
         .from('user_subscriptions')
         .select(`
-          id,
           user_id,
-          stripe_subscription_id,
-          plan_id,
+          subscription_id,
           status,
           current_period_end,
-          subscription_plans(name, metadata)
+          plan_name,
+          plan_features,
+          is_active
         `)
         .eq('user_id', userId)
-        .in('status', ['active', 'past_due'])
-        .order('created_at', { ascending: false })
+        .eq('is_active', true)
+        .order('period_start_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (error) {
-        if (error.code === 'PGRST116') return null; // No rows found
+        console.error('Error fetching user subscription:', error);
         throw error;
       }
       
       return data ? {
-        subscription_id: data.id,
-        stripe_subscription_id: data.stripe_subscription_id,
-        plan_name: data.subscription_plans?.name,
+        subscription_id: data.subscription_id,
+        plan_name: data.plan_name,
         status: data.status,
-        period_end_date: new Date(data.current_period_end * 1000).toISOString().split('T')[0],
-        plan_metadata: data.subscription_plans?.metadata,
+        period_end_date: data.current_period_end,
+        plan_metadata: data.plan_features,
+        is_active: data.is_active,
         is_past_due: data.status === 'past_due'
       } : null;
     },
@@ -1015,13 +1013,12 @@ const entities = {
       let query = supabase
         .from('user_subscriptions')
         .select(`
-          id,
           user_id,
-          stripe_subscription_id,
-          plan_id,
+          subscription_id,
           status,
           current_period_end,
-          subscription_plans(name, metadata)
+          plan_name,
+          plan_features
         `)
         .eq('user_id', user.id);
       
@@ -1035,12 +1032,11 @@ const entities = {
       if (error) throw error;
       
       return (data || []).map(sub => ({
-        subscription_id: sub.id,
-        stripe_subscription_id: sub.stripe_subscription_id,
-        plan_name: sub.subscription_plans?.name,
+        subscription_id: sub.subscription_id,
+        plan_name: sub.plan_name,
         status: sub.status,
-        period_end_date: new Date(sub.current_period_end * 1000).toISOString().split('T')[0],
-        plan_metadata: sub.subscription_plans?.metadata,
+        period_end_date: sub.current_period_end,
+        plan_metadata: sub.plan_features,
         is_past_due: sub.status === 'past_due'
       }));
     }
