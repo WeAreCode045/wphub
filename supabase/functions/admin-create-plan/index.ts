@@ -38,6 +38,15 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
+  // Debug: Log environment variables
+  console.log("=== ENVIRONMENT CHECK ===");
+  console.log("SUPABASE_URL:", Deno.env.get("SUPABASE_URL") || "NOT SET");
+  console.log("VITE_SUPABASE_URL:", Deno.env.get("VITE_SUPABASE_URL") || "NOT SET");
+  console.log("SERVICE_ROLE_KEY exists:", Deno.env.get("SERVICE_ROLE_KEY") ? "YES" : "NO");
+  console.log("SUPABASE_SERVICE_ROLE_KEY exists:", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ? "YES" : "NO");
+  console.log("STRIPE_SECRET_KEY exists:", Deno.env.get("STRIPE_SECRET_KEY") ? "YES" : "NO");
+  console.log("========================");
+
   try {
     // Verify token and check admin role
     const token = extractBearerFromReq(req);
