@@ -67,15 +67,34 @@ serve(async (req) => {
 
     const { data: user } = await supabase
       .from('public.users')
-      .select('stripe_customer_id, email')
+      .select('stripe_customer_id, email, full_name')
       .eq('id', caller.id)
       .single();
 
-    if (!user?.stripe_customer_id) {
-      return jsonResponse(
-        { error: 'User does not have a Stripe customer. Call create-stripe-customer first.' },
-        400
-      );
+    let stripeCustomerId = user?.stripe_customer_id;
+
+    // Create Stripe customer on-demand if missing
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user?.email || undefined,
+        name: user?.full_name || undefined,
+        metadata: {
+          platform_user_id: caller.id,
+          created_at: new Date().toISOString(),
+        },
+      });
+
+      stripeCustomerId = customer.id;
+
+      // Persist to users table
+      const { error: updateError } = await supabase
+        .from('public.users')
+        .update({ stripe_customer_id: stripeCustomerId })
+        .eq('id', caller.id);
+
+      if (updateError) {
+        return jsonResponse({ error: 'Failed to persist Stripe customer ID' }, 500);
+      }
     }
 
     // Get payment configuration from settings
@@ -102,8 +121,8 @@ serve(async (req) => {
         },
       ],
       mode: 'subscription',
-      customer: user.stripe_customer_id,
-      customer_email: user.email,
+      customer: stripeCustomerId,
+      customer_email: user?.email,
       return_url: `${returnUrl}?session_id={CHECKOUT_SESSION_ID}`,
       customer_update: {
         address: 'auto',

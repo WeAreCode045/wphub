@@ -121,15 +121,12 @@ Deno.serve(async (req) => {
     // Note: This should be done via Stripe Sync Engine, but we do it here for registration flow
     const { error: updateError } = await supabase
       .from("public.users")
-      .update({
-        stripe_customer_id: customerId,
-        subscription_updated_at: new Date().toISOString(),
-      })
+      .update({ stripe_customer_id: customerId })
       .eq("id", userId);
 
     if (updateError) {
-      // Log error but continue - Stripe Sync Engine will sync this eventually
       console.error("Failed to update user with stripe_customer_id:", updateError);
+      throw new Error("Failed to persist Stripe customer on user record");
     }
 
     return success({
