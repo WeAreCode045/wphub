@@ -83,24 +83,108 @@ export default function Checkout() {
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-6xl">
           <button
             onClick={() => setSelectedPriceId(null)}
-            className="mb-6 text-sm font-medium text-blue-600 hover:text-blue-700"
+            className="mb-6 text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
           >
             ← Back to Plans
           </button>
-          <div className="rounded-lg bg-white p-8 shadow-lg">
-            <h1 className="mb-8 text-3xl font-bold text-gray-900">
-              Complete Your Purchase
-            </h1>
-            <CheckoutForm
-              priceId={selectedPriceId}
-              quantity={1}
-              selectedPlan={selectedPlan}
-              billingPeriod={isYearly ? "yearly" : "monthly"}
-              onCancel={() => setSelectedPriceId(null)}
-            />
+          
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {/* Left Column - Plan Summary */}
+            <div className="lg:col-span-1">
+              <div className="sticky top-12 rounded-lg bg-white p-8 shadow-lg">
+                <h2 className="mb-6 text-2xl font-bold text-gray-900">Order Summary</h2>
+                
+                {selectedPlan && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="mb-2 text-lg font-semibold text-gray-900">
+                        {selectedPlan.name}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        {selectedPlan.description}
+                      </p>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-bold text-gray-900">
+                          €{isYearly 
+                            ? (selectedPlan.yearly_price_cents / 100).toFixed(2) 
+                            : (selectedPlan.monthly_price_cents / 100).toFixed(2)}
+                        </span>
+                        <span className="text-gray-600">
+                          {isYearly ? "/year" : "/month"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                      <h4 className="mb-3 font-semibold text-gray-900">What's Included</h4>
+                      {selectedPlan.features && selectedPlan.features.length > 0 ? (
+                        <ul className="space-y-2">
+                          {selectedPlan.features.map((feature, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                              <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                              {feature}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-gray-600">See plan details above</p>
+                      )}
+                    </div>
+
+                    {selectedPlan.trial_days > 0 && (
+                      <div className="rounded-lg bg-green-50 p-4 border border-green-200">
+                        <p className="text-sm font-semibold text-green-900">
+                          ✓ {selectedPlan.trial_days} days free trial
+                        </p>
+                        <p className="text-xs text-green-700 mt-1">
+                          No payment required during trial period
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="border-t pt-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span className="font-semibold text-gray-900">
+                          €{isYearly 
+                            ? (selectedPlan.yearly_price_cents / 100).toFixed(2) 
+                            : (selectedPlan.monthly_price_cents / 100).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-lg font-bold">
+                        <span>Total:</span>
+                        <span className="text-blue-600">
+                          €{isYearly 
+                            ? (selectedPlan.yearly_price_cents / 100).toFixed(2) 
+                            : (selectedPlan.monthly_price_cents / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Column - Checkout Form */}
+            <div className="lg:col-span-2">
+              <div className="rounded-lg bg-white p-8 shadow-lg">
+                <h1 className="mb-8 text-3xl font-bold text-gray-900">
+                  Complete Your Purchase
+                </h1>
+                <CheckoutForm
+                  priceId={selectedPriceId}
+                  quantity={1}
+                  selectedPlan={selectedPlan}
+                  billingPeriod={isYearly ? "yearly" : "monthly"}
+                  onCancel={() => setSelectedPriceId(null)}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

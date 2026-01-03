@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS stripe.subscriptions (
   id VARCHAR(255) PRIMARY KEY,
   object VARCHAR(50) NOT NULL,
   created BIGINT NOT NULL,
-  customer_id VARCHAR(255) NOT NULL REFERENCES stripe.customers(id),
+  customer VARCHAR(255),
   status VARCHAR(50) NOT NULL,
   current_period_start BIGINT NOT NULL,
   current_period_end BIGINT NOT NULL,
@@ -177,21 +177,21 @@ CREATE TABLE IF NOT EXISTS stripe.subscriptions (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
--- Add customer_id column if it doesn't exist
+-- Add customer column if it doesn't exist
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_schema = 'stripe' 
     AND table_name = 'subscriptions' 
-    AND column_name = 'customer_id'
+    AND column_name = 'customer'
   ) THEN
-    ALTER TABLE stripe.subscriptions ADD COLUMN customer_id VARCHAR(255);
+    ALTER TABLE stripe.subscriptions ADD COLUMN customer VARCHAR(255);
   END IF;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_stripe_subscriptions_customer_id 
-ON stripe.subscriptions(customer_id);
+ON stripe.subscriptions(customer);
 
 CREATE INDEX IF NOT EXISTS idx_stripe_subscriptions_status 
 ON stripe.subscriptions(status);
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS stripe.invoices (
   id VARCHAR(255) PRIMARY KEY,
   object VARCHAR(50) NOT NULL,
   created BIGINT NOT NULL,
-  customer_id VARCHAR(255) NOT NULL REFERENCES stripe.customers(id),
+  customer VARCHAR(255),
   subscription_id VARCHAR(255) REFERENCES stripe.subscriptions(id),
   status VARCHAR(50) NOT NULL,
   number VARCHAR(255),
@@ -252,8 +252,34 @@ CREATE TABLE IF NOT EXISTS stripe.invoices (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
+-- Add customer column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'stripe' 
+    AND table_name = 'invoices' 
+    AND column_name = 'customer'
+  ) THEN
+    ALTER TABLE stripe.invoices ADD COLUMN customer VARCHAR(255);
+  END IF;
+END $$;
+
+-- Add subscription_id column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'stripe' 
+    AND table_name = 'invoices' 
+    AND column_name = 'subscription_id'
+  ) THEN
+    ALTER TABLE stripe.invoices ADD COLUMN subscription_id VARCHAR(255);
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_stripe_invoices_customer_id 
-ON stripe.invoices(customer_id);
+ON stripe.invoices(customer);
 
 CREATE INDEX IF NOT EXISTS idx_stripe_invoices_subscription_id 
 ON stripe.invoices(subscription_id);
@@ -269,7 +295,7 @@ CREATE TABLE IF NOT EXISTS stripe.payment_methods (
   id VARCHAR(255) PRIMARY KEY,
   object VARCHAR(50) NOT NULL,
   created BIGINT NOT NULL,
-  customer_id VARCHAR(255) REFERENCES stripe.customers(id),
+  customer VARCHAR(255),
   type VARCHAR(50) NOT NULL,
   billing_details JSONB,
   card JSONB,
@@ -277,8 +303,21 @@ CREATE TABLE IF NOT EXISTS stripe.payment_methods (
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
+-- Add customer column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'stripe' 
+    AND table_name = 'payment_methods' 
+    AND column_name = 'customer'
+  ) THEN
+    ALTER TABLE stripe.payment_methods ADD COLUMN customer VARCHAR(255);
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_stripe_payment_methods_customer_id 
-ON stripe.payment_methods(customer_id);
+ON stripe.payment_methods(customer);
 
 CREATE INDEX IF NOT EXISTS idx_stripe_payment_methods_type 
 ON stripe.payment_methods(type);
@@ -336,7 +375,8 @@ CREATE POLICY "Allow admin to view sync logs" ON public.stripe_sync_log
 -- ============================================================================
 
 -- View: User's current active subscription with plan details
-CREATE OR REPLACE VIEW public.user_subscriptions AS
+DROP VIEW IF EXISTS public.user_subscriptions CASCADE;
+CREATE VIEW public.user_subscriptions AS
 SELECT
   u.id as user_id,
   u.email,
@@ -349,22 +389,27 @@ SELECT
   sp.id as product_id,
   sp.name as plan_name,
   sp.description as plan_description,
-  sp.position as plan_position,
+  splan.position as plan_position,
   sp.metadata as plan_features,
   to_timestamp(ss.current_period_start)::DATE as period_start_date,
   to_timestamp(ss.current_period_end)::DATE as period_end_date,
   (ss.status = 'active' AND ss.cancel_at_period_end = false) as is_active
 FROM public.users u
 LEFT JOIN stripe.customers sc ON u.stripe_customer_id = sc.id
-LEFT JOIN stripe.subscriptions ss ON sc.id = ss.customer_id AND ss.status IN ('active', 'past_due')
+LEFT JOIN stripe.subscriptions ss ON sc.id = ss.customer AND ss.status IN ('active', 'past_due')
 LEFT JOIN stripe.prices spri ON ss.items->0->>'price' = spri.id
 LEFT JOIN stripe.products sp ON spri.product_id = sp.id
 LEFT JOIN public.subscription_plans splan ON sp.id = splan.stripe_product_id;
 
 -- View: Active subscriptions only
-CREATE OR REPLACE VIEW public.active_subscriptions AS
+DROP VIEW IF EXISTS public.active_subscriptions CASCADE;
+CREATE VIEW public.active_subscriptions AS
 SELECT * FROM public.user_subscriptions
 WHERE is_active = true;
+
+-- Grant permissions on views
+GRANT SELECT ON public.user_subscriptions TO authenticated, anon;
+GRANT SELECT ON public.active_subscriptions TO authenticated, anon;
 
 -- ============================================================================
 -- 7. DOCUMENTATION COMMENTS
@@ -423,7 +468,7 @@ BEGIN
     (ss.status = 'past_due')::BOOLEAN
   FROM public.users u
   LEFT JOIN stripe.customers sc ON u.stripe_customer_id = sc.id
-  LEFT JOIN stripe.subscriptions ss ON sc.id = ss.customer_id AND ss.status IN ('active', 'past_due')
+  LEFT JOIN stripe.subscriptions ss ON sc.id = ss.customer AND ss.status IN ('active', 'past_due')
   LEFT JOIN stripe.prices spri ON ss.items->0->>'price' = spri.id
   LEFT JOIN stripe.products sp ON spri.product_id = sp.id
   WHERE u.id = user_id;

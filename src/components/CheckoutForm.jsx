@@ -254,7 +254,7 @@ export default function CheckoutForm({
   }
 
   return (
-    <div className="w-full max-w-2xl space-y-6">
+    <div className="w-full space-y-6">
       {/* Plan Details Overview */}
       {selectedPlan && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
@@ -375,23 +375,21 @@ export default function CheckoutForm({
       </div>
 
       {/* Checkout Section */}
-      {isLoading && (
-        <div className="mb-4 flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-300 border-t-blue-600"></div>
-          <span className="ml-2 text-blue-700">Loading checkout...</span>
+      {isLoading ? (
+        <div className="flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 p-8">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-300 border-t-blue-600 mr-3"></div>
+          <span className="text-blue-700 font-medium">Preparing payment form...</span>
         </div>
-      )}
-
-      {!options && !isLoading && (
+      ) : !options ? (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-800">
           Unable to load payment form. Please double-check your Stripe key and select a plan.
         </div>
-      )}
-
-      {options && stripePromise && (
-        <EmbeddedCheckoutProvider stripe={stripePromise} options={options}>
-          <EmbeddedCheckout />
-        </EmbeddedCheckoutProvider>
+      ) : (
+        options && stripePromise && (
+          <EmbeddedCheckoutProvider stripe={stripePromise} options={options}>
+            <EmbeddedCheckout />
+          </EmbeddedCheckoutProvider>
+        )
       )}
     </div>
   );

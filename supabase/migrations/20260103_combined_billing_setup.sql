@@ -1,3 +1,57 @@
+-- ============================================================================
+-- ADD BILLING ADDRESS FIELDS TO USERS TABLE
+-- Links billing address data to Stripe customer records (bi-directional sync)
+-- ============================================================================
+
+ALTER TABLE public.users
+ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255) UNIQUE,
+ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS billing_address VARCHAR(500),
+ADD COLUMN IF NOT EXISTS billing_city VARCHAR(255),
+ADD COLUMN IF NOT EXISTS billing_postal_code VARCHAR(50),
+ADD COLUMN IF NOT EXISTS billing_country VARCHAR(2) DEFAULT 'NL',
+ADD COLUMN IF NOT EXISTS vat_number VARCHAR(50),
+ADD COLUMN IF NOT EXISTS stripe_billing_address_synced_at TIMESTAMP WITH TIME ZONE,
+ADD COLUMN IF NOT EXISTS billing_address_verified BOOLEAN DEFAULT FALSE;
+
+-- Create indexes for lookups and relationships
+CREATE INDEX IF NOT EXISTS idx_users_stripe_customer_id 
+ON public.users(stripe_customer_id);
+
+CREATE INDEX IF NOT EXISTS idx_users_billing_country 
+ON public.users(billing_country);
+
+CREATE INDEX IF NOT EXISTS idx_users_vat_number 
+ON public.users(vat_number);
+
+-- Add comments for documentation
+COMMENT ON COLUMN public.users.stripe_customer_id IS 'Link to Stripe Customer ID (cus_...)';
+COMMENT ON COLUMN public.users.two_fa_enabled IS 'Two-factor authentication enabled for account';
+COMMENT ON COLUMN public.users.billing_address IS 'Billing street address (synced to Stripe address.line1 when checkout is created)';
+COMMENT ON COLUMN public.users.billing_city IS 'Billing city (synced to Stripe address.city when checkout is created)';
+COMMENT ON COLUMN public.users.billing_postal_code IS 'Billing postal/ZIP code (synced to Stripe address.postal_code when checkout is created)';
+COMMENT ON COLUMN public.users.billing_country IS 'Billing country - ISO 2-letter code (synced to Stripe address.country when checkout is created)';
+COMMENT ON COLUMN public.users.vat_number IS 'EU VAT number for business customers (synced to Stripe tax_ids when checkout is created)';
+COMMENT ON COLUMN public.users.stripe_billing_address_synced_at IS 'Timestamp when billing address was last synced to Stripe';
+COMMENT ON COLUMN public.users.billing_address_verified IS 'Whether billing address has been verified with Stripe';
+-- ============================================================================
+-- ADD STRIPE PAYMENT CONFIGURATION SETTING
+-- Allows admin to configure which payment methods are available in checkout
+-- ============================================================================
+
+-- Insert the payment configuration setting if it doesn't exist
+INSERT INTO public.site_settings (setting_key, setting_value, description, created_at, updated_at)
+VALUES (
+  'stripe_payment_configuration',
+  '',
+  'Stripe Payment Configuration ID for controlling available payment methods (e.g., pmc_xxxxxxxxxxxxx)',
+  NOW(),
+  NOW()
+)
+ON CONFLICT (setting_key) DO NOTHING;
+
+-- Add comment for documentation
+COMMENT ON TABLE public.site_settings IS 'Global site configuration settings including Stripe payment configuration';
 -- Stripe Elements & Extended Subscription Features Migration
 -- Date: 2026-01-03
 
@@ -219,11 +273,13 @@ ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coupon_usage ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policy for subscription_events
+DROP POLICY IF EXISTS "Users can view their own subscription events" ON public.subscription_events;
 CREATE POLICY "Users can view their own subscription events"
   ON public.subscription_events FOR SELECT
   USING (true); -- RLS will be managed via app-level checks
 
 -- Create RLS policy for coupon_usage
+DROP POLICY IF EXISTS "Users can view their own coupon usage" ON public.coupon_usage;
 CREATE POLICY "Users can view their own coupon usage"
   ON public.coupon_usage FOR SELECT
   USING (user_id = auth.uid()::text);
@@ -243,3 +299,47 @@ CREATE POLICY "Users can view their own coupon usage"
 -- 8. Views for payment failure statistics and churn analysis
 -- 9. RLS policies for data security
 -- 10. Appropriate indexes for query performance
+-- ============================================================================
+-- ADD RLS POLICIES FOR STRIPE SCHEMA TABLES
+-- Allows authenticated users to read their own stripe data via views
+-- Note: RLS is disabled on stripe.* tables per original schema design
+-- This file adds policies that can be enabled in the future if needed
+-- ============================================================================
+
+-- Clean up: Drop duplicate stripe.plans table if it exists (stripe.prices is the canonical table)
+DROP TABLE IF EXISTS stripe.plans CASCADE;
+
+-- Don't enable RLS yet - the original schema has it disabled intentionally
+-- Instead, use views with proper filtering to control access
+
+-- View: User's own customer record (respects their Stripe customer link)
+DROP VIEW IF EXISTS public.my_customer CASCADE;
+CREATE VIEW public.my_customer AS
+SELECT c.* FROM stripe.customers c
+WHERE c.id IN (
+  SELECT stripe_customer_id FROM public.users 
+  WHERE id = auth.uid() AND stripe_customer_id IS NOT NULL
+);
+
+-- View: User's own subscriptions
+DROP VIEW IF EXISTS public.my_subscriptions CASCADE;
+CREATE VIEW public.my_subscriptions AS
+SELECT s.* FROM stripe.subscriptions s
+WHERE s.customer IN (
+  SELECT stripe_customer_id FROM public.users 
+  WHERE id = auth.uid() AND stripe_customer_id IS NOT NULL
+);
+
+-- View: User's own invoices
+DROP VIEW IF EXISTS public.my_invoices CASCADE;
+CREATE VIEW public.my_invoices AS
+SELECT i.* FROM stripe.invoices i
+WHERE i.customer IN (
+  SELECT stripe_customer_id FROM public.users 
+  WHERE id = auth.uid() AND stripe_customer_id IS NOT NULL
+);
+
+-- Enable RLS on the view layer
+ALTER VIEW public.my_customer SET (security_barrier = true);
+ALTER VIEW public.my_subscriptions SET (security_barrier = true);
+ALTER VIEW public.my_invoices SET (security_barrier = true);
