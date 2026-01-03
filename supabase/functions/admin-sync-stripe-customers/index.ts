@@ -1,12 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import Stripe from 'https://esm.sh/stripe@17.0.0?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { extractBearerFromReq, authMeWithToken, jsonResponse, corsHeaders } from '../_helpers.ts';
 
 interface SyncResult {
   user_id: string;
   email: string;
-  status: 'created' | 'linked' | 'error';
+  status: 'created' | 'error';
   stripe_customer_id?: string;
   error?: string;
 }
@@ -67,47 +66,56 @@ serve(async (req) => {
 
     // Check if user is admin (role = 'admin')
     if (!adminUser || adminUser?.role !== 'admin') {
-      return jsonResponse({ 
-        error: 'Admin access required. User role = ' + (adminUser?.role || 'null')
+      return jsonResponse({ error: 'Admin access required. User role = ' + (adminUser?.role || 'null')
       }, 403);
     }
 
-    // Initialize Stripe
-    const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!stripeSecretKey) {
-      return jsonResponse({ error: 'Stripe secret key not configured' }, 500);
-    }
-    
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2024-11-20.acacia',
-    });
+    // Initialize Supabase API URL
+    const supabaseApiUrl = supabaseUrl.replace(/\/$/, '');
 
-    // Helper function to update user with Stripe customer ID using raw REST API
-    const updateUserWithCustomerId = async (userId: string, customerId: string): Promise<{ success: boolean; error?: string }> => {
+    // Helper function to call create-stripe-customer edge function for a user
+    const createStripeCustomerForUser = async (userId: string, userEmail: string): Promise<{ success: boolean; customerId?: string; error?: string }> => {
       try {
-        const updateResponse = await fetch(
-          `${supabaseApiUrl}/rest/v1/users?id=eq.${encodeURIComponent(userId)}`,
+        // Create a temporary access token for the user to call create-stripe-customer
+        const { data: tokenData, error: tokenError } = await supabaseClient.auth.admin.generateLink({
+          type: 'magiclink',
+          email: userEmail,
+        });
+
+        if (tokenError || !tokenData) {
+          console.error(`Failed to generate token for user ${userId}:`, tokenError);
+          return { success: false, error: 'Failed to generate auth token' };
+        }
+
+        // Call create-stripe-customer edge function
+        const createCustomerResponse = await fetch(
+          `${supabaseApiUrl}/functions/v1/create-stripe-customer`,
           {
-            method: 'PATCH',
+            method: 'POST',
             headers: {
+              'Authorization': `Bearer ${tokenData.properties.action_link.split('access_token=')[1]?.split('&')[0] || serviceRoleKey}`,
               'apikey': serviceRoleKey,
-              'Authorization': `Bearer ${serviceRoleKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ stripe_customer_id: customerId }),
           }
         );
 
-        if (!updateResponse.ok) {
-          const errorBody = await updateResponse.text();
-          console.error(`REST API update failed for user ${userId}:`, errorBody);
-          return { success: false, error: `REST API error: ${updateResponse.status} ${errorBody}` };
+        if (!createCustomerResponse.ok) {
+          const errorBody = await createCustomerResponse.text();
+          console.error(`create-stripe-customer failed for user ${userId}:`, errorBody);
+          return { success: false, error: `Edge function error: ${createCustomerResponse.status}` };
         }
 
-        return { success: true };
+        const result = await createCustomerResponse.json();
+        
+        if (result.customer_id) {
+          return { success: true, customerId: result.customer_id };
+        } else {
+          return { success: false, error: 'No customer_id returned' };
+        }
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
-        console.error(`Failed to update user ${userId}:`, errMsg);
+        console.error(`Failed to create customer for user ${userId}:`, errMsg);
         return { success: false, error: errMsg };
       }
     };
@@ -133,7 +141,6 @@ serve(async (req) => {
         summary: {
           total: 0,
           created: 0,
-          linked: 0,
           errors: 0,
         },
       }, 200);
@@ -141,82 +148,34 @@ serve(async (req) => {
 
     const results: SyncResult[] = [];
     let created = 0;
-    let linked = 0;
     let errors = 0;
 
     // Process each user
     for (const userRecord of usersWithoutStripe) {
       try {
         console.log(`Processing user ${userRecord.id} with email ${userRecord.email}`);
-        let stripeCustomerId: string;
+        
+        // Call create-stripe-customer edge function for this user
+        const createResult = await createStripeCustomerForUser(userRecord.id, userRecord.email);
 
-        // Check if customer exists with this email
-        console.log(`Checking for existing Stripe customer with email ${userRecord.email}`);
-        const existingCustomers = await stripe.customers.list({
-          email: userRecord.email,
-          limit: 1,
-        });
-
-        if (existingCustomers.data.length > 0) {
-          // Customer exists, link it
-          stripeCustomerId = existingCustomers.data[0].id;
-          console.log(`Found existing Stripe customer ${stripeCustomerId} for ${userRecord.email}`);
-
-          const updateResult = await updateUserWithCustomerId(userRecord.id, stripeCustomerId);
-
-          if (!updateResult.success) {
-            console.error(`Failed to link customer for user ${userRecord.id}:`, updateResult.error);
-            results.push({
-              user_id: userRecord.id,
-              email: userRecord.email,
-              status: 'error',
-              error: 'Failed to update user: ' + updateResult.error,
-            });
-            errors++;
-          } else {
-            console.log(`Successfully linked user ${userRecord.id} to Stripe customer ${stripeCustomerId}`);
-            results.push({
-              user_id: userRecord.id,
-              email: userRecord.email,
-              status: 'linked',
-              stripe_customer_id: stripeCustomerId,
-            });
-            linked++;
-          }
-        } else {
-          // Create new customer
-          console.log(`Creating new Stripe customer for ${userRecord.email}`);
-          const newCustomer = await stripe.customers.create({
+        if (!createResult.success) {
+          console.error(`Failed to create customer for user ${userRecord.id}:`, createResult.error);
+          results.push({
+            user_id: userRecord.id,
             email: userRecord.email,
-            metadata: {
-              platform_user_id: userRecord.id,
-            },
+            status: 'error',
+            error: 'Failed to create Stripe customer: ' + createResult.error,
           });
-
-          stripeCustomerId = newCustomer.id;
-          console.log(`Created Stripe customer ${stripeCustomerId} for ${userRecord.email}`);
-
-          const updateResult = await updateUserWithCustomerId(userRecord.id, stripeCustomerId);
-
-          if (!updateResult.success) {
-            console.error(`Failed to save customer for user ${userRecord.id}:`, updateResult.error);
-            results.push({
-              user_id: userRecord.id,
-              email: userRecord.email,
-              status: 'error',
-              error: 'Failed to update user: ' + updateResult.error,
-            });
-            errors++;
-          } else {
-            console.log(`Successfully saved Stripe customer ${stripeCustomerId} for user ${userRecord.id}`);
-            results.push({
-              user_id: userRecord.id,
-              email: userRecord.email,
-              status: 'created',
-              stripe_customer_id: stripeCustomerId,
-            });
-            created++;
-          }
+          errors++;
+        } else {
+          console.log(`Successfully created Stripe customer ${createResult.customerId} for user ${userRecord.id}`);
+          results.push({
+            user_id: userRecord.id,
+            email: userRecord.email,
+            status: 'created',
+            stripe_customer_id: createResult.customerId,
+          });
+          created++;
         }
       } catch (error) {
         console.error(`Error processing user ${userRecord.id}:`, error);
@@ -237,7 +196,6 @@ serve(async (req) => {
       summary: {
         total: results.length,
         created: created,
-        linked: linked,
         errors: errors,
       },
     }, 200);

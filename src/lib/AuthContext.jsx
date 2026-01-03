@@ -81,6 +81,39 @@ export const AuthProvider = ({ children }) => {
         });
       } else {
         setUser(userData);
+        
+        // Create Stripe customer if user doesn't have one
+        if (!userData.stripe_customer_id) {
+          console.log('User has no stripe_customer_id, creating Stripe customer...');
+          try {
+            const { data: session } = await supabase.auth.getSession();
+            const { data: customerData, error: customerError } = await supabase.functions.invoke(
+              'create-stripe-customer',
+              {
+                headers: {
+                  Authorization: `Bearer ${session.session.access_token}`
+                }
+              }
+            );
+            
+            if (customerError) {
+              console.error('Failed to create Stripe customer:', customerError);
+            } else {
+              console.log('Stripe customer created:', customerData);
+              // Refresh user data to get updated stripe_customer_id
+              const { data: updatedUser } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', authUser.id)
+                .single();
+              if (updatedUser) {
+                setUser(updatedUser);
+              }
+            }
+          } catch (err) {
+            console.error('Error creating Stripe customer:', err);
+          }
+        }
       }
       
       setIsAuthenticated(true);
