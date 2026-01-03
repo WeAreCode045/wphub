@@ -14,6 +14,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { supabase } from "@/api/supabaseClient";
 import { useUserSubscription } from "@/hooks/useSubscriptionFeatures";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Invoice {
   id: string;
@@ -36,29 +37,55 @@ interface UpcomingInvoice {
 
 interface PaymentMethod {
   id: string;
-  type: string;
-  card?: {
-    last4: string;
-    brand: string;
-    exp_month: number;
-    exp_year: number;
-  };
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+  is_default: boolean;
 }
 
 export default function BillingPage() {
   const { user } = useAuth();
   const { data: subscription, isLoading: subscriptionLoading } =
     useUserSubscription();
+  const queryClient = useQueryClient();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [upcomingInvoice, setUpcomingInvoice] = useState<UpcomingInvoice | null>(
     null
   );
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"overview" | "invoices" | "payment">(
     "overview"
   );
+
+  // Fetch payment methods from edge function
+  const { data: paymentMethods = [], isLoading: paymentMethodsLoading } = useQuery({
+    queryKey: ["payment-methods"],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-payment-methods`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to load payment methods");
+      }
+
+      const data = await response.json();
+      return data.payment_methods || [];
+    },
+    enabled: !!user,
+  });
 
   useEffect(() => {
     if (user) {
@@ -68,8 +95,6 @@ export default function BillingPage() {
 
   async function loadBillingData() {
     try {
-      setIsLoading(true);
-
       // Load invoices
       const { data: customer } = await supabase
         .from("stripe.customers")
@@ -87,17 +112,6 @@ export default function BillingPage() {
         if (invoicesData) {
           setInvoices(invoicesData);
         }
-
-        // Load payment methods
-        const { data: paymentMethodsData } = await supabase
-          .from("stripe.payment_methods")
-          .select("*")
-          .eq("customer_id", customer.id)
-          .order("created", { ascending: false });
-
-        if (paymentMethodsData) {
-          setPaymentMethods(paymentMethodsData);
-        }
       }
 
       // Load upcoming invoice if subscription is active
@@ -106,7 +120,7 @@ export default function BillingPage() {
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
             const response = await fetch(
-              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upcoming-invoice`,
+              `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/upcoming-invoice`,
               {
                 method: "GET",
                 headers: {
@@ -126,12 +140,10 @@ export default function BillingPage() {
       }
     } catch (error) {
       console.error("Error loading billing data:", error);
-    } finally {
-      setIsLoading(false);
     }
   }
 
-  if (subscriptionLoading || isLoading) {
+  if (subscriptionLoading || paymentMethodsLoading) {
     return <div className="text-center py-12">Loading billing information...</div>;
   }
 
@@ -237,7 +249,7 @@ function OverviewTab({ subscription, upcomingInvoice, onRefresh }: OverviewTabPr
       if (!session) throw new Error("Not authenticated");
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cancel-subscription`,
+        `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/cancel-subscription`,
         {
           method: "POST",
           headers: {
@@ -495,17 +507,54 @@ function PaymentMethodTab({
   subscriptionId,
   onPaymentMethodUpdated,
 }: PaymentMethodTabProps) {
+  const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
+
+  // Mutation for setting default payment method
+  const setDefaultMutation = useMutation({
+    mutationFn: async (paymentMethodId: string) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/set-default-payment-method`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            payment_method_id: paymentMethodId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update payment method");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
+      alert("Default payment method updated successfully!");
+    },
+    onError: (error) => {
+      alert(error instanceof Error ? error.message : "An error occurred");
+    },
+  });
 
   if (paymentMethods.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
         <p className="text-slate-600 mb-4">No payment methods on file.</p>
         <button
-          onClick={() => setIsAdding(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          disabled={true}
+          className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
         >
-          Add Payment Method
+          Add Payment Method (Coming Soon)
         </button>
       </div>
     );
@@ -519,7 +568,7 @@ function PaymentMethodTab({
             Saved Payment Methods
           </h2>
           <p className="text-sm text-slate-600">
-            These payment methods are saved with your Stripe account.
+            Select a payment method to use for your subscription.
           </p>
         </div>
 
@@ -527,20 +576,30 @@ function PaymentMethodTab({
           {paymentMethods.map((method) => (
             <div key={method.id} className="p-6 hover:bg-slate-50">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-slate-900">
-                    {method.card?.brand.toUpperCase()} •••• {method.card?.last4}
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    Expires {method.card?.exp_month}/{method.card?.exp_year}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-slate-900">
+                        {method.brand.toUpperCase()} •••• {method.last4}
+                      </p>
+                      {method.is_default && (
+                        <span className="inline-block px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      Expires {method.exp_month}/{method.exp_year}
+                    </p>
+                  </div>
                 </div>
-                {subscriptionId && (
+                {!method.is_default && (
                   <button
-                    onClick={() => handleSetDefault(method.id, subscriptionId)}
-                    className="px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"
+                    onClick={() => setDefaultMutation.mutate(method.id)}
+                    disabled={setDefaultMutation.isPending}
+                    className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Set as Default
+                    {setDefaultMutation.isPending ? "Updating..." : "Set as Default"}
                   </button>
                 )}
               </div>
@@ -550,43 +609,11 @@ function PaymentMethodTab({
       </div>
 
       <button
-        onClick={() => setIsAdding(true)}
-        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+        disabled={true}
+        className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
       >
-        Add Payment Method
+        Add Payment Method (Coming Soon)
       </button>
     </div>
   );
-}
-
-async function handleSetDefault(paymentMethodId: string, subscriptionId: string) {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error("Not authenticated");
-
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-payment-method`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          subscription_id: subscriptionId,
-          payment_method_id: paymentMethodId,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || "Failed to update payment method");
-    }
-
-    alert("Payment method updated successfully");
-    window.location.reload();
-  } catch (error) {
-    alert(error instanceof Error ? error.message : "An error occurred");
-  }
 }
