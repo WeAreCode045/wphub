@@ -40,7 +40,7 @@ export default function AdminSubscriptionDashboard() {
     : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 py-6 md:px-8 md:py-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Subscription Analytics</h1>
