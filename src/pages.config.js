@@ -36,6 +36,8 @@ import Login from './pages/Login';
 import BillingAccount from './pages/BillingAccount';
 import SubscriptionOverview from './pages/SubscriptionOverview';
 import ProductManagement from './pages/ProductManagement';
+import Checkout from './pages/Checkout';
+import CheckoutReturn from './pages/CheckoutReturn';
 import __Layout from './Layout.jsx';
 
 
@@ -79,6 +81,8 @@ export const PAGES = {
     "BillingAccount": BillingAccount,
     "SubscriptionOverview": SubscriptionOverview,
     "ProductManagement": ProductManagement,
+    "Checkout": Checkout,
+    "CheckoutReturn": CheckoutReturn,
 }
 
 export const pagesConfig = {
