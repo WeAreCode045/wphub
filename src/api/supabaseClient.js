@@ -942,30 +942,107 @@ const entities = {
 
   UserSubscription: {
     async list() {
-      // Use the RPC function to get user subscriptions with plan details
-      const { data, error } = await supabase.rpc('get_user_active_subscription', {});
+      // Get current user's active subscriptions
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          id,
+          user_id,
+          stripe_subscription_id,
+          plan_id,
+          status,
+          current_period_end,
+          subscription_plans(name, metadata)
+        `)
+        .eq('user_id', user.id)
+        .in('status', ['active', 'past_due']);
+      
       if (error) throw error;
-      return data || [];
+      
+      return (data || []).map(sub => ({
+        subscription_id: sub.id,
+        stripe_subscription_id: sub.stripe_subscription_id,
+        plan_name: sub.subscription_plans?.name,
+        status: sub.status,
+        period_end_date: new Date(sub.current_period_end * 1000).toISOString().split('T')[0],
+        plan_metadata: sub.subscription_plans?.metadata,
+        is_past_due: sub.status === 'past_due'
+      }));
     },
 
     async get(userId) {
-      const { data, error } = await supabase.rpc('get_user_active_subscription', { user_id: userId });
-      if (error) throw error;
-      return data?.[0] || null;
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          id,
+          user_id,
+          stripe_subscription_id,
+          plan_id,
+          status,
+          current_period_end,
+          subscription_plans(name, metadata)
+        `)
+        .eq('user_id', userId)
+        .in('status', ['active', 'past_due'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') return null; // No rows found
+        throw error;
+      }
+      
+      return data ? {
+        subscription_id: data.id,
+        stripe_subscription_id: data.stripe_subscription_id,
+        plan_name: data.subscription_plans?.name,
+        status: data.status,
+        period_end_date: new Date(data.current_period_end * 1000).toISOString().split('T')[0],
+        plan_metadata: data.subscription_plans?.metadata,
+        is_past_due: data.status === 'past_due'
+      } : null;
     },
 
     async filter(filters) {
-      // For now, just return all - could be enhanced with more complex filtering
-      const { data, error } = await supabase.rpc('get_user_active_subscription', {});
-      if (error) throw error;
-      let filtered = data || [];
+      // Get current user's subscriptions
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
       
-      // Apply client-side filtering if needed
+      let query = supabase
+        .from('user_subscriptions')
+        .select(`
+          id,
+          user_id,
+          stripe_subscription_id,
+          plan_id,
+          status,
+          current_period_end,
+          subscription_plans(name, metadata)
+        `)
+        .eq('user_id', user.id);
+      
       if (filters.status) {
-        filtered = filtered.filter(sub => sub.status === filters.status);
+        query = query.eq('status', filters.status);
+      } else {
+        query = query.in('status', ['active', 'past_due']);
       }
       
-      return filtered;
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      return (data || []).map(sub => ({
+        subscription_id: sub.id,
+        stripe_subscription_id: sub.stripe_subscription_id,
+        plan_name: sub.subscription_plans?.name,
+        status: sub.status,
+        period_end_date: new Date(sub.current_period_end * 1000).toISOString().split('T')[0],
+        plan_metadata: sub.subscription_plans?.metadata,
+        is_past_due: sub.status === 'past_due'
+      }));
     }
   }
 };

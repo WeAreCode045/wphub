@@ -11,6 +11,7 @@
 import React from 'react';
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from '../api/supabaseClient';
+import { entities } from '../api/entities';
 
 /**
  * Type definitions for subscription and features
@@ -213,16 +214,13 @@ export async function checkFeatureAccess(
   featureKey: keyof PlanFeatures
 ): Promise<boolean> {
   try {
-    const { data, error } = await supabase.rpc(
-      "get_user_active_subscription",
-      { user_id: userId }
-    );
-
-    if (error || !data?.[0]) {
+    const subscription = await entities.UserSubscription.get(userId);
+    
+    if (!subscription) {
       return false;
     }
 
-    const planMetadata = data[0].plan_metadata as PlanFeatures | null;
+    const planMetadata = subscription.plan_metadata as PlanFeatures | null;
     if (!planMetadata) {
       return false;
     }
