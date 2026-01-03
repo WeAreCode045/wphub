@@ -247,6 +247,27 @@ export default function AccountSettings() {
                   </div>
                 </div>
               </div>
+              <div className="flex items-center gap-3 pt-4 border-t border-gray-100 mt-6">
+                <Button 
+                  onClick={handleSave}
+                  disabled={updateUserMutation.isPending}
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+                >
+                  {saved ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Opgeslagen
+                    </>
+                  ) : (
+                    "Persoonlijke Gegevens Opslaan"
+                  )}
+                </Button>
+                {saved && (
+                  <p className="text-sm text-green-600">
+                    Je persoonlijke gegevens zijn succesvol opgeslagen
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
 
@@ -319,6 +340,27 @@ export default function AccountSettings() {
                     Voor zakelijke klanten binnen de EU
                   </p>
                 </div>
+              </div>
+              <div className="flex items-center gap-3 pt-4 border-t border-gray-100 mt-6">
+                <Button 
+                  onClick={handleSave}
+                  disabled={updateUserMutation.isPending}
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+                >
+                  {saved ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Opgeslagen
+                    </>
+                  ) : (
+                    "Factureringsgegevens Opslaan"
+                  )}
+                </Button>
+                {saved && (
+                  <p className="text-sm text-green-600">
+                    Je factureringsgegevens zijn succesvol opgeslagen
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
