@@ -5,6 +5,7 @@
 
 ALTER TABLE public.users
 ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255) UNIQUE,
+ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS billing_address VARCHAR(500),
 ADD COLUMN IF NOT EXISTS billing_city VARCHAR(255),
 ADD COLUMN IF NOT EXISTS billing_postal_code VARCHAR(50),
@@ -25,6 +26,7 @@ ON public.users(vat_number);
 
 -- Add comments for documentation
 COMMENT ON COLUMN public.users.stripe_customer_id IS 'Link to Stripe Customer ID (cus_...)';
+COMMENT ON COLUMN public.users.two_fa_enabled IS 'Two-factor authentication enabled for account';
 COMMENT ON COLUMN public.users.billing_address IS 'Billing street address (synced to Stripe address.line1 when checkout is created)';
 COMMENT ON COLUMN public.users.billing_city IS 'Billing city (synced to Stripe address.city when checkout is created)';
 COMMENT ON COLUMN public.users.billing_postal_code IS 'Billing postal/ZIP code (synced to Stripe address.postal_code when checkout is created)';
