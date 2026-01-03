@@ -59,18 +59,62 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Create Stripe customer
-    const customer = await stripe.customers.create({
-      email: email || undefined,
-      name: fullName || undefined,
-      metadata: {
-        platform_user_id: userId,
-        created_at: new Date().toISOString(),
-      },
-    });
+    let customerId: string;
+    let isExistingCustomer = false;
 
-    if (!customer.id) {
-      throw new Error("Failed to create Stripe customer");
+    // Check if a Stripe customer already exists with this email
+    if (email) {
+      console.log(`Checking for existing Stripe customer with email: ${email}`);
+      const existingCustomers = await stripe.customers.list({
+        email: email,
+        limit: 1,
+      });
+
+      if (existingCustomers.data.length > 0) {
+        // Link existing Stripe customer
+        customerId = existingCustomers.data[0].id;
+        isExistingCustomer = true;
+        console.log(`Found existing Stripe customer ${customerId}, linking to user ${userId}`);
+        
+        // Update customer metadata to include platform_user_id
+        await stripe.customers.update(customerId, {
+          metadata: {
+            platform_user_id: userId,
+            linked_at: new Date().toISOString(),
+          },
+        });
+      } else {
+        // Create new Stripe customer
+        console.log(`No existing customer found, creating new Stripe customer for ${email}`);
+        const customer = await stripe.customers.create({
+          email: email,
+          name: fullName || undefined,
+          metadata: {
+            platform_user_id: userId,
+            created_at: new Date().toISOString(),
+          },
+        });
+
+        if (!customer.id) {
+          throw new Error("Failed to create Stripe customer");
+        }
+        customerId = customer.id;
+      }
+    } else {
+      // No email, create new customer without email
+      console.log(`No email provided, creating Stripe customer without email`);
+      const customer = await stripe.customers.create({
+        name: fullName || undefined,
+        metadata: {
+          platform_user_id: userId,
+          created_at: new Date().toISOString(),
+        },
+      });
+
+      if (!customer.id) {
+        throw new Error("Failed to create Stripe customer");
+      }
+      customerId = customer.id;
     }
 
     // Update user with stripe_customer_id in public.users table
@@ -78,7 +122,7 @@ Deno.serve(async (req) => {
     const { error: updateError } = await supabase
       .from("public.users")
       .update({
-        stripe_customer_id: customer.id,
+        stripe_customer_id: customerId,
         subscription_updated_at: new Date().toISOString(),
       })
       .eq("id", userId);
@@ -89,8 +133,11 @@ Deno.serve(async (req) => {
     }
 
     return success({
-      customer_id: customer.id,
-      message: "Stripe customer created successfully",
+      customer_id: customerId,
+      message: isExistingCustomer 
+        ? "Linked to existing Stripe customer" 
+        : "Stripe customer created successfully",
+      is_existing: isExistingCustomer,
     });
   } catch (err) {
     console.error("Error creating Stripe customer:", err);
