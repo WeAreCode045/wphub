@@ -135,62 +135,9 @@ serve(async (req) => {
     
     console.log('[ASSIGN] Customer default payment method:', defaultPaymentMethod || 'None');
     
-    // If no payment method, try to use first available payment method on customer
-    if (!defaultPaymentMethod) {
-      console.log('[ASSIGN] No default payment method, checking for available payment methods...');
-      
-      const paymentMethods = await stripe.customers.listPaymentMethods(customerId, {
-        limit: 1,
-      });
-      
-      if (paymentMethods.data.length > 0) {
-        defaultPaymentMethod = paymentMethods.data[0].id;
-        console.log('[ASSIGN] Found payment method:', defaultPaymentMethod);
-        
-        // Set as default for the customer
-        await stripe.customers.update(customerId, {
-          invoice_settings: {
-            default_payment_method: defaultPaymentMethod,
-          },
-        });
-        console.log('[ASSIGN] Set as default payment method');
-      } else {
-        console.log('[ASSIGN] No payment methods available for customer');
-        
-        // Check for platform default setting
-        const { data: settingsData } = await supabaseClient
-          .from('site_settings')
-          .select('setting_value')
-          .eq('setting_key', 'stripe_default_payment_method')
-          .single();
-        
-        if (settingsData?.setting_value) {
-          defaultPaymentMethod = settingsData.setting_value;
-          console.log('[ASSIGN] Using platform default payment method:', defaultPaymentMethod);
-          
-          // Attach the default payment method to the customer
-          try {
-            await stripe.paymentMethods.attach(defaultPaymentMethod, {
-              customer: customerId,
-            });
-            
-            // Set as default for the customer
-            await stripe.customers.update(customerId, {
-              invoice_settings: {
-                default_payment_method: defaultPaymentMethod,
-              },
-            });
-            console.log('[ASSIGN] Attached platform default payment method');
-          } catch (e) {
-            console.error('[ASSIGN] Failed to attach default payment method:', e);
-            return jsonResponse({ error: 'Gebruiker heeft geen betalingsmethode ingesteld. Voeg eerst een betalingsmethode toe.' }, 400);
-          }
-        } else {
-          console.error('[ASSIGN] No payment methods available and no platform default set');
-          return jsonResponse({ error: 'Gebruiker heeft geen betalingsmethode ingesteld. Voeg eerst een betalingsmethode toe.' }, 400);
-        }
-      }
-    }
+    // For admin assignment, we create subscription in draft/pending state
+    // User will need to accept and add payment method
+    // We DON'T require a payment method at assignment time
 
     // Check for existing active subscription
     const { data: existingSub } = await supabaseClient
@@ -219,57 +166,70 @@ serve(async (req) => {
         .eq('id', existingSub.id);
     }
 
-    // Create new Stripe subscription with monthly price
-    const priceId = plan.stripe_price_monthly_id;
+    let subscription;
     
-    subscription = await stripe.subscriptions.create({
-      customer: customerId,
-      items: [{ price: priceId }],
-      trial_period_days: plan.trial_days || 0,
-      metadata: {
-        platform_user_id: user_id,
-        plan_id: plan_id,
-        assigned_by_admin: caller.id,
-      },
-    });
+    if (existingSub) {
+      // Cancel existing subscription in Stripe
+      if (existingSub.subscription_id) {
+        try {
+          await stripe.subscriptions.cancel(existingSub.subscription_id);
+        } catch (e) {
+          console.error('Failed to cancel existing subscription:', e);
+        }
+      }
+      
+      // Delete existing subscription record
+      await supabaseClient
+        .from('user_subscriptions')
+        .delete()
+        .eq('id', existingSub.id);
+    }
 
-    // Calculate period dates
-    const periodStartDate = new Date(subscription.current_period_start * 1000).toISOString();
-    const periodEndDate = new Date(subscription.current_period_end * 1000).toISOString();
+    // For admin assignment without payment method:
+    // We create a "draft" subscription in the database
+    // This doesn't create a Stripe subscription yet
+    // User must accept and provide payment method first
     
-    // Insert subscription record
-    const { error: insertError } = await supabaseClient
+    console.log('[ASSIGN] Creating pending_acceptance subscription record (not in Stripe yet)');
+    
+    // Create subscription record with pending_acceptance status
+    const { data: newSub, error: insertError } = await supabaseClient
       .from('user_subscriptions')
       .insert({
         user_id: user_id,
         plan_id: plan_id,
-        subscription_id: subscription.id,
-        status: subscription.status,
-        period_start_date: periodStartDate,
-        period_end_date: periodEndDate,
-        is_active: subscription.status === 'active' || subscription.status === 'trialing',
+        status: 'pending_acceptance',
+        is_active: false,
         plan_name: plan.name,
-      });
+        metadata: {
+          assigned_by_admin: caller.id,
+          assigned_at: new Date().toISOString(),
+        },
+      })
+      .select()
+      .single();
 
-    if (insertError) {
-      console.error('Failed to insert subscription:', insertError);
+    if (insertError || !newSub) {
+      console.error('[ASSIGN] Failed to insert subscription:', insertError);
       return jsonResponse({ error: 'Failed to create subscription record', details: insertError }, 500);
     }
 
+    console.log('[ASSIGN] Successfully created pending_acceptance subscription:', newSub.id);
+
     return jsonResponse({ 
       success: true,
-      message: 'Subscription assigned successfully',
+      message: 'Subscription toegewezen. Gebruiker kan deze accepteren en betaalmethode toevoegen.',
       subscription: {
-        id: subscription.id,
-        status: subscription.status,
+        id: newSub.id,
+        status: 'pending_acceptance',
         plan_name: plan.name,
       }
     }, 200);
 
   } catch (error) {
-    console.error('Error in admin-assign-subscription:', error);
+    console.error('[ASSIGN] Error in admin-assign-subscription:', error);
     return jsonResponse(
-      { error: error.message || 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       500
     );
   }

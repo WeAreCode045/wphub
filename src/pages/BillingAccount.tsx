@@ -13,7 +13,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { supabase } from "@/api/supabaseClient";
-import { useUserSubscription } from "@/hooks/useSubscriptionFeatures";
+import { useUserSubscription, useAllSubscriptions } from "../hooks/useSubscriptionFeatures";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Invoice {
@@ -48,6 +48,8 @@ export default function BillingPage() {
   const { user } = useAuth();
   const { data: subscription, isLoading: subscriptionLoading } =
     useUserSubscription();
+  const { data: allSubscriptions = [], isLoading: allSubscriptionsLoading } =
+    useAllSubscriptions();
   const queryClient = useQueryClient();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -175,8 +177,10 @@ export default function BillingPage() {
         {activeTab === "overview" && (
           <OverviewTab
             subscription={subscription}
+            allSubscriptions={allSubscriptions}
             upcomingInvoice={upcomingInvoice}
             onRefresh={() => loadBillingData()}
+            paymentMethods={paymentMethods}
           />
         )}
 
@@ -227,13 +231,83 @@ function TabButton({ label, isActive, onClick }: TabButtonProps) {
  */
 interface OverviewTabProps {
   subscription: any;
+  allSubscriptions: any[];
   upcomingInvoice: UpcomingInvoice | null;
   onRefresh: () => void;
+  paymentMethods?: PaymentMethod[];
 }
 
-function OverviewTab({ subscription, upcomingInvoice, onRefresh }: OverviewTabProps) {
+function OverviewTab({ subscription, allSubscriptions, upcomingInvoice, onRefresh, paymentMethods = [] }: OverviewTabProps) {
   const [isCanceling, setIsCanceling] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [acceptingSubscriptionId, setAcceptingSubscriptionId] = useState<string | null>(null);
+  const [showPaymentSelector, setShowPaymentSelector] = useState(false);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
+
+  const handleAcceptSubscription = async (pendingSubscription: any) => {
+    // Check if user has any payment methods
+    if (!paymentMethods || paymentMethods.length === 0) {
+      alert("You need to add a payment method before accepting a subscription.");
+      // Optionally navigate to payment method tab
+      return;
+    }
+
+    // Set the subscription for accepting
+    setAcceptingSubscriptionId(pendingSubscription.id);
+    // Default to first payment method
+    setSelectedPaymentMethodId(paymentMethods[0]?.id || null);
+    // Show payment selector modal
+    setShowPaymentSelector(true);
+  };
+
+  const handleConfirmAccept = async () => {
+    if (!acceptingSubscriptionId || !selectedPaymentMethodId) {
+      alert("Please select a payment method");
+      return;
+    }
+
+    try {
+      setIsAccepting(true);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/accept-subscription`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            subscription_id: acceptingSubscriptionId,
+            payment_method_id: selectedPaymentMethodId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to accept subscription");
+      }
+
+      alert("Subscription accepted successfully! Your payment method is being charged.");
+      setShowPaymentSelector(false);
+      setAcceptingSubscriptionId(null);
+      setSelectedPaymentMethodId(null);
+      onRefresh();
+      // Refresh all subscriptions
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "An error occurred");
+    } finally {
+      setIsAccepting(false);
+    }
+  };
 
   const handleCancelSubscription = async () => {
     if (!subscription?.subscription_id) return;
@@ -278,6 +352,58 @@ function OverviewTab({ subscription, upcomingInvoice, onRefresh }: OverviewTabPr
   };
 
   if (!subscription?.is_active) {
+    // Check if user has pending subscriptions
+    const pendingSubscriptions = allSubscriptions.filter(
+      (sub) => sub.status === "pending_acceptance"
+    );
+
+    if (pendingSubscriptions.length > 0) {
+      return (
+        <div className="space-y-6">
+          {/* Pending Subscriptions */}
+          <div className="bg-blue-50 rounded-lg border border-blue-200 p-8">
+            <h2 className="text-xl font-semibold text-blue-900 mb-6">
+              Pending Subscriptions
+            </h2>
+            <div className="space-y-4">
+              {pendingSubscriptions.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="bg-white rounded-lg border border-blue-200 p-6"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <p className="text-sm text-slate-600">Plan</p>
+                      <p className="text-lg font-semibold text-slate-900">
+                        {sub.plan_name}
+                      </p>
+                    </div>
+                    <span className="inline-block px-3 py-1 text-sm rounded-full bg-yellow-100 text-yellow-700">
+                      Pending Acceptance
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Assigned on{" "}
+                    {new Date(sub.created_at).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </p>
+                  <button
+                    onClick={() => handleAcceptSubscription(sub)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
+                  >
+                    Accept & Choose Payment Method
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
         <h2 className="text-xl font-semibold text-slate-900 mb-4">
@@ -386,6 +512,61 @@ function OverviewTab({ subscription, upcomingInvoice, onRefresh }: OverviewTabPr
                   day: "numeric",
                 })}
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Method Selector Modal for Subscription Acceptance */}
+      {showPaymentSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-slate-900 mb-6">
+              Choose Payment Method
+            </h3>
+            
+            <div className="mb-6 max-h-64 overflow-y-auto">
+              {paymentMethods.map((method) => (
+                <label key={method.id} className="flex items-center p-4 border border-slate-200 rounded-lg mb-3 cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="radio"
+                    name="payment_method"
+                    value={method.id}
+                    checked={selectedPaymentMethodId === method.id}
+                    onChange={(e) => setSelectedPaymentMethodId(e.target.value)}
+                    className="w-4 h-4"
+                  />
+                  <span className="ml-3 flex-1">
+                    <p className="font-medium text-slate-900">
+                      {method.brand.charAt(0).toUpperCase() + method.brand.slice(1)} ending in {method.last4}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      Expires {method.exp_month}/{method.exp_year}
+                    </p>
+                  </span>
+                  {method.is_default && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                      Default
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPaymentSelector(false)}
+                className="flex-1 px-4 py-2 border border-slate-300 text-slate-900 rounded-lg hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAccept}
+                disabled={isAccepting || !selectedPaymentMethodId}
+                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-slate-300 transition-all"
+              >
+                {isAccepting ? "Accepting..." : "Accept & Pay"}
+              </button>
             </div>
           </div>
         </div>

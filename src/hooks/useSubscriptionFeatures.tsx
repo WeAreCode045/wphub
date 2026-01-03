@@ -40,9 +40,10 @@ export interface PlanFeatures {
 }
 
 /**
- * Hook: Get user's active subscription
+ * Hook: Get user's active subscription (single subscription)
  * 
  * Returns subscription data with plan features derived from Stripe metadata
+ * Filters to active/past_due subscriptions (not pending_acceptance)
  */
 export function useUserSubscription() {
   return useQuery({
@@ -66,6 +67,7 @@ export function useUserSubscription() {
         `
         )
         .eq("user_id", user.id)
+        .in("status", ["active", "past_due", "trialing"])
         .single();
 
       if (error) {
@@ -77,6 +79,50 @@ export function useUserSubscription() {
       }
 
       return data as UserSubscription | null;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+  });
+}
+
+/**
+ * Hook: Get all user subscriptions (active + pending)
+ * 
+ * Returns array of all subscriptions including pending_acceptance
+ */
+export function useAllSubscriptions() {
+  return useQuery({
+    queryKey: ["all-subscriptions"],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from("user_subscriptions")
+        .select(
+          `
+          id,
+          subscription_id,
+          plan_name,
+          status,
+          period_end_date,
+          plan_features,
+          is_active,
+          created_at,
+          metadata
+        `
+        )
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching all subscriptions:", error);
+        return [];
+      }
+
+      return data || [];
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
