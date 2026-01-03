@@ -110,6 +110,75 @@ export default function CheckoutForm({
 
   useEffect(() => {
     let isMounted = true;
+    let hasRetriedCustomer = false;
+
+    const createStripeCustomer = async (accessToken) => {
+      try {
+        await supabase.functions.invoke('create-stripe-customer', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+      } catch (err) {
+        console.error('Failed to create Stripe customer on retry:', err);
+        throw err;
+      }
+    };
+
+    const createCheckoutSession = async (accessToken) => {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            price_id: priceId,
+            quantity,
+            coupon_code: appliedCoupon?.code || null,
+            billing_details: user ? {
+              address: {
+                line1: user.billing_address || undefined,
+                city: user.billing_city || undefined,
+                postal_code: user.billing_postal_code || undefined,
+                country: user.billing_country || undefined,
+              },
+              tax_id: user.vat_number ? {
+                type: 'eu_vat',
+                value: user.vat_number,
+              } : undefined,
+            } : undefined,
+            metadata: {
+              ...metadata,
+              plan_name: selectedPlan?.name,
+              billing_period: billingPeriod,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create checkout session");
+      }
+
+      const payload = await response.json();
+      const secret = payload.clientSecret;
+      const sessionId = payload.sessionId;
+
+      if (!secret) {
+        throw new Error("Checkout session did not return a client secret.");
+      }
+
+      if (!isMounted) return;
+      setClientSecret(secret);
+
+      if (onSuccess && sessionId) {
+        onSuccess(sessionId);
+      }
+    };
 
     async function loadClientSecret() {
       if (!priceId) {
@@ -130,58 +199,19 @@ export default function CheckoutForm({
         if (!session) {
           throw new Error("Not authenticated");
         }
+        try {
+          await createCheckoutSession(session.access_token);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          const needsCustomer = message.toLowerCase().includes('stripe customer');
 
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              price_id: priceId,
-              quantity,
-              coupon_code: appliedCoupon?.code || null,
-              billing_details: user ? {
-                address: {
-                  line1: user.billing_address || undefined,
-                  city: user.billing_city || undefined,
-                  postal_code: user.billing_postal_code || undefined,
-                  country: user.billing_country || undefined,
-                },
-                tax_id: user.vat_number ? {
-                  type: 'eu_vat',
-                  value: user.vat_number,
-                } : undefined,
-              } : undefined,
-              metadata: {
-                ...metadata,
-                plan_name: selectedPlan?.name,
-                billing_period: billingPeriod,
-              },
-            }),
+          if (needsCustomer && !hasRetriedCustomer) {
+            hasRetriedCustomer = true;
+            await createStripeCustomer(session.access_token);
+            await createCheckoutSession(session.access_token);
+          } else {
+            throw err;
           }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to create checkout session");
-        }
-
-        const payload = await response.json();
-        const secret = payload.clientSecret;
-        const sessionId = payload.sessionId;
-
-        if (!secret) {
-          throw new Error("Checkout session did not return a client secret.");
-        }
-
-        if (!isMounted) return;
-        setClientSecret(secret);
-
-        if (onSuccess && sessionId) {
-          onSuccess(sessionId);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
