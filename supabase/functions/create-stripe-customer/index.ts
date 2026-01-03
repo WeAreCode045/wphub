@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
     // Check if user already has a Stripe customer
     const { data: user } = await supabase
-      .from("public.users")
+      .from("users")
       .select("stripe_customer_id")
       .eq("id", userId)
       .single();
@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
     // Update user with stripe_customer_id in public.users table
     // Note: This should be done via Stripe Sync Engine, but we do it here for registration flow
     const { error: updateError } = await supabase
-      .from("public.users")
+      .from("users")
       .update({ stripe_customer_id: customerId })
       .eq("id", userId);
 

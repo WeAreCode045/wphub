@@ -66,7 +66,7 @@ serve(async (req) => {
     );
 
     const { data: user } = await supabase
-      .from('public.users')
+      .from('users')
       .select('stripe_customer_id, email, full_name')
       .eq('id', caller.id)
       .single();
@@ -88,12 +88,13 @@ serve(async (req) => {
 
       // Persist to users table
       const { error: updateError } = await supabase
-        .from('public.users')
+        .from('users')
         .update({ stripe_customer_id: stripeCustomerId })
         .eq('id', caller.id);
 
       if (updateError) {
-        return jsonResponse({ error: 'Failed to persist Stripe customer ID' }, 500);
+        console.error('[CREATE-CHECKOUT-SESSION] Persist stripe_customer_id failed:', updateError);
+        return jsonResponse({ error: 'Failed to persist Stripe customer ID', details: updateError.message }, 500);
       }
     }
 
@@ -122,7 +123,6 @@ serve(async (req) => {
       ],
       mode: 'subscription',
       customer: stripeCustomerId,
-      customer_email: user?.email,
       return_url: `${returnUrl}?session_id={CHECKOUT_SESSION_ID}`,
       customer_update: {
         address: 'auto',
@@ -174,6 +174,8 @@ serve(async (req) => {
   } catch (error) {
     console.error('[CREATE-CHECKOUT-SESSION] Error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
-    return jsonResponse({ error: message }, 500);
+    const details = typeof error === 'object' && error !== null && 'raw' in error ? (error as any).raw : undefined;
+    const status = details?.statusCode && typeof details.statusCode === 'number' ? details.statusCode : 500;
+    return jsonResponse({ error: message, details }, status);
   }
 });
