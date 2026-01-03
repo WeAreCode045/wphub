@@ -113,6 +113,7 @@ export default function Layout({ children, currentPageName }) {
       createPageUrl("UserManager"),
       createPageUrl("AdminMessages"),
       createPageUrl("AdminNotifications"),
+      createPageUrl("AdminSubscriptionDashboard"),
       createPageUrl("FinanceSettings"),
       createPageUrl("SiteSettings"),
       createPageUrl("PlatformActivities"),
@@ -471,6 +472,7 @@ export default function Layout({ children, currentPageName }) {
     { title: "Financieel", url: createPageUrl("FinanceSettings"), icon: DollarSign },
     { title: "Abonnementen", url: createPageUrl("SubscriptionOverview"), icon: Users },
     { title: "Producten", url: createPageUrl("ProductManagement"), icon: Package },
+    { title: "Subscription Analytics", url: createPageUrl("AdminSubscriptionDashboard"), icon: BarChart3 },
   ];
 
   const controlRoomItems = [
