@@ -689,14 +689,14 @@ function PaymentMethodTab({
   onPaymentMethodUpdated,
 }: PaymentMethodTabProps) {
   const queryClient = useQueryClient();
-  const [isAdding, setIsAdding] = useState(false);
   const [showCardForm, setShowCardForm] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
   const [cardholderName, setCardholderName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stripeReady, setStripeReady] = useState(false);
+  const stripeRef = React.useRef<any>(null);
+  const cardElementRef = React.useRef<any>(null);
+  const clientSecretRef = React.useRef<string | null>(null);
 
   // Mutation for setting default payment method
   const setDefaultMutation = useMutation({
@@ -734,85 +734,137 @@ function PaymentMethodTab({
     },
   });
 
+  // Initialize Stripe and card element when form is shown
+  React.useEffect(() => {
+    if (!showCardForm) return;
+
+    const initializeStripe = async () => {
+      try {
+        // Load Stripe.js if not already loaded
+        if (!(window as any).Stripe) {
+          const script = document.createElement("script");
+          script.src = "https://js.stripe.com/v3/";
+          script.async = true;
+          script.onload = () => {
+            setupCardElement();
+          };
+          document.body.appendChild(script);
+        } else {
+          setupCardElement();
+        }
+      } catch (err) {
+        console.error('[CARD] Error loading Stripe:', err);
+        setError("Failed to load payment form");
+      }
+    };
+
+    const setupCardElement = async () => {
+      try {
+        // Create setup intent first
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("Not authenticated");
+
+        console.log('[CARD] Creating setup intent');
+        const setupResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/create-setup-intent`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+
+        if (!setupResponse.ok) {
+          const data = await setupResponse.json();
+          throw new Error(data.error || "Failed to create setup intent");
+        }
+
+        const setupData = await setupResponse.json();
+        const { client_secret } = setupData;
+        clientSecretRef.current = client_secret;
+
+        console.log('[CARD] Setup intent created');
+
+        // Initialize Stripe
+        const Stripe = (window as any).Stripe;
+        const stripe = Stripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
+        stripeRef.current = stripe;
+
+        // Create elements
+        const elements = stripe.elements({
+          clientSecret: client_secret,
+        });
+
+        // Create card element
+        const cardElement = elements.create("card", {
+          hidePostalCode: true,
+          style: {
+            base: {
+              fontSize: "16px",
+              color: "#1f2937",
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+              "::placeholder": {
+                color: "#9ca3af",
+              },
+            },
+            invalid: {
+              color: "#ef4444",
+            },
+          },
+        });
+
+        cardElementRef.current = cardElement;
+
+        // Mount card element
+        const cardContainer = document.getElementById("card-element");
+        if (cardContainer) {
+          cardElement.mount("#card-element");
+          setStripeReady(true);
+          console.log('[CARD] Card element mounted');
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to initialize card form";
+        setError(errorMessage);
+        console.error('[CARD] Error:', err);
+      }
+    };
+
+    initializeStripe();
+
+    // Cleanup
+    return () => {
+      if (cardElementRef.current) {
+        try {
+          cardElementRef.current.unmount();
+          cardElementRef.current = null;
+        } catch (e) {
+          console.warn('[CARD] Error unmounting card element:', e);
+        }
+      }
+    };
+  }, [showCardForm]);
+
   const handleAddPaymentMethod = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
 
     try {
+      if (!stripeRef.current || !cardElementRef.current || !clientSecretRef.current) {
+        throw new Error("Payment form not initialized");
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      // Step 1: Create setup intent
-      console.log('[PAYMENT] Creating setup intent');
-      const setupResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/create-setup-intent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }
-      );
+      const stripe = stripeRef.current;
+      const cardElement = cardElementRef.current;
 
-      if (!setupResponse.ok) {
-        const data = await setupResponse.json();
-        throw new Error(data.error || "Failed to create setup intent");
-      }
-
-      const setupData = await setupResponse.json();
-      const { client_secret, customer_id } = setupData;
-
-      console.log('[PAYMENT] Setup intent created, client_secret:', client_secret);
-
-      // Step 2: Load Stripe (we'll use a simple approach without installing @stripe/react-stripe-js)
-      const stripeUrl = "https://js.stripe.com/v3/";
-      if (!(window as any).Stripe) {
-        await new Promise((resolve) => {
-          const script = document.createElement("script");
-          script.src = stripeUrl;
-          script.onload = resolve;
-          document.body.appendChild(script);
-        });
-      }
-
-      const Stripe = (window as any).Stripe;
-      const stripe = Stripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
-
-      // Step 3: Create elements and card element
-      const elements = stripe.elements({
-        clientSecret: client_secret,
-      });
-
-      const cardElement = elements.create("card", {
-        hidePostalCode: true,
-        style: {
-          base: {
-            fontSize: "16px",
-            color: "#424770",
-            "::placeholder": {
-              color: "#aab7c4",
-            },
-          },
-          invalid: {
-            color: "#fa755a",
-          },
-        },
-      });
-
-      // Remove any existing card element
-      const cardContainer = document.getElementById("card-element");
-      if (cardContainer) {
-        cardContainer.innerHTML = "";
-      }
-
-      // Mount the card element
-      cardElement.mount("#card-element");
-
-      // Step 4: Confirm the setup intent
-      console.log('[PAYMENT] Confirming setup intent');
-      const confirmResult = await stripe.confirmCardSetup(client_secret, {
+      // Confirm the setup intent with the card element
+      console.log('[CARD] Confirming setup intent');
+      const confirmResult = await stripe.confirmCardSetup(clientSecretRef.current, {
         payment_method: {
           card: cardElement,
           billing_details: {
@@ -825,9 +877,9 @@ function PaymentMethodTab({
         throw new Error(confirmResult.error.message);
       }
 
-      console.log('[PAYMENT] Setup intent confirmed');
+      console.log('[CARD] Setup intent confirmed');
 
-      // Step 5: Confirm with backend
+      // Confirm with backend
       const confirmResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL || ''}/functions/v1/confirm-setup-intent`,
         {
@@ -847,14 +899,12 @@ function PaymentMethodTab({
         throw new Error(data.error || "Failed to confirm payment method");
       }
 
-      console.log('[PAYMENT] Payment method added successfully');
+      console.log('[CARD] Payment method added successfully');
 
       // Reset form and refresh
       setShowCardForm(false);
-      setCardNumber("");
-      setCardExpiry("");
-      setCardCvc("");
       setCardholderName("");
+      setError(null);
       
       // Refresh payment methods
       queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
@@ -864,7 +914,7 @@ function PaymentMethodTab({
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to add payment method";
       setError(errorMessage);
-      console.error('[PAYMENT] Error:', err);
+      console.error('[CARD] Error:', err);
     } finally {
       setIsSubmitting(false);
     }
@@ -890,7 +940,7 @@ function PaymentMethodTab({
         <h2 className="text-lg font-semibold text-slate-900 mb-6">Add Payment Method</h2>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
             {error}
           </div>
         )}
@@ -906,7 +956,7 @@ function PaymentMethodTab({
               onChange={(e) => setCardholderName(e.target.value)}
               placeholder="John Doe"
               required
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
@@ -914,7 +964,13 @@ function PaymentMethodTab({
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Card Details
             </label>
-            <div id="card-element" className="px-3 py-2 border border-slate-300 rounded-lg"></div>
+            <div 
+              id="card-element" 
+              className="px-4 py-3 border border-slate-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent bg-white"
+            ></div>
+            {!stripeReady && (
+              <p className="text-xs text-slate-500 mt-2">Loading card form...</p>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -923,6 +979,7 @@ function PaymentMethodTab({
               onClick={() => {
                 setShowCardForm(false);
                 setError(null);
+                setCardholderName("");
               }}
               className="flex-1 px-4 py-2 border border-slate-300 text-slate-900 rounded-lg hover:bg-slate-50 transition-all"
             >
@@ -930,10 +987,10 @@ function PaymentMethodTab({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !cardholderName}
-              className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-slate-300 transition-all"
+              disabled={isSubmitting || !cardholderName || !stripeReady}
+              className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all"
             >
-              {isSubmitting ? "Adding..." : "Add Card"}
+              {isSubmitting ? "Processing..." : "Add Card"}
             </button>
           </div>
         </form>
