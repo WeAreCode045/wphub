@@ -25,6 +25,7 @@ import {
   Crown,
   Edit,
   Ban,
+  CreditCard,
   
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -66,6 +67,14 @@ export default function UserDetail() {
   const [editForm, setEditForm] = useState({ full_name: "", email: "", company: "", phone: "", role: "" });
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+  const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [showDiscountDialog, setShowDiscountDialog] = useState(false);
+  const [discountForm, setDiscountForm] = useState({
+    discount_percent: 10,
+    duration_type: 'once',
+    duration_months: 3,
+  });
 
   // Redirect if no userId - with delay to ensure searchParams are loaded
   useEffect(() => {
@@ -132,6 +141,22 @@ export default function UserDetail() {
     initialData: [],
   });
 
+  const { data: userSubscription } = useQuery({
+    queryKey: ['user-subscription', userId],
+    queryFn: async () => {
+      if (!userId) return null;
+      return entities.UserSubscription.get(userId);
+    },
+    enabled: !!userId,
+  });
+
+  const { data: availablePlans = [] } = useQuery({
+    queryKey: ['subscription-plans'],
+    queryFn: () => entities.SubscriptionPlan.list(),
+    enabled: isAdmin,
+    initialData: [],
+  });
+
   
 
   const updateUserMutation = useMutation({
@@ -174,6 +199,93 @@ export default function UserDetail() {
     }
   });
 
+  const assignSubscriptionMutation = useMutation({
+    mutationFn: async ({ user_id, plan_id }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+      
+      const response = await fetch(
+        'https://ossyxxlplvqakowiwbok.supabase.co/functions/v1/admin-assign-subscription',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ user_id, plan_id }),
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to assign subscription');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-subscription', userId] });
+      setShowSubscriptionDialog(false);
+      setSelectedPlanId("");
+      toast({
+        title: "Abonnement toegewezen",
+        description: "Het abonnement is succesvol toegewezen aan de gebruiker.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Fout bij toewijzen",
+        description: error.message,
+      });
+    }
+  });
+
+  const applyDiscountMutation = useMutation({
+    mutationFn: async ({ user_id, discount_percent, duration_type, duration_months }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+      
+      const response = await fetch(
+        'https://ossyxxlplvqakowiwbok.supabase.co/functions/v1/admin-apply-subscription-discount',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ user_id, discount_percent, duration_type, duration_months }),
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to apply discount');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-subscription', userId] });
+      setShowDiscountDialog(false);
+      toast({
+        title: "Korting toegepast",
+        description: "De korting is succesvol toegepast op het abonnement.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Fout bij toepassen korting",
+        description: error.message,
+      });
+    }
+  });
+
   
 
   const handleEditSubmit = () => {
@@ -186,6 +298,24 @@ export default function UserDetail() {
     if (window.confirm(`Weet je zeker dat je deze gebruiker wilt ${newStatus === "inactive" ? "blokkeren" : "deblokkeren"}?`)) {
       blockUserMutation.mutate(newStatus);
     }
+  };
+
+  const handleAssignSubscription = () => {
+    if (!selectedPlanId || !userId) return;
+    assignSubscriptionMutation.mutate({ 
+      user_id: userId, 
+      plan_id: parseInt(selectedPlanId) 
+    });
+  };
+
+  const handleApplyDiscount = () => {
+    if (!userId) return;
+    applyDiscountMutation.mutate({ 
+      user_id: userId,
+      discount_percent: discountForm.discount_percent,
+      duration_type: discountForm.duration_type,
+      duration_months: discountForm.duration_type === 'repeating' ? discountForm.duration_months : undefined,
+    });
   };
 
   const getInitials = (name) => {
@@ -563,7 +693,93 @@ export default function UserDetail() {
           </Card>
         </div>
 
-        {/* Subscription section removed */}
+        {/* Subscription Management Section */}
+        {isAdmin && (
+          <Card className="border-none shadow-lg mb-8">
+            <CardHeader className="border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-indigo-600" />
+                  <CardTitle>Abonnement Beheer</CardTitle>
+                </div>
+                <div className="flex gap-2">
+                  {userSubscription && (
+                    <Button
+                      onClick={() => setShowDiscountDialog(true)}
+                      size="sm"
+                      variant="outline"
+                      className="border-green-200 text-green-700 hover:bg-green-50"
+                    >
+                      <Badge className="w-4 h-4 mr-2" />
+                      Korting Toepassen
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => setShowSubscriptionDialog(true)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Abonnement Toewijzen
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {userSubscription ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Huidig Plan</p>
+                      <p className="text-xl font-bold text-gray-900">{userSubscription.plan_name}</p>
+                    </div>
+                    <Badge
+                      className={
+                        userSubscription.status === 'active'
+                          ? 'bg-green-100 text-green-700 border-green-200'
+                          : userSubscription.status === 'trialing'
+                          ? 'bg-blue-100 text-blue-700 border-blue-200'
+                          : 'bg-gray-100 text-gray-700 border-gray-200'
+                      }
+                    >
+                      {userSubscription.status === 'active' && <CheckCircle className="w-3 h-3 mr-1" />}
+                      {userSubscription.status}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-1">Startdatum</p>
+                      <p className="text-sm font-medium">
+                        {userSubscription.period_start_date 
+                          ? format(new Date(userSubscription.period_start_date), "d MMM yyyy", { locale: nl })
+                          : '-'}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-1">Einddatum</p>
+                      <p className="text-sm font-medium">
+                        {userSubscription.period_end_date 
+                          ? format(new Date(userSubscription.period_end_date), "d MMM yyyy", { locale: nl })
+                          : '-'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-500 mb-4">Geen actief abonnement</p>
+                  <Button
+                    onClick={() => setShowSubscriptionDialog(true)}
+                    size="sm"
+                  >
+                    Abonnement Toewijzen
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent>
@@ -656,6 +872,153 @@ export default function UserDetail() {
           defaultRecipientType="user"
           defaultRecipientId={targetUser.id}
         />
+
+        {/* Subscription Assignment Dialog */}
+        <Dialog open={showSubscriptionDialog} onOpenChange={setShowSubscriptionDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Abonnement Toewijzen</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-gray-600">
+                Wijs een abonnement toe aan <strong>{targetUser.full_name}</strong>. 
+                Dit zal een nieuw Stripe-abonnement aanmaken en eventuele bestaande actieve abonnementen vervangen.
+              </p>
+              
+              {userSubscription && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">
+                    <strong>Let op:</strong> Gebruiker heeft momenteel het "{userSubscription.plan_name}" plan. 
+                    Dit zal worden vervangen.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="plan-select">Selecteer Abonnement</Label>
+                <Select
+                  value={selectedPlanId}
+                  onValueChange={setSelectedPlanId}
+                >
+                  <SelectTrigger id="plan-select">
+                    <SelectValue placeholder="Kies een abonnement..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id.toString()}>
+                        {plan.name} - €{(plan.monthly_price_cents / 100).toFixed(2)}/maand
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setShowSubscriptionDialog(false);
+                  setSelectedPlanId("");
+                }}
+              >
+                Annuleren
+              </Button>
+              <Button 
+                onClick={handleAssignSubscription} 
+                disabled={!selectedPlanId || assignSubscriptionMutation.isPending}
+              >
+                {assignSubscriptionMutation.isPending ? "Toewijzen..." : "Abonnement Toewijzen"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Discount Dialog */}
+        <Dialog open={showDiscountDialog} onOpenChange={setShowDiscountDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Korting Toepassen op Abonnement</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <p className="text-sm text-gray-600">
+                Pas een korting toe op het huidige abonnement van <strong>{targetUser.full_name}</strong>.
+              </p>
+
+              <div>
+                <Label htmlFor="discount-percent">Kortingspercentage (%)</Label>
+                <Input
+                  id="discount-percent"
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={discountForm.discount_percent}
+                  onChange={(e) => setDiscountForm({ ...discountForm, discount_percent: parseInt(e.target.value) || 0 })}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Voer een percentage in tussen 1% en 100%
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="duration-type">Duur van de Korting</Label>
+                <Select
+                  value={discountForm.duration_type}
+                  onValueChange={(value) => setDiscountForm({ ...discountForm, duration_type: value })}
+                >
+                  <SelectTrigger id="duration-type">
+                    <SelectValue placeholder="Kies duur..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="once">Eenmalig (volgende factuur)</SelectItem>
+                    <SelectItem value="repeating">Aantal maanden</SelectItem>
+                    <SelectItem value="forever">Voor altijd</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {discountForm.duration_type === 'repeating' && (
+                <div>
+                  <Label htmlFor="duration-months">Aantal Maanden</Label>
+                  <Input
+                    id="duration-months"
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={discountForm.duration_months}
+                    onChange={(e) => setDiscountForm({ ...discountForm, duration_months: parseInt(e.target.value) || 1 })}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    De korting wordt gedurende dit aantal maanden toegepast
+                  </p>
+                </div>
+              )}
+
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Voorbeeld:</strong> {discountForm.discount_percent}% korting {' '}
+                  {discountForm.duration_type === 'once' && 'op de volgende factuur'}
+                  {discountForm.duration_type === 'repeating' && `gedurende ${discountForm.duration_months} maanden`}
+                  {discountForm.duration_type === 'forever' && 'voor altijd'}
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowDiscountDialog(false)}
+              >
+                Annuleren
+              </Button>
+              <Button 
+                onClick={handleApplyDiscount} 
+                disabled={applyDiscountMutation.isPending || discountForm.discount_percent < 1 || discountForm.discount_percent > 100}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {applyDiscountMutation.isPending ? "Toepassen..." : "Korting Toepassen"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Manual subscription dialog removed */}
       </div>
