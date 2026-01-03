@@ -77,6 +77,9 @@ export default function UserDetail() {
     duration_months: 3,
   });
 
+  // Check admin status early for query dependencies
+  const isAdmin = currentUser?.role === "admin";
+
   // Redirect if no userId - with delay to ensure searchParams are loaded
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -354,7 +357,6 @@ export default function UserDetail() {
 
   const isActive = targetUser.status === "active" || !targetUser.status;
   const canEdit = currentUser?.role === "admin";
-  const isAdmin = currentUser?.role === "admin";
 
   return (
     <div className="p-6 md:p-8">
