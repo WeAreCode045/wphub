@@ -23,11 +23,16 @@ serve(async (req) => {
   try {
     // Authenticate user and verify admin
     const token = extractBearerFromReq(req);
+    console.log('[SYNC] Starting sync process...');
+    
     const user = await authMeWithToken(token);
     
     if (!user) {
+      console.error('[SYNC] No user authenticated');
       return jsonResponse({ error: 'Unauthorized' }, 401);
     }
+    
+    console.log('[SYNC] Authenticated user:', user.id);
 
     // Initialize Supabase with SERVICE_ROLE_KEY for bypassing RLS
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -112,17 +117,22 @@ serve(async (req) => {
     };
 
     // Get all users without stripe_customer_id
+    console.log('[SYNC] Querying users without stripe_customer_id...');
     const { data: usersWithoutStripe, error: usersError } = await supabaseClient
       .from('users')
       .select('id, email')
       .is('stripe_customer_id', null);
 
     if (usersError) {
-      console.error('Failed to fetch users:', usersError);
+      console.error('[SYNC] Failed to fetch users:', usersError);
       return jsonResponse({ error: 'Failed to fetch users: ' + usersError.message }, 500);
     }
 
-    console.log(`Found ${usersWithoutStripe?.length || 0} users without stripe_customer_id`);
+    console.log(`[SYNC] Found ${usersWithoutStripe?.length || 0} users without stripe_customer_id`);
+    
+    if (usersWithoutStripe && usersWithoutStripe.length > 0) {
+      console.log('[SYNC] First few users:', usersWithoutStripe.slice(0, 3).map(u => ({ id: u.id, email: u.email })));
+    }
 
     if (!usersWithoutStripe || usersWithoutStripe.length === 0) {
       return jsonResponse({
@@ -146,35 +156,41 @@ serve(async (req) => {
     // Process each user
     for (const userRecord of usersWithoutStripe) {
       try {
-        console.log(`Processing user ${userRecord.id} with email ${userRecord.email}`);
+        console.log(`[SYNC] ========================================`);
+        console.log(`[SYNC] Processing user ${userRecord.id} with email ${userRecord.email}`);
         let stripeCustomerId: string;
         let isExisting = false;
 
         // Check if customer exists with this email in Stripe
-        console.log(`Checking for existing Stripe customer with email ${userRecord.email}`);
+        console.log(`[SYNC] Checking Stripe for existing customer with email ${userRecord.email}`);
         const existingCustomers = await stripe.customers.list({
           email: userRecord.email,
           limit: 1,
         });
+        
+        console.log(`[SYNC] Stripe search returned ${existingCustomers.data.length} customers`);
 
         if (existingCustomers.data.length > 0) {
           // Customer exists, link it
           stripeCustomerId = existingCustomers.data[0].id;
           isExisting = true;
-          console.log(`Found existing Stripe customer ${stripeCustomerId} for ${userRecord.email}`);
+          console.log(`[SYNC] ✓ Found existing Stripe customer ${stripeCustomerId}, will link it`);
 
           // Update customer metadata to include platform_user_id
+          console.log(`[SYNC] Updating Stripe customer metadata...`);
           await stripe.customers.update(stripeCustomerId, {
             metadata: {
               platform_user_id: userRecord.id,
               linked_at: new Date().toISOString(),
             },
           });
+          console.log(`[SYNC] ✓ Metadata updated`);
 
+          console.log(`[SYNC] Updating database with customer ID...`);
           const updateResult = await updateUserWithCustomerId(userRecord.id, stripeCustomerId);
 
           if (!updateResult.success) {
-            console.error(`Failed to link customer for user ${userRecord.id}:`, updateResult.error);
+            console.error(`[SYNC] ✗ Failed to link customer for user ${userRecord.id}:`, updateResult.error);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
@@ -183,7 +199,7 @@ serve(async (req) => {
             });
             errors++;
           } else {
-            console.log(`Successfully linked user ${userRecord.id} to existing Stripe customer ${stripeCustomerId}`);
+            console.log(`[SYNC] ✓ Successfully linked user ${userRecord.id} to existing Stripe customer ${stripeCustomerId}`);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
@@ -194,7 +210,7 @@ serve(async (req) => {
           }
         } else {
           // Create new customer
-          console.log(`Creating new Stripe customer for ${userRecord.email}`);
+          console.log(`[SYNC] No existing customer found, creating new Stripe customer...`);
           const newCustomer = await stripe.customers.create({
             email: userRecord.email,
             metadata: {
@@ -204,12 +220,13 @@ serve(async (req) => {
           });
 
           stripeCustomerId = newCustomer.id;
-          console.log(`Created Stripe customer ${stripeCustomerId} for ${userRecord.email}`);
+          console.log(`[SYNC] ✓ Created Stripe customer ${stripeCustomerId}`);
 
+          console.log(`[SYNC] Updating database with customer ID...`);
           const updateResult = await updateUserWithCustomerId(userRecord.id, stripeCustomerId);
 
           if (!updateResult.success) {
-            console.error(`Failed to save customer for user ${userRecord.id}:`, updateResult.error);
+            console.error(`[SYNC] ✗ Failed to save customer for user ${userRecord.id}:`, updateResult.error);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
@@ -218,7 +235,7 @@ serve(async (req) => {
             });
             errors++;
           } else {
-            console.log(`Successfully saved Stripe customer ${stripeCustomerId} for user ${userRecord.id}`);
+            console.log(`[SYNC] ✓ Successfully saved Stripe customer ${stripeCustomerId} for user ${userRecord.id}`);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
@@ -229,7 +246,8 @@ serve(async (req) => {
           }
         }
       } catch (error) {
-        console.error(`Error processing user ${userRecord.id}:`, error);
+        console.error(`[SYNC] ✗ Error processing user ${userRecord.id}:`, error);
+        console.error(`[SYNC] Error details:`, error instanceof Error ? error.stack : error);
         results.push({
           user_id: userRecord.id,
           email: userRecord.email,
@@ -239,6 +257,9 @@ serve(async (req) => {
         errors++;
       }
     }
+
+    console.log(`[SYNC] ========================================`);
+    console.log(`[SYNC] Sync complete! Created: ${created}, Linked: ${linked}, Errors: ${errors}`);
 
     return jsonResponse({
       success: true,

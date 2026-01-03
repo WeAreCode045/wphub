@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Admin Sync</title>
+</head>
+<body>
+    <h1>Test Admin Sync Stripe Customers</h1>
+    <button id="testSync">Test Sync</button>
+    <button id="checkUsers">Check Users Without Customer</button>
+    <pre id="output"></pre>
+
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+        const SUPABASE_URL = 'https://ossyxxlplvqakowiwbok.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zc3l4eGxwbHZxYWtvd2l3Ym9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE3NTAxNzgsImV4cCI6MjA0NzMyNjE3OH0.MdDYVSkTiHMlTWDrRvOXYu48gxLIaB8RQczBNUaT5sk';
+
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const output = document.getElementById('output');
+
+        document.getElementById('checkUsers').addEventListener('click', async () => {
+            try {
+                output.textContent = 'Checking users...\n';
+                
+                // First login as admin
+                const { data: { session }, error: authError } = await supabase.auth.getSession();
+                
+                if (authError || !session) {
+                    output.textContent += 'Not logged in. Please login first.\n';
+                    return;
+                }
+
+                // Check users without stripe_customer_id
+                const { data: users, error: usersError } = await supabase
+                    .from('users')
+                    .select('id, email, stripe_customer_id')
+                    .is('stripe_customer_id', null);
+
+                if (usersError) {
+                    output.textContent += 'Error: ' + usersError.message + '\n';
+                    output.textContent += JSON.stringify(usersError, null, 2);
+                } else {
+                    output.textContent += `Found ${users?.length || 0} users without stripe_customer_id\n`;
+                    output.textContent += JSON.stringify(users, null, 2);
+                }
+            } catch (err) {
+                output.textContent += 'Error: ' + err.message + '\n' + err.stack;
+            }
+        });
+
+        document.getElementById('testSync').addEventListener('click', async () => {
+            try {
+                output.textContent = 'Starting sync...\n';
+                
+                const { data: { session }, error: authError } = await supabase.auth.getSession();
+                
+                if (authError || !session) {
+                    output.textContent += 'Not logged in. Please login first.\n';
+                    return;
+                }
+
+                output.textContent += 'Calling admin-sync-stripe-customers...\n';
+
+                const { data, error } = await supabase.functions.invoke('admin-sync-stripe-customers', {
+                    headers: {
+                        Authorization: `Bearer ${session.access_token}`
+                    }
+                });
+
+                if (error) {
+                    output.textContent += 'Error: ' + error.message + '\n';
+                    output.textContent += JSON.stringify(error, null, 2);
+                } else {
+                    output.textContent += 'Success!\n';
+                    output.textContent += JSON.stringify(data, null, 2);
+                }
+            } catch (err) {
+                output.textContent += 'Error: ' + err.message + '\n' + err.stack;
+            }
+        });
+    </script>
+</body>
+</html>
