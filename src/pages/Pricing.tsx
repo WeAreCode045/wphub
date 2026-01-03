@@ -43,11 +43,9 @@ const stripePromise = loadStripe(
  * Main Pricing Page Component
  */
 export default function PricingPage() {
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [prices, setPrices] = useState<Map<string, Price>>(new Map());
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">(
-    "monthly"
-  );
+  const [plans, setPlans] = useState([]);
+  const [prices, setPrices] = useState(new Map());
+  const [billingPeriod, setBillingPeriod] = useState("monthly");
   const [isLoading, setIsLoading] = useState(true);
 
   const { data: userSubscription } = useUserSubscription();
@@ -71,7 +69,7 @@ export default function PricingPage() {
       setPlans(plansData || []);
 
       // Collect all price IDs
-      const priceIds = new Set<string>();
+      const priceIds = new Set();
       plansData?.forEach((plan) => {
         priceIds.add(plan.stripe_price_monthly_id);
         priceIds.add(plan.stripe_price_yearly_id);
@@ -86,7 +84,7 @@ export default function PricingPage() {
       if (pricesError) throw pricesError;
 
       // Create price map
-      const priceMap = new Map<string, Price>();
+      const priceMap = new Map();
       pricesData?.forEach((price) => {
         priceMap.set(price.id, price);
       });
