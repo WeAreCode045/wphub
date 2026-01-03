@@ -5,11 +5,9 @@ import {
   EmbeddedCheckout,
 } from "@stripe/react-stripe-js";
 import { supabase } from "@/api/supabaseClient";
-import { useValidateCoupon } from "@/hooks/useStripeElements";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { AlertCircle, CheckCircle2, Gift, Loader2 } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
 const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
@@ -19,26 +17,24 @@ const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
  * 
  * Features:
  * - Stripe Embedded Checkout
- * - Coupon code validation and discount display
- * - Real-time discount calculation
- * - Plan details overview
+ * - Simple payment form focused on checkout capture
  * 
  * @param {string} priceId - Stripe Price ID for the product
  * @param {number} quantity - Quantity of items (default: 1)
  * @param {Object} selectedPlan - Selected subscription plan details
  * @param {string} billingPeriod - "monthly" or "yearly"
+ * @param {string} couponCode - Applied coupon code
  * @param {Object} metadata - Additional metadata to pass to Stripe
  * @param {Function} onSuccess - Callback when checkout session is created
  * @param {Function} onCancel - Callback when user cancels
- * @param {boolean} summaryOnly - If true, only show coupon section (for sidebar)
  */
 export default function CheckoutForm({
   priceId,
   quantity = 1,
   selectedPlan = null,
   billingPeriod = "monthly",
+  couponCode = null,
   metadata = {},
-  appliedCouponCode = null,
   onSuccess,
   onCancel,
 }) {
@@ -67,8 +63,6 @@ export default function CheckoutForm({
     }
     loadUserData();
   }, []);
-
-  const handleValidateCoupon = async (e) => {
 
   useEffect(() => {
     let isMounted = true;
@@ -99,7 +93,7 @@ export default function CheckoutForm({
           body: JSON.stringify({
             price_id: priceId,
             quantity,
-            coupon_code: appliedCouponCode || null,
+            coupon_code: couponCode || null,
             billing_details: user ? {
               address: {
                 line1: user.billing_address || undefined,
@@ -192,7 +186,7 @@ export default function CheckoutForm({
     return () => {
       isMounted = false;
     };
-  }, [priceId, quantity, metadata, onSuccess, appliedCouponCode, user]);
+  }, [priceId, quantity, metadata, onSuccess, couponCode, billingPeriod]);
 
   const options = useMemo(() => 
     clientSecret ? { clientSecret } : undefined, 
@@ -224,7 +218,7 @@ export default function CheckoutForm({
 
   return (
     <div className="w-full space-y-6">
-      {/* Checkout Section - Payment Form Only */}
+      {/* Checkout Section */}
       {isLoading ? (
         <div className="bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />

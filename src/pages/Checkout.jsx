@@ -361,7 +361,7 @@ export default function Checkout() {
                     quantity={1}
                     selectedPlan={selectedPlan}
                     billingPeriod={isYearly ? "yearly" : "monthly"}
-                    appliedCouponCode={appliedCoupon?.code || null}
+                    couponCode={appliedCoupon?.code || null}
                     onCancel={() => setSelectedPriceId(null)}
                   />
                 </CardContent>
