@@ -39,18 +39,17 @@ serve(async (req) => {
 
     const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify admin - with better error handling
+    // Verify admin - check role field
     let adminUser = null;
     try {
       const { data, error } = await supabaseClient
         .from('users')
-        .select('id, is_admin, role, email')
+        .select('id, role, email')
         .eq('id', user.id)
         .single();
 
       if (error) {
         console.error('Admin check error:', error);
-        // If RLS prevents query, try to infer from auth claims
         return jsonResponse({ 
           error: 'Failed to verify admin status: ' + error.message 
         }, 403);
@@ -62,11 +61,10 @@ serve(async (req) => {
       return jsonResponse({ error: 'Admin verification failed' }, 403);
     }
 
-    // Check if user is admin (check both is_admin and role = 'admin')
-    const isAdmin = adminUser?.is_admin === true || adminUser?.role === 'admin';
-    if (!adminUser || !isAdmin) {
+    // Check if user is admin (role = 'admin')
+    if (!adminUser || adminUser?.role !== 'admin') {
       return jsonResponse({ 
-        error: 'Admin access required. User is_admin = ' + adminUser?.is_admin + ', role = ' + adminUser?.role 
+        error: 'Admin access required. User role = ' + (adminUser?.role || 'null')
       }, 403);
     }
 

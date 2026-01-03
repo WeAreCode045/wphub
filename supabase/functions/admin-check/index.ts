@@ -32,7 +32,7 @@ serve(async (req) => {
     // Get user info from database
     const { data: userData, error: userError } = await supabaseClient
       .from('users')
-      .select('id, email, is_admin, role')
+      .select('id, email, role')
       .eq('id', user.id)
       .single();
 
@@ -45,17 +45,15 @@ serve(async (req) => {
       }, 200);
     }
 
-    // Check both is_admin and role
-    const isAdmin = userData?.is_admin === true || userData?.role === 'admin';
+    // Check if user role is admin
+    const isAdmin = userData?.role === 'admin';
 
     return jsonResponse({
       authenticated_user_id: user.id,
       authenticated_user_email: user.email,
       database_user: userData,
-      is_admin_in_db: userData?.is_admin || false,
       user_role: userData?.role || 'unknown',
-      is_admin_by_role: userData?.role === 'admin',
-      is_admin_overall: isAdmin,
+      is_admin: isAdmin,
       can_sync: isAdmin
     }, 200);
 
