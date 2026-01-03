@@ -9,17 +9,28 @@ serve(async (req) => {
   }
 
   try {
+    console.log('[ASSIGN] Starting admin-assign-subscription');
+    console.log('[ASSIGN] Request method:', req.method);
+    
     // Authenticate user
     const token = extractBearerFromReq(req);
+    console.log('[ASSIGN] Token extracted:', token ? 'Yes' : 'No');
+    
     const caller = await authMeWithToken(token);
+    console.log('[ASSIGN] User authenticated:', caller ? caller.id : 'No');
     
     if (!caller) {
+      console.error('[ASSIGN] No caller authenticated');
       return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
+    console.log('[ASSIGN] Verifying admin role for user:', caller.id);
+    
     // Verify admin role
     const supa = Deno.env.get('SUPABASE_URL')?.replace(/\/$/, '') || '';
     const serviceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('[ASSIGN] Service key available:', serviceKey ? 'Yes' : 'No');
     
     const adminRes = await fetch(
       `${supa}/rest/v1/users?id=eq.${encodeURIComponent(caller.id)}`,
@@ -31,19 +42,30 @@ serve(async (req) => {
       }
     );
     
+    console.log('[ASSIGN] Admin check response status:', adminRes.status);
+    
     if (!adminRes.ok) {
+      console.error('[ASSIGN] Failed to verify admin');
       return jsonResponse({ error: 'Failed to verify admin' }, 500);
     }
     
     const adminArr = await adminRes.json();
     const admin = adminArr?.[0];
     
+    console.log('[ASSIGN] Admin found:', admin ? 'Yes' : 'No');
+    console.log('[ASSIGN] Admin role:', admin?.role);
+    
     if (!admin || admin.role !== 'admin') {
+      console.error('[ASSIGN] User is not admin. Role:', admin?.role);
       return jsonResponse({ error: 'Admin access required' }, 403);
     }
 
+    console.log('[ASSIGN] Admin verified. Parsing request body...');
+    
     // Get request body
     const { user_id, plan_id } = await req.json();
+    
+    console.log('[ASSIGN] Request body - user_id:', user_id, 'plan_id:', plan_id);
     
     if (!user_id || !plan_id) {
       return jsonResponse({ error: 'user_id and plan_id are required' }, 400);
