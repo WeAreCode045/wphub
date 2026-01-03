@@ -131,7 +131,39 @@ serve(async (req) => {
     let usersWithoutStripe: any[] = [];
     
     try {
-      // Use REST API directly to query users
+      // First, get ALL users to see the data
+      console.log('[SYNC] Step 1: Getting ALL users...');
+      const allUsersUrl = `${supabaseApiUrl}/rest/v1/users?select=id,email,stripe_customer_id&limit=10`;
+      console.log('[SYNC] All users URL:', allUsersUrl);
+      
+      const allUsersResponse = await fetch(allUsersUrl, {
+        headers: {
+          'apikey': serviceRoleKey,
+          'Authorization': `Bearer ${serviceRoleKey}`,
+        },
+      });
+
+      console.log('[SYNC] All users response status:', allUsersResponse.status);
+      const allUsersText = await allUsersResponse.text();
+      console.log('[SYNC] All users response:', allUsersText);
+      
+      let allUsers: any[] = [];
+      try {
+        allUsers = JSON.parse(allUsersText);
+        console.log('[SYNC] Total users found:', allUsers.length);
+        if (allUsers.length > 0) {
+          console.log('[SYNC] Sample user:', allUsers[0]);
+          // Check how many have null stripe_customer_id
+          const usersWithNull = allUsers.filter(u => u.stripe_customer_id === null);
+          console.log('[SYNC] Users with null stripe_customer_id:', usersWithNull.length);
+          console.log('[SYNC] Sample user with null:', usersWithNull[0]);
+        }
+      } catch (parseErr) {
+        console.error('[SYNC] Failed to parse all users:', parseErr);
+      }
+      
+      // Now try the filtered query
+      console.log('[SYNC] Step 2: Getting users with stripe_customer_id=is.null...');
       const queryUrl = `${supabaseApiUrl}/rest/v1/users?stripe_customer_id=is.null&select=id,email`;
       console.log('[SYNC] Query URL:', queryUrl);
       
@@ -163,8 +195,6 @@ serve(async (req) => {
       }
       
       console.log(`[SYNC] Found ${usersWithoutStripe?.length || 0} users without stripe_customer_id`);
-      console.log('[SYNC] User array type:', typeof usersWithoutStripe);
-      console.log('[SYNC] User array:', usersWithoutStripe);
       
       if (usersWithoutStripe && usersWithoutStripe.length > 0) {
         console.log('[SYNC] First user:', usersWithoutStripe[0]);
