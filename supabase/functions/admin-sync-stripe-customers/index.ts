@@ -124,38 +124,39 @@ serve(async (req) => {
       }
     };
 
-    // Get all users without stripe_customer_id
+    // Get all users without stripe_customer_id using direct REST API
     console.log('[SYNC] Querying users without stripe_customer_id...');
     
-    // Try with direct query first
-    const { data: allUsers, error: allUsersError } = await supabaseClient
-      .from('users')
-      .select('id, email, stripe_customer_id')
-      .limit(10);
-    
-    console.log('[SYNC] Test query - all users (first 10):', allUsers?.length || 0);
-    if (allUsersError) {
-      console.error('[SYNC] Test query error:', allUsersError);
-    }
-    
-    const { data: usersWithoutStripe, error: usersError } = await supabaseClient
-      .from('users')
-      .select('id, email, stripe_customer_id')
-      .is('stripe_customer_id', null);
+    try {
+      // Use REST API directly to query users
+      const restResponse = await fetch(
+        `${supabaseApiUrl}/rest/v1/users?stripe_customer_id=is.null&select=id,email`,
+        {
+          headers: {
+            'apikey': serviceRoleKey,
+            'Authorization': `Bearer ${serviceRoleKey}`,
+          },
+        }
+      );
 
-    console.log('[SYNC] Query completed');
-    console.log('[SYNC] Data:', usersWithoutStripe);
-    console.log('[SYNC] Error:', usersError);
-    
-    if (usersError) {
-      console.error('[SYNC] Failed to fetch users:', usersError);
-      return jsonResponse({ error: 'Failed to fetch users: ' + usersError.message }, 500);
-    }
+      if (!restResponse.ok) {
+        const errorText = await restResponse.text();
+        console.error('[SYNC] REST API error:', restResponse.status, errorText);
+        return jsonResponse({ 
+          error: `REST API error: ${restResponse.status} ${errorText}` 
+        }, 500);
+      }
 
-    console.log(`[SYNC] Found ${usersWithoutStripe?.length || 0} users without stripe_customer_id`);
-    
-    if (usersWithoutStripe && usersWithoutStripe.length > 0) {
-      console.log('[SYNC] First few users:', usersWithoutStripe.slice(0, 3).map(u => ({ id: u.id, email: u.email })));
+      const usersWithoutStripe = await restResponse.json();
+      console.log(`[SYNC] Found ${usersWithoutStripe?.length || 0} users without stripe_customer_id`);
+      
+      if (usersWithoutStripe && usersWithoutStripe.length > 0) {
+        console.log('[SYNC] First user:', usersWithoutStripe[0]);
+        console.log('[SYNC] First few users:', usersWithoutStripe.slice(0, 3).map(u => ({ id: u.id, email: u.email })));
+      }
+    } catch (fetchErr) {
+      console.error('[SYNC] Fetch error:', fetchErr);
+      return jsonResponse({ error: 'Failed to query users: ' + (fetchErr instanceof Error ? fetchErr.message : String(fetchErr)) }, 500);
     }
 
     if (!usersWithoutStripe || usersWithoutStripe.length === 0) {
