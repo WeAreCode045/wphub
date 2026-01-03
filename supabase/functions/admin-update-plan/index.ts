@@ -1,15 +1,35 @@
 import Stripe from "https://esm.sh/stripe@17.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { authMeWithToken, extractBearerFromReq, jsonResponse, corsHeaders } from '../_helpers.ts';
+import { corsHeaders } from '../_helpers.ts';
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!);
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || Deno.env.get("VITE_SUPABASE_URL");
-const SERVICE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+// Helper to extract JWT payload (already validated by Supabase)
+function getJWTPayload(token: string) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload;
+  } catch (e) {
+    console.error("Failed to parse JWT:", e);
+    return null;
+  }
+}
+
+function jsonResponse(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}
 
 interface UpdatePlanRequest {
   plan_id: number;
@@ -40,27 +60,42 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify token and check admin role
-    const token = extractBearerFromReq(req);
-    const caller = await authMeWithToken(token);
-    if (!caller) {
+    // Get auth header and extract user ID from JWT payload
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("No Authorization header");
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    // Check if caller is admin by querying users table
-    const adminRes = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(caller.id)}`, {
-      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
-    });
-    if (!adminRes.ok) {
-      console.error("Failed to verify admin status");
-      return jsonResponse({ error: "Failed to verify admin" }, 500);
+    const token = authHeader.replace("Bearer ", "");
+    const payload = getJWTPayload(token);
+    
+    if (!payload || !payload.sub) {
+      console.error("Invalid JWT payload");
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
-    const adminArr = await adminRes.json();
-    const admin = adminArr?.[0];
-    if (!admin || admin.role !== "admin") {
-      console.log("User role:", admin?.role, "User ID:", caller.id);
+
+    const userId = payload.sub;
+    console.log("User ID from JWT:", userId);
+
+    // Check if user is admin by querying the users table
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (userError) {
+      console.error("User lookup error:", userError.message);
+      return jsonResponse({ error: "User not found" }, 404);
+    }
+
+    if (!userData || userData.role !== "admin") {
+      console.log("User role:", userData?.role, "- Admin access required");
       return jsonResponse({ error: "Admin access required" }, 403);
     }
+
+    console.log("Admin verified for user:", userId);
 
     const body = (await req.json()) as UpdatePlanRequest;
     const {

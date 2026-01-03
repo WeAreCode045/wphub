@@ -1,15 +1,44 @@
 import Stripe from "https://esm.sh/stripe@17.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { authMeWithToken, extractBearerFromReq, jsonResponse, corsHeaders } from '../_helpers.ts';
+import { corsHeaders } from '../_helpers.ts';
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!);
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
+const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || Deno.env.get("VITE_SUPABASE_URL");
-const SERVICE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+if (!stripeSecretKey || !supabaseUrl || !serviceRoleKey) {
+  console.error("Missing environment variables:", {
+    hasStripeKey: !!stripeSecretKey,
+    hasUrl: !!supabaseUrl,
+    hasServiceKey: !!serviceRoleKey,
+  });
+}
+
+const stripe = new Stripe(stripeSecretKey || "");
+const supabase = createClient(supabaseUrl || "", serviceRoleKey || "");
+
+// Helper to extract JWT payload (already validated by Supabase)
+function getJWTPayload(token: string) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]));
+    return payload;
+  } catch (e) {
+    console.error("Failed to parse JWT:", e);
+    return null;
+  }
+}
+
+function jsonResponse(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}
 
 interface CreatePlanRequest {
   name: string;
@@ -38,55 +67,80 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  // Debug: Log environment variables
-  console.log("=== ENVIRONMENT CHECK ===");
-  console.log("SUPABASE_URL:", Deno.env.get("SUPABASE_URL") || "NOT SET");
-  console.log("VITE_SUPABASE_URL:", Deno.env.get("VITE_SUPABASE_URL") || "NOT SET");
-  console.log("SERVICE_ROLE_KEY exists:", Deno.env.get("SERVICE_ROLE_KEY") ? "YES" : "NO");
-  console.log("SUPABASE_SERVICE_ROLE_KEY exists:", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ? "YES" : "NO");
-  console.log("STRIPE_SECRET_KEY exists:", Deno.env.get("STRIPE_SECRET_KEY") ? "YES" : "NO");
-  console.log("========================");
-
   try {
-    // Verify token and check admin role
-    const token = extractBearerFromReq(req);
-    console.log("Token extracted:", token ? "Yes (length: " + token.length + ")" : "No");
+    console.log("=== START: admin-create-plan ===");
+    console.log("Environment check - has stripe key:", !!stripeSecretKey, "has url:", !!supabaseUrl, "has role key:", !!serviceRoleKey);
     
-    const caller = await authMeWithToken(token);
-    console.log("Auth result:", caller ? "Success - User ID: " + caller.id : "Failed");
+    // Get auth header and extract user ID from JWT payload
+    const authHeader = req.headers.get("Authorization");
+    console.log("Auth header present:", authHeader ? "yes" : "no");
     
-    if (!caller) {
-      console.error("authMeWithToken returned null - token invalid or expired");
-      return jsonResponse({ error: "Unauthorized - invalid or expired token" }, 401);
+    if (!authHeader) {
+      console.error("No Authorization header - returning 401");
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    // Check if caller is admin by querying users table
-    console.log("Checking admin status for user:", caller.id);
-    console.log("SUPABASE_URL:", SUPABASE_URL);
-    console.log("SERVICE_KEY exists:", SERVICE_KEY ? "Yes" : "No");
+    const token = authHeader.replace("Bearer ", "");
+    console.log("Token extracted, length:", token.length);
     
-    const adminRes = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(caller.id)}`, {
-      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
-    });
-    console.log("Admin check response status:", adminRes.status);
-    
-    if (!adminRes.ok) {
-      console.error("Failed to verify admin status - HTTP", adminRes.status);
-      const errorText = await adminRes.text();
-      console.error("Error response:", errorText);
-      return jsonResponse({ error: "Failed to verify admin" }, 500);
+    let payload;
+    try {
+      payload = getJWTPayload(token);
+      console.log("JWT payload parsed successfully:", !!payload);
+    } catch (e) {
+      console.error("Error parsing JWT payload:", e);
+      return jsonResponse({ error: "Invalid token format" }, 401);
     }
-    const adminArr = await adminRes.json();
-    console.log("Admin query result:", adminArr);
-    const admin = adminArr?.[0];
-    if (!admin || admin.role !== "admin") {
-      console.log("User role:", admin?.role, "User ID:", caller.id);
+    
+    if (!payload || !payload.sub) {
+      console.error("Invalid JWT payload - returning 401");
+      console.log("Payload:", payload);
+      return jsonResponse({ error: "Unauthorized" }, 401);
+    }
+
+    const userId = payload.sub;
+    console.log("User ID from JWT:", userId);
+
+    // Check if user is admin by querying the users table
+    let userData;
+    let userError;
+    try {
+      const result = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", userId)
+        .single();
+      
+      userData = result.data;
+      userError = result.error;
+      
+      console.log("User lookup result - error:", userError?.message, "data:", userData);
+    } catch (e) {
+      console.error("Exception during user lookup:", e);
+      return jsonResponse({ error: "Database query failed" }, 500);
+    }
+
+    if (userError) {
+      console.error("User lookup error:", userError.message);
+      return jsonResponse({ error: "User not found" }, 404);
+    }
+
+    if (!userData || userData.role !== "admin") {
+      console.log("User role:", userData?.role, "- Admin access required");
       return jsonResponse({ error: "Admin access required" }, 403);
     }
-    
-    console.log("Admin verified successfully");
 
-    const body = (await req.json()) as CreatePlanRequest;
+    console.log("Admin verified for user:", userId);
+
+    let body;
+    try {
+      body = (await req.json()) as CreatePlanRequest;
+      console.log("Request body parsed successfully");
+    } catch (e) {
+      console.error("Failed to parse request body:", e);
+      return jsonResponse({ error: "Invalid request body" }, 400);
+    }
+
     const {
       name,
       description,
