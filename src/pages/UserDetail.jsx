@@ -26,6 +26,7 @@ import {
   Edit,
   Ban,
   CreditCard,
+  Percent,
   
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -710,7 +711,7 @@ export default function UserDetail() {
                       variant="outline"
                       className="border-green-200 text-green-700 hover:bg-green-50"
                     >
-                      <Badge className="w-4 h-4 mr-2" />
+                      <Percent className="w-4 h-4 mr-2" />
                       Korting Toepassen
                     </Button>
                   )}
