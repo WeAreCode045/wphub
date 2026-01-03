@@ -126,21 +126,24 @@ serve(async (req) => {
 
     // Get all users without stripe_customer_id using direct REST API
     console.log('[SYNC] Querying users without stripe_customer_id...');
+    console.log('[SYNC] API URL:', supabaseApiUrl);
     
     let usersWithoutStripe: any[] = [];
     
     try {
       // Use REST API directly to query users
-      const restResponse = await fetch(
-        `${supabaseApiUrl}/rest/v1/users?stripe_customer_id=is.null&select=id,email`,
-        {
-          headers: {
-            'apikey': serviceRoleKey,
-            'Authorization': `Bearer ${serviceRoleKey}`,
-          },
-        }
-      );
+      const queryUrl = `${supabaseApiUrl}/rest/v1/users?stripe_customer_id=is.null&select=id,email`;
+      console.log('[SYNC] Query URL:', queryUrl);
+      
+      const restResponse = await fetch(queryUrl, {
+        headers: {
+          'apikey': serviceRoleKey,
+          'Authorization': `Bearer ${serviceRoleKey}`,
+        },
+      });
 
+      console.log('[SYNC] REST API response status:', restResponse.status);
+      
       if (!restResponse.ok) {
         const errorText = await restResponse.text();
         console.error('[SYNC] REST API error:', restResponse.status, errorText);
@@ -149,12 +152,22 @@ serve(async (req) => {
         }, 500);
       }
 
-      usersWithoutStripe = await restResponse.json();
+      const responseText = await restResponse.text();
+      console.log('[SYNC] REST API response text:', responseText);
+      
+      try {
+        usersWithoutStripe = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error('[SYNC] Failed to parse response:', parseErr);
+        usersWithoutStripe = [];
+      }
+      
       console.log(`[SYNC] Found ${usersWithoutStripe?.length || 0} users without stripe_customer_id`);
+      console.log('[SYNC] User array type:', typeof usersWithoutStripe);
+      console.log('[SYNC] User array:', usersWithoutStripe);
       
       if (usersWithoutStripe && usersWithoutStripe.length > 0) {
         console.log('[SYNC] First user:', usersWithoutStripe[0]);
-        console.log('[SYNC] First few users:', usersWithoutStripe.slice(0, 3).map(u => ({ id: u.id, email: u.email })));
       }
     } catch (fetchErr) {
       console.error('[SYNC] Fetch error:', fetchErr);
