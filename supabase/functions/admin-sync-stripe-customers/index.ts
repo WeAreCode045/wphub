@@ -127,6 +127,8 @@ serve(async (req) => {
     // Get all users without stripe_customer_id using direct REST API
     console.log('[SYNC] Querying users without stripe_customer_id...');
     
+    let usersWithoutStripe: any[] = [];
+    
     try {
       // Use REST API directly to query users
       const restResponse = await fetch(
@@ -147,7 +149,7 @@ serve(async (req) => {
         }, 500);
       }
 
-      const usersWithoutStripe = await restResponse.json();
+      usersWithoutStripe = await restResponse.json();
       console.log(`[SYNC] Found ${usersWithoutStripe?.length || 0} users without stripe_customer_id`);
       
       if (usersWithoutStripe && usersWithoutStripe.length > 0) {
