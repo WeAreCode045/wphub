@@ -113,9 +113,6 @@ export default function Layout({ children, currentPageName }) {
       createPageUrl("UserManager"),
       createPageUrl("AdminMessages"),
       createPageUrl("AdminNotifications"),
-      createPageUrl("SubscriptionPlans"),
-      createPageUrl("PlanGroups"),
-      createPageUrl("SubscriptionManager"),
       createPageUrl("FinanceSettings"),
       createPageUrl("SiteSettings"),
       createPageUrl("PlatformActivities"),
@@ -448,7 +445,7 @@ export default function Layout({ children, currentPageName }) {
     { title: "Themes", url: createPageUrl("Themes"), icon: Palette },
     { title: "Projecten", url: createPageUrl("Projects"), icon: Briefcase },
     { title: "Berichten", url: createPageUrl("UserMessages"), icon: Mail }, // Changed from Messages
-    { title: "Mijn Abonnement", url: createPageUrl("MySubscription"), icon: CreditCard }
+    // Subscription item removed
   ];
 
   const teamsWorkspaceItems = [
@@ -471,9 +468,6 @@ export default function Layout({ children, currentPageName }) {
   ];
 
   const businessItems = [
-    { title: "Plans", url: createPageUrl("SubscriptionPlans"), icon: Package },
-    { title: "Plan Groepen", url: createPageUrl("PlanGroups"), icon: Layers },
-    { title: "Abonnementen", url: createPageUrl("SubscriptionManager"), icon: Receipt },
     { title: "Financieel", url: createPageUrl("FinanceSettings"), icon: DollarSign }
   ];
 

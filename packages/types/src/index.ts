@@ -15,7 +15,6 @@ export * from './team';
 export * from './messaging';
 export * from './activity';
 export * from './connector';
-export * from './subscription';
 export * from './settings';
 
 // API types

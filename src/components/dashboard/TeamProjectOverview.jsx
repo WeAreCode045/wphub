@@ -8,19 +8,13 @@ import { Users, Briefcase, ArrowRight, Crown, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { checkSubscriptionLimit } from "../subscription/LimitChecker";
 import { useState, useEffect } from "react";
 
 export default function TeamProjectOverview({ userId }) {
-  const [teamsLimitInfo, setTeamsLimitInfo] = useState(null);
-  const [projectsLimitInfo, setProjectsLimitInfo] = useState(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    
-    checkSubscriptionLimit(userId, 'teams').then(setTeamsLimitInfo);
-    checkSubscriptionLimit(userId, 'projects').then(setProjectsLimitInfo);
-  }, [userId]);
+  // Limit info placeholders (subscriptions/limits were removed).
+  // Keep features enabled by default to avoid runtime errors.
+  const teamsLimitInfo = { enabled: true };
+  const projectsLimitInfo = { enabled: true };
 
   const { data: userTeams = [] } = useQuery({
     queryKey: ['dashboard-teams', userId],

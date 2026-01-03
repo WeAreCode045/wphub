@@ -25,8 +25,7 @@ import {
   Crown,
   Edit,
   Ban,
-  CreditCard,
-  Plus,
+  
 } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -67,13 +66,6 @@ export default function UserDetail() {
   const [editForm, setEditForm] = useState({ full_name: "", email: "", company: "", phone: "", role: "" });
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
-  const [showManualSubDialog, setShowManualSubDialog] = useState(false);
-  const [manualSubData, setManualSubData] = useState({
-    plan_id: '',
-    custom_amount: 0,
-    interval: 'month',
-    end_date: ''
-  });
 
   // Redirect if no userId - with delay to ensure searchParams are loaded
   useEffect(() => {
@@ -140,22 +132,7 @@ export default function UserDetail() {
     initialData: [],
   });
 
-  const { data: userSubscriptions = [] } = useQuery({
-    queryKey: ['user-subscriptions', userId],
-    queryFn: async () => {
-      if (!userId) return [];
-      return entities.UserSubscription.getByUserId(userId);
-    },
-    enabled: !!userId,
-    initialData: [],
-  });
-
-  const { data: subscriptionPlans = [] } = useQuery({
-    queryKey: ['subscription-plans'],
-    queryFn: () => entities.SubscriptionPlan.filter({ is_active: true }),
-    enabled: !!currentUser && currentUser.role === "admin",
-    initialData: [],
-  });
+  
 
   const updateUserMutation = useMutation({
     mutationFn: async (updatedData) => {
@@ -197,40 +174,7 @@ export default function UserDetail() {
     }
   });
 
-  const assignManualSubMutation = useMutation({
-    mutationFn: async (data) => {
-      if (!targetUser) throw new Error("Target user not found.");
-      const response = await supabase.functions.invoke('assignManualSubscription', {
-        user_id: targetUser.id,
-        ...data,
-        custom_amount: data.custom_amount,
-        end_date: data.end_date || null
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-subscriptions', userId] }); // Invalidate for the specific user
-      queryClient.invalidateQueries({ queryKey: ['user', userId] }); // Invalidate user detail
-      setShowManualSubDialog(false);
-      setManualSubData({
-        plan_id: '',
-        custom_amount: 0,
-        interval: 'month',
-        end_date: ''
-      });
-      toast({
-        title: "Abonnement toegewezen",
-        description: "Het handmatige abonnement is succesvol toegewezen.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Fout bij toewijzen",
-        description: error.message,
-      });
-    }
-  });
+  
 
   const handleEditSubmit = () => {
     updateUserMutation.mutate(editForm);
@@ -619,112 +563,7 @@ export default function UserDetail() {
           </Card>
         </div>
 
-        <Card className="border-none shadow-lg mb-8">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-indigo-600" />
-                  Abonnementen
-                </CardTitle>
-              </div>
-              {isAdmin && (
-                <Button
-                  onClick={() => setShowManualSubDialog(true)}
-                  size="sm"
-                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Handmatig Toewijzen
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {userSubscriptions.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                <p>Geen actief abonnement</p>
-                {isAdmin && (
-                  <Button
-                    onClick={() => setShowManualSubDialog(true)}
-                    size="sm"
-                    className="mt-4"
-                    variant="outline"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Abonnement Toewijzen
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {userSubscriptions.map((sub) => {
-                  const plan = subscriptionPlans.find(p => p.id === sub.plan_id);
-                  return (
-                    <div key={sub.id} className="border border-gray-200 rounded-xl p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{plan?.name || 'Onbekend Plan'}</h4>
-                          {sub.is_manual && (
-                            <Badge className="bg-purple-100 text-purple-700 mt-1">
-                              Handmatig Toegewezen
-                            </Badge>
-                          )}
-                        </div>
-                        <Badge className={
-                          sub.status === 'active' ? 'bg-green-100 text-green-700' :
-                          sub.status === 'trialing' ? 'bg-blue-100 text-blue-700' :
-                          'bg-gray-100 text-gray-700'
-                        }>
-                          {sub.status}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-600">Bedrag</p>
-                          <p className="font-medium text-gray-900">
-                            {sub.amount === 0 ? 'Gratis' : `€${(sub.amount / 100).toFixed(2)}`}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Interval</p>
-                          <p className="font-medium text-gray-900">
-                            {sub.interval === 'lifetime' ? 'Onbeperkt' :
-                             sub.interval === 'month' ? 'Maandelijks' : 'Jaarlijks'}
-                          </p>
-                        </div>
-                        {sub.is_manual && sub.assigned_by && (
-                          <div className="col-span-2">
-                            <p className="text-gray-600">Toegewezen door</p>
-                            <p className="font-medium text-gray-900">{sub.assigned_by}</p>
-                          </div>
-                        )}
-                        {sub.manual_end_date && (
-                          <div className="col-span-2">
-                            <p className="text-gray-600">Vervaldatum</p>
-                            <p className="font-medium text-gray-900">
-                              {sub.manual_end_date ? format(new Date(sub.manual_end_date), "d MMMM yyyy", { locale: nl }) : '-'}
-                            </p>
-                          </div>
-                        )}
-                        {!sub.is_manual && sub.current_period_end && (
-                          <div className="col-span-2">
-                            <p className="text-gray-600">Verlengdatum</p>
-                            <p className="font-medium text-gray-900">
-                              {sub.current_period_end ? format(new Date(sub.current_period_end), "d MMMM yyyy", { locale: nl }) : '-'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Subscription section removed */}
 
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent>
@@ -818,96 +657,7 @@ export default function UserDetail() {
           defaultRecipientId={targetUser.id}
         />
 
-        <Dialog open={showManualSubDialog} onOpenChange={setShowManualSubDialog}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Handmatig Abonnement Toewijzen</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-4">
-              <div>
-                <Label htmlFor="plan">Abonnementsplan *</Label>
-                <Select
-                  value={manualSubData.plan_id}
-                  onValueChange={(value) => setManualSubData({ ...manualSubData, plan_id: value })}
-                >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Selecteer een plan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subscriptionPlans.map((plan) => (
-                      <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="amount">Bedrag (in euro's)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={manualSubData.custom_amount / 100}
-                  onChange={(e) => setManualSubData({
-                    ...manualSubData,
-                    custom_amount: Math.round(parseFloat(e.target.value || 0) * 100)
-                  })}
-                  className="mt-2"
-                />
-                <p className="text-xs text-gray-500 mt-1">Laat op 0 voor gratis abonnement</p>
-              </div>
-
-              <div>
-                <Label htmlFor="interval">Interval</Label>
-                <Select
-                  value={manualSubData.interval}
-                  onValueChange={(value) => setManualSubData({ ...manualSubData, interval: value })}
-                >
-                  <SelectTrigger className="mt-2">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="month">Maandelijks</SelectItem>
-                    <SelectItem value="year">Jaarlijks</SelectItem>
-                    <SelectItem value="lifetime">Onbeperkt</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="end_date">Einddatum (optioneel)</Label>
-                <Input
-                  id="end_date"
-                  type="date"
-                  value={manualSubData.end_date}
-                  onChange={(e) => setManualSubData({ ...manualSubData, end_date: e.target.value })}
-                  className="mt-2"
-                />
-                <p className="text-xs text-gray-500 mt-1">Laat leeg voor onbeperkte duur</p>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowManualSubDialog(false)}
-                >
-                  Annuleren
-                </Button>
-                <Button
-                  onClick={() => assignManualSubMutation.mutate(manualSubData)}
-                  disabled={assignManualSubMutation.isPending || !manualSubData.plan_id}
-                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white border-0"
-                >
-                  {assignManualSubMutation.isPending ? "Toewijzen..." : "Abonnement Toewijzen"}
-                </Button>
-              </DialogFooter>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Manual subscription dialog removed */}
       </div>
     </div>
   );

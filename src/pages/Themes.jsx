@@ -53,8 +53,6 @@ import { createPageUrl } from "@/utils";
 import { useToast } from "@/components/ui/use-toast";
 import SendMessageDialog from "../components/messaging/SendMessageDialog";
 import SendNotificationDialog from "../components/messaging/SendNotificationDialog";
-import { checkSubscriptionLimit } from "../components/subscription/LimitChecker";
-import FeatureGate from "../components/subscription/FeatureGate";
 import { useUser } from "../Layout";
 
 export default function Themes() {
@@ -122,12 +120,6 @@ export default function Themes() {
   const uploadThemeMutation = useMutation({
     mutationFn: async (file) => {
       if (!user) throw new Error("User not loaded");
-      
-      const limitCheck = await checkSubscriptionLimit(user.id, 'themes');
-      
-      if (!limitCheck.allowed) {
-        throw new Error(limitCheck.message);
-      }
       
       const uploadResult = await integrations.Core.UploadFile({ file, bucket: 'Themes' });
       const fileUrl = uploadResult.file_url;
@@ -199,13 +191,7 @@ export default function Themes() {
   const addFromWpMutation = useMutation({
     mutationFn: async (wpTheme) => {
       if (!user) throw new Error("User not loaded");
-      
-      const limitCheck = await checkSubscriptionLimit(user.id, 'themes');
-      
-      if (!limitCheck.allowed) {
-        throw new Error(limitCheck.message);
-      }
-      
+
       const allExistingThemes = await entities.Theme.list();
       const existingTheme = allExistingThemes.find(t =>
         t.slug === wpTheme.slug &&
@@ -614,8 +600,7 @@ export default function Themes() {
   };
 
   return (
-    <FeatureGate userId={user?.id} featureType="themes">
-      <div className="p-8 bg-gray-50 min-h-full">
+    <div className="p-8 bg-gray-50 min-h-full">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Mijn Themes</h1>
           <p className="text-sm text-gray-600">Beheer je WordPress themes</p>
@@ -959,6 +944,5 @@ export default function Themes() {
           />
         )}
       </div>
-    </FeatureGate>
   );
 }

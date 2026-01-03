@@ -61,8 +61,6 @@ import { createPageUrl } from "@/utils";
 import { useToast } from "@/components/ui/use-toast";
 import SendMessageDialog from "../components/messaging/SendMessageDialog";
 import SendNotificationDialog from "../components/messaging/SendNotificationDialog";
-import { checkSubscriptionLimit } from "../components/subscription/LimitChecker";
-import FeatureGate from "../components/subscription/FeatureGate";
 import { useUser } from "../Layout";
 import { safeFormatDate, dateFormats } from "@/lib/dateFormatting";
 
@@ -205,12 +203,6 @@ export default function Sites() {
         // Show transfer request option
         setExistingSite(existing);
         throw new Error("SITE_EXISTS");
-      }
-      
-      const limitCheck = await checkSubscriptionLimit(user.id, 'sites');
-      
-      if (!limitCheck.allowed) {
-        throw new Error(limitCheck.message);
       }
 
       const apiKey = Math.random().toString(36).substring(2, 15) + 
@@ -661,8 +653,7 @@ export default function Sites() {
   };
 
   return (
-    <FeatureGate userId={user?.id} featureType="sites">
-      <div className="p-8">
+    <div className="p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Mijn Sites</h1>
           <p className="text-sm text-gray-600">Beheer je WordPress sites en overdrachtverzoeken</p>
@@ -1005,6 +996,5 @@ export default function Sites() {
           </>
         )}
       </div>
-    </FeatureGate>
   );
 }

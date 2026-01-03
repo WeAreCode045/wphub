@@ -22,11 +22,7 @@ import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectTemplates from './pages/ProjectTemplates';
 import Pricing from './pages/Pricing';
-import SubscriptionPlans from './pages/SubscriptionPlans';
-import MySubscription from './pages/MySubscription';
-import PlanGroups from './pages/PlanGroups';
 import AdminNotifications from './pages/AdminNotifications';
-import SubscriptionManager from './pages/SubscriptionManager';
 import FinanceSettings from './pages/FinanceSettings';
 import UserMessages from './pages/UserMessages';
 import AdminMessages from './pages/AdminMessages';
@@ -34,7 +30,6 @@ import Home from './pages/Home';
 import ProfileInfo from './pages/ProfileInfo';
 import Support from './pages/Support';
 import AdminSupportTickets from './pages/AdminSupportTickets';
-import InvoiceDetail from './pages/InvoiceDetail';
 import Themes from './pages/Themes';
 import ThemeDetail from './pages/ThemeDetail';
 import Login from './pages/Login';
@@ -66,11 +61,7 @@ export const PAGES = {
     "ProjectDetail": ProjectDetail,
     "ProjectTemplates": ProjectTemplates,
     "Pricing": Pricing,
-    "SubscriptionPlans": SubscriptionPlans,
-    "MySubscription": MySubscription,
-    "PlanGroups": PlanGroups,
     "AdminNotifications": AdminNotifications,
-    "SubscriptionManager": SubscriptionManager,
     "FinanceSettings": FinanceSettings,
     "UserMessages": UserMessages,
     "AdminMessages": AdminMessages,
@@ -78,7 +69,6 @@ export const PAGES = {
     "ProfileInfo": ProfileInfo,
     "Support": Support,
     "AdminSupportTickets": AdminSupportTickets,
-    "InvoiceDetail": InvoiceDetail,
     "Themes": Themes,
     "ThemeDetail": ThemeDetail,
     "Login": Login,

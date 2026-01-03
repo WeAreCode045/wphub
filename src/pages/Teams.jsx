@@ -40,9 +40,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { checkSubscriptionLimit } from "../components/subscription/LimitChecker";
 import { useToast } from "@/components/ui/use-toast";
-import FeatureGate from "../components/subscription/FeatureGate";
 import { useUser } from "../Layout";
 
 export default function Teams() {
@@ -84,12 +82,6 @@ export default function Teams() {
   const createTeamMutation = useMutation({
     mutationFn: async (teamData) => {
       if (!user) throw new Error("User not loaded");
-      
-      const limitCheck = await checkSubscriptionLimit(user.id, 'teams');
-      
-      if (!limitCheck.allowed) {
-        throw new Error(limitCheck.message);
-      }
 
       const newTeam = await entities.Team.create({
         name: teamData.name,
@@ -342,8 +334,7 @@ export default function Teams() {
   );
 
   return (
-    <FeatureGate userId={user?.id} featureType="teams">
-      <div className="p-8">
+    <div className="p-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Mijn Teams</h1>
           <p className="text-sm text-gray-600">Beheer je teams en samenwerking</p>
@@ -483,6 +474,5 @@ export default function Teams() {
           </DialogContent>
         </Dialog>
       </div>
-    </FeatureGate>
   );
 }

@@ -44,21 +44,16 @@ export default function AdminDashboard() {
     queryFn: async () => {
       if (!user || user.role !== 'admin') return null;
 
-      const [users, plugins, sites, subscriptions, activities] = await Promise.all([
+      const [users, plugins, sites, activities] = await Promise.all([
         entities.User.list("-created_date", 100),
         entities.Plugin.list("-updated_date", 100),
         entities.Site.list("-updated_date", 100),
-        entities.UserSubscription.list("-created_date", 100),
         entities.ActivityLog.list("-created_date", 50)
       ]);
-
-      const activeSubscriptions = subscriptions.filter(s => s.status === "active" || s.status === "trialing");
-      const mrr = activeSubscriptions.reduce((sum, s) => sum + (s.amount || 0), 0) / 100;
 
       const now = new Date();
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       const newUsersThisMonth = users.filter(u => u.created_date && new Date(u.created_date) > thirtyDaysAgo).length;
-      const newSubscriptionsThisMonth = subscriptions.filter(s => s.created_date && new Date(s.created_date) > thirtyDaysAgo).length;
 
       return {
         users: {
@@ -80,15 +75,6 @@ export default function AdminDashboard() {
           active: sites.filter(s => s.connection_status === "active").length,
           inactive: sites.filter(s => s.connection_status === "inactive").length,
           recentSites: sites.slice(0, 5)
-        },
-        subscriptions: {
-          total: subscriptions.length,
-          active: activeSubscriptions.length,
-          trialing: subscriptions.filter(s => s.status === "trialing").length,
-          canceled: subscriptions.filter(s => s.status === "canceled").length,
-          mrr: mrr,
-          newThisMonth: newSubscriptionsThisMonth,
-          recentSubscriptions: subscriptions.slice(0, 5)
         },
         activities: {
           total: activities.length,
@@ -184,76 +170,6 @@ export default function AdminDashboard() {
               <p className="text-xs text-gray-500 mt-2">
                 {stats.sites.active} actief • {stats.sites.inactive} inactief
               </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-amber-100 to-amber-200 rounded-xl flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-amber-600" />
-                </div>
-                <Badge className="bg-green-100 text-green-700">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  +{stats.subscriptions.newThisMonth}
-                </Badge>
-              </div>
-              <h3 className="text-sm font-medium text-gray-600 mb-1">MRR</h3>
-              <p className="text-3xl font-bold text-gray-900">€{stats.subscriptions.mrr.toFixed(2)}</p>
-              <p className="text-xs text-gray-500 mt-2">
-                {stats.subscriptions.active} actieve abonnementen
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Subscription Stats */}
-        <div className="grid md:grid-cols-4 gap-6 mb-6">
-          <Card className="border-none shadow-md">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Actieve Abonnementen</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.subscriptions.active}</p>
-                </div>
-                <CheckCircle className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-md">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Proefperiodes</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.subscriptions.trialing}</p>
-                </div>
-                <Calendar className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-md">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Geannuleerd</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.subscriptions.canceled}</p>
-                </div>
-                <XCircle className="w-8 h-8 text-red-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-md">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Totaal Abonnementen</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.subscriptions.total}</p>
-                </div>
-                <Receipt className="w-8 h-8 text-gray-500" />
-              </div>
             </CardContent>
           </Card>
         </div>

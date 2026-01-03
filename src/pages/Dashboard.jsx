@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { entities } from "@/api/entities";
 import { useQuery } from "@tanstack/react-query";
-import ProfileSubscriptionCard from "../components/dashboard/ProfileSubscriptionCard";
 import AccountUsageCard from "../components/dashboard/AccountUsageCard";
 import PluginSiteOverview from "../components/dashboard/PluginSiteOverview";
 import TeamProjectOverview from "../components/dashboard/TeamProjectOverview";
@@ -52,7 +51,6 @@ export default function Dashboard() {
         {/* Profile Card & Subscription Usage Card */}
         {user && (
           <div className="grid lg:grid-cols-2 gap-6 mb-6">
-            <ProfileSubscriptionCard user={user} />
             <AccountUsageCard userId={user.id} />
           </div>
         )}

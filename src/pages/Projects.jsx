@@ -52,8 +52,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { checkSubscriptionLimit } from "../components/subscription/LimitChecker";
-import FeatureGate from "../components/subscription/FeatureGate";
 import { useToast } from "@/components/ui/use-toast";
 import { useUser } from "../Layout";
 
@@ -156,13 +154,7 @@ export default function Projects() {
       if (team.owner_id !== user.id) {
         throw new Error("Alleen team owners kunnen projecten aanmaken");
       }
-      
-      const limitCheck = await checkSubscriptionLimit(user.id, 'projects');
-      
-      if (!limitCheck.allowed) {
-        throw new Error(limitCheck.message);
-      }
-      
+
       // If template is selected, get plugins from template
       let plugins = [];
       if (projectData.template_id) {
@@ -450,8 +442,7 @@ export default function Projects() {
   );
 
   return (
-    <FeatureGate userId={user?.id} featureType="projects">
-      <div className="p-8">
+    <div className="p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
@@ -676,6 +667,5 @@ export default function Projects() {
           )}
         </div>
       </div>
-    </FeatureGate>
   );
 }
