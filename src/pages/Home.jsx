@@ -22,11 +22,13 @@ import {
   Crown,
   Infinity as InfinityIcon
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { supabase } from "@/api/supabaseClient";
 
 export default function Home() {
   const [user, setUser] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadUser();
@@ -50,6 +52,22 @@ export default function Home() {
       return groups;
     },
     staleTime: 0,
+    initialData: [],
+  });
+
+  const { data: subscriptionPlans = [], isLoading: isLoadingPlans } = useQuery({
+    queryKey: ['public-subscription-plans'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("is_public", true)
+        .order("position", { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 5 * 60 * 1000,
     initialData: [],
   });
 
@@ -245,6 +263,100 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Subscription Plans Section */}
+      {subscriptionPlans.length > 0 && (
+        <section className="py-20 px-6 bg-gradient-to-br from-gray-50 to-gray-100">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 mb-4">
+                <Star className="w-3 h-3 mr-1" />
+                Abonnementen
+              </Badge>
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">
+                Kies het plan dat bij je past
+              </h2>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Transparante prijzen zonder verborgen kosten
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {subscriptionPlans.map((plan) => (
+                <Card 
+                  key={plan.id}
+                  className="border-2 border-gray-200 hover:border-indigo-300 hover:shadow-2xl transition-all duration-300 group bg-white"
+                >
+                  <CardHeader className="text-center pb-8">
+                    <div className="mb-4">
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                        {plan.name}
+                      </h3>
+                      <p className="text-gray-600 text-sm">
+                        {plan.description}
+                      </p>
+                    </div>
+                    
+                    <div className="mb-6">
+                      <div className="flex items-baseline justify-center mb-2">
+                        <span className="text-5xl font-bold text-gray-900">
+                          €{plan.monthly_price_cents ? (plan.monthly_price_cents / 100).toFixed(2) : "0.00"}
+                        </span>
+                        <span className="text-gray-600 ml-2">/maand</span>
+                      </div>
+                      {plan.trial_days > 0 && (
+                        <p className="text-sm text-green-600 font-medium">
+                          {plan.trial_days} dagen gratis proberen
+                        </p>
+                      )}
+                    </div>
+
+                    <Button 
+                      onClick={() => navigate('/Checkout')}
+                      className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white group-hover:scale-105 transition-transform"
+                    >
+                      <Rocket className="w-4 h-4 mr-2" />
+                      Selecteer Plan
+                    </Button>
+                  </CardHeader>
+
+                  <CardContent className="pt-6 border-t">
+                    {plan.features && plan.features.length > 0 && (
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900 mb-4">
+                          Inbegrepen:
+                        </p>
+                        <ul className="space-y-3">
+                          {plan.features.map((feature, idx) => (
+                            <li key={idx} className="flex items-start text-sm text-gray-700">
+                              <CheckCircle className="w-5 h-5 text-green-600 mr-3 flex-shrink-0 mt-0.5" />
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <div className="text-center mt-12">
+              <Button 
+                asChild 
+                variant="outline" 
+                size="lg"
+                className="border-2 border-indigo-200 hover:bg-indigo-50"
+              >
+                <Link to="/Checkout">
+                  Bekijk alle abonnementen
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* CTA Section */}
       <section className="py-20 px-6 bg-gradient-to-br from-indigo-600 to-purple-600">

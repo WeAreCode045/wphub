@@ -24,28 +24,18 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import {
-  Elements,
-  CardElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { useUserSubscription } from "@/hooks/useSubscriptionFeatures";
-
-const stripePromise = loadStripe(
-  import.meta.env.VITE_STRIPE_PUBLIC_KEY || ""
-);
 
 /**
  * Main Pricing Page Component
  */
 export default function PricingPage() {
-  const [plans, setPlans] = useState([]);
-  const [prices, setPrices] = useState(new Map());
-  const [billingPeriod, setBillingPeriod] = useState("monthly");
+  const navigate = useNavigate();
+  const [plans, setPlans] = useState<any[]>([]);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const [isLoading, setIsLoading] = useState(true);
 
   const { data: userSubscription } = useUserSubscription();
@@ -58,7 +48,7 @@ export default function PricingPage() {
     try {
       setIsLoading(true);
 
-      // Fetch plans
+      // Fetch plans with all data from subscription_plans table
       const { data: plansData, error: plansError } = await supabase
         .from("subscription_plans")
         .select("*")
@@ -67,28 +57,6 @@ export default function PricingPage() {
 
       if (plansError) throw plansError;
       setPlans(plansData || []);
-
-      // Collect all price IDs
-      const priceIds = new Set();
-      plansData?.forEach((plan) => {
-        priceIds.add(plan.stripe_price_monthly_id);
-        priceIds.add(plan.stripe_price_yearly_id);
-      });
-
-      // Fetch prices from Stripe sync
-      const { data: pricesData, error: pricesError } = await supabase
-        .from("stripe.prices")
-        .select("*")
-        .in("id", Array.from(priceIds));
-
-      if (pricesError) throw pricesError;
-
-      // Create price map
-      const priceMap = new Map();
-      pricesData?.forEach((price) => {
-        priceMap.set(price.id, price);
-      });
-      setPrices(priceMap);
     } catch (error) {
       console.error("Error loading plans:", error);
     } finally {
@@ -106,10 +74,10 @@ export default function PricingPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-slate-900 mb-4">
-            Simple, Transparent Pricing
+            Eenvoudige, Transparante Prijzen
           </h1>
           <p className="text-xl text-slate-600 mb-8">
-            Choose the perfect plan for your needs
+            Kies het perfecte plan voor jouw behoeften
           </p>
 
           {/* Billing Period Toggle */}
@@ -122,7 +90,7 @@ export default function PricingPage() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Monthly
+              Maandelijks
             </button>
             <button
               onClick={() => setBillingPeriod("yearly")}
@@ -132,9 +100,9 @@ export default function PricingPage() {
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              Yearly
+              Jaarlijks
               <span className="ml-2 text-xs font-semibold text-green-600">
-                Save 20%
+                Bespaar 20%
               </span>
             </button>
           </div>
@@ -144,7 +112,7 @@ export default function PricingPage() {
         {userSubscription?.is_active && (
           <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-green-900">
-              ✓ You're currently on the <strong>{userSubscription.plan_name}</strong> plan
+              ✓ Je hebt momenteel het <strong>{userSubscription.plan_name}</strong> abonnement
             </p>
           </div>
         )}
@@ -152,12 +120,6 @@ export default function PricingPage() {
         {/* Plans Grid */}
         <div className="grid md:grid-cols-3 gap-8">
           {plans.map((plan) => {
-            const priceId =
-              billingPeriod === "monthly"
-                ? plan.stripe_price_monthly_id
-                : plan.stripe_price_yearly_id;
-            const price = prices.get(priceId);
-
             const isCurrentPlan =
               userSubscription?.is_active &&
               userSubscription.plan_name === plan.name;
@@ -166,53 +128,38 @@ export default function PricingPage() {
               <PricingCard
                 key={plan.id}
                 plan={plan}
-                price={price}
                 billingPeriod={billingPeriod}
                 isCurrentPlan={isCurrentPlan}
                 onSelectPlan={() => {
-                  // Scroll to checkout
-                  document.getElementById("checkout")?.scrollIntoView({
-                    behavior: "smooth",
-                  });
-                  // Store selected plan for checkout
-                  sessionStorage.setItem(
-                    "selectedPriceId",
-                    priceId
-                  );
+                  // Navigate to checkout with selected plan
+                  navigate('/Checkout');
                 }}
               />
             );
           })}
         </div>
 
-        {/* Checkout Section */}
-        <div id="checkout" className="mt-16">
-          <Elements stripe={stripePromise}>
-            <CheckoutForm />
-          </Elements>
-        </div>
-
         {/* FAQ */}
         <div className="mt-16 max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold text-slate-900 mb-8">
-            Frequently Asked Questions
+            Veelgestelde Vragen
           </h2>
           <div className="space-y-4">
             <FAQItem
-              question="Can I change my plan anytime?"
-              answer="Yes! You can upgrade or downgrade your plan at any time. Changes take effect at the next billing cycle."
+              question="Kan ik mijn plan op elk moment wijzigen?"
+              answer="Ja! Je kunt je plan op elk moment upgraden of downgraden. Wijzigingen gaan in bij de volgende factuurcyclus."
             />
             <FAQItem
-              question="What payment methods do you accept?"
-              answer="We accept all major credit cards (Visa, Mastercard, American Express) via Stripe."
+              question="Welke betaalmethoden accepteren jullie?"
+              answer="We accepteren alle grote creditcards (Visa, Mastercard, American Express) via Stripe."
             />
             <FAQItem
-              question="Is there a free trial?"
-              answer="Most plans include a 14-day free trial so you can test all features before being charged."
+              question="Is er een gratis proefperiode?"
+              answer="De meeste plannen hebben een gratis proefperiode van 14 dagen, zodat je alle functies kunt testen voordat je betaalt."
             />
             <FAQItem
-              question="Do you offer refunds?"
-              answer="We offer a 30-day money-back guarantee if you're not satisfied with our service."
+              question="Bieden jullie terugbetalingen aan?"
+              answer="We bieden een 30 dagen niet-goed-geld-terug-garantie als je niet tevreden bent met onze dienst."
             />
           </div>
         </div>
@@ -225,8 +172,7 @@ export default function PricingPage() {
  * Pricing Card Component
  */
 interface PricingCardProps {
-  plan: SubscriptionPlan;
-  price: Price | undefined;
+  plan: any;
   billingPeriod: "monthly" | "yearly";
   isCurrentPlan: boolean;
   onSelectPlan: () => void;
@@ -234,22 +180,22 @@ interface PricingCardProps {
 
 function PricingCard({
   plan,
-  price,
   billingPeriod,
   isCurrentPlan,
   onSelectPlan,
 }: PricingCardProps) {
-  const displayPrice = price
-    ? (price.unit_amount / 100).toLocaleString("en-US", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      })
+  const priceInCents = billingPeriod === "monthly" 
+    ? plan.monthly_price_cents 
+    : plan.yearly_price_cents;
+  
+  const displayPrice = priceInCents
+    ? (priceInCents / 100).toFixed(2)
     : "TBD";
 
   const periodLabel =
     billingPeriod === "monthly"
-      ? "month"
-      : "year";
+      ? "maand"
+      : "jaar";
 
   return (
     <div
@@ -262,7 +208,7 @@ function PricingCard({
       <div className="p-8">
         {isCurrentPlan && (
           <div className="mb-4 inline-block px-3 py-1 text-sm font-semibold text-blue-600 bg-blue-100 rounded-full">
-            Current Plan
+            Huidig Plan
           </div>
         )}
 
@@ -273,10 +219,15 @@ function PricingCard({
         <div className="mb-6">
           <div className="flex items-baseline">
             <span className="text-4xl font-bold text-slate-900">
-              ${displayPrice}
+              €{displayPrice}
             </span>
             <span className="text-slate-600 ml-2">/{periodLabel}</span>
           </div>
+          {plan.trial_days > 0 && (
+            <p className="text-sm text-green-600 mt-2">
+              {plan.trial_days} dagen gratis proberen
+            </p>
+          )}
         </div>
 
         {/* CTA Button */}
@@ -289,20 +240,20 @@ function PricingCard({
               : "bg-blue-500 text-white hover:bg-blue-600"
           }`}
         >
-          {isCurrentPlan ? "Your Current Plan" : "Select Plan"}
+          {isCurrentPlan ? "Je Huidige Plan" : "Selecteer Plan"}
         </button>
 
         {/* Features */}
         <div className="space-y-3">
-          <h4 className="font-semibold text-slate-900 text-sm">Features:</h4>
+          <h4 className="font-semibold text-slate-900 text-sm">Kenmerken:</h4>
           <ul className="space-y-2 text-sm text-slate-700">
             <FeatureItem
               enabled={plan.stripe_product_id !== ""}
-              label="Get started"
+              label="Aan de slag"
             />
             <FeatureItem
               enabled={true}
-              label={`Priority support`}
+              label="Prioriteitsondersteuning"
             />
           </ul>
         </div>
@@ -401,165 +352,4 @@ function FAQItem({ question, answer }: FAQItemProps) {
   );
 }
 
-/**
- * Checkout Form Component
- */
-function CheckoutForm() {
-  const { user } = useAuth();
-  const stripe = useStripe();
-  const elements = useElements();
 
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!stripe || !elements || !user) {
-      return;
-    }
-
-    const selectedPriceId = sessionStorage.getItem("selectedPriceId");
-    if (!selectedPriceId) {
-      setError("Please select a plan");
-      return;
-    }
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      // Create payment method
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
-        throw new Error("Card element not found");
-      }
-
-      const { error: pmError, paymentMethod } =
-        await stripe.createPaymentMethod({
-          type: "card",
-          card: cardElement,
-        });
-
-      if (pmError) {
-        throw new Error(pmError.message);
-      }
-
-      if (!paymentMethod) {
-        throw new Error("Failed to create payment method");
-      }
-
-      // Get auth token
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Not authenticated");
-      }
-
-      // Call Edge Function to create subscription
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-subscription`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            price_id: selectedPriceId,
-            payment_method_id: paymentMethod.id,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to create subscription");
-      }
-
-      setSuccess(true);
-      sessionStorage.removeItem("selectedPriceId");
-
-      // Redirect to billing or dashboard
-      setTimeout(() => {
-        window.location.href = "/account/billing";
-      }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-      console.error("Checkout error:", err);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  if (!user) {
-    return (
-      <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
-        <p className="text-slate-600">
-          Please sign in to subscribe to a plan.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-slate-200 p-8 max-w-md mx-auto">
-      <h2 className="text-2xl font-bold text-slate-900 mb-6">
-        Complete Your Subscription
-      </h2>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
-          ✓ Subscription created successfully! Redirecting...
-        </div>
-      )}
-
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-slate-900 mb-2">
-          Card Details
-        </label>
-        <CardElement
-          options={{
-            style: {
-              base: {
-                fontSize: "16px",
-                color: "#1e293b",
-                "::placeholder": {
-                  color: "#cbd5e1",
-                },
-              },
-              invalid: {
-                color: "#dc2626",
-              },
-            },
-          }}
-          className="border border-slate-200 rounded-lg p-3"
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={isProcessing || !stripe || success}
-        className="w-full py-3 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed transition-all"
-      >
-        {isProcessing
-          ? "Processing..."
-          : success
-            ? "Subscription Created"
-            : "Subscribe Now"}
-      </button>
-
-      <p className="text-xs text-slate-600 text-center mt-4">
-        Your payment is secure and encrypted.
-      </p>
-    </form>
-  );
-}
