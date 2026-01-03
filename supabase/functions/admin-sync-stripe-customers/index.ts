@@ -85,8 +85,11 @@ serve(async (req) => {
       .is('stripe_customer_id', null);
 
     if (usersError) {
+      console.error('Failed to fetch users:', usersError);
       return jsonResponse({ error: 'Failed to fetch users: ' + usersError.message }, 500);
     }
+
+    console.log(`Found ${usersWithoutStripe?.length || 0} users without stripe_customer_id`);
 
     if (!usersWithoutStripe || usersWithoutStripe.length === 0) {
       return jsonResponse({
@@ -110,9 +113,11 @@ serve(async (req) => {
     // Process each user
     for (const userRecord of usersWithoutStripe) {
       try {
+        console.log(`Processing user ${userRecord.id} with email ${userRecord.email}`);
         let stripeCustomerId: string;
 
         // Check if customer exists with this email
+        console.log(`Checking for existing Stripe customer with email ${userRecord.email}`);
         const existingCustomers = await stripe.customers.list({
           email: userRecord.email,
           limit: 1,
@@ -121,6 +126,7 @@ serve(async (req) => {
         if (existingCustomers.data.length > 0) {
           // Customer exists, link it
           stripeCustomerId = existingCustomers.data[0].id;
+          console.log(`Found existing Stripe customer ${stripeCustomerId} for ${userRecord.email}`);
 
           const { error: updateError } = await supabaseClient
             .from('users')
@@ -128,6 +134,7 @@ serve(async (req) => {
             .eq('id', userRecord.id);
 
           if (updateError) {
+            console.error(`Failed to update user ${userRecord.id}:`, updateError);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
@@ -136,6 +143,7 @@ serve(async (req) => {
             });
             errors++;
           } else {
+            console.log(`Successfully linked user ${userRecord.id} to Stripe customer ${stripeCustomerId}`);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
@@ -146,6 +154,7 @@ serve(async (req) => {
           }
         } else {
           // Create new customer
+          console.log(`Creating new Stripe customer for ${userRecord.email}`);
           const newCustomer = await stripe.customers.create({
             email: userRecord.email,
             metadata: {
@@ -154,6 +163,7 @@ serve(async (req) => {
           });
 
           stripeCustomerId = newCustomer.id;
+          console.log(`Created Stripe customer ${stripeCustomerId} for ${userRecord.email}`);
 
           const { error: updateError } = await supabaseClient
             .from('users')
@@ -161,6 +171,7 @@ serve(async (req) => {
             .eq('id', userRecord.id);
 
           if (updateError) {
+            console.error(`Failed to update user ${userRecord.id} with Stripe customer:`, updateError);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
@@ -169,6 +180,7 @@ serve(async (req) => {
             });
             errors++;
           } else {
+            console.log(`Successfully saved Stripe customer ${stripeCustomerId} for user ${userRecord.id}`);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
@@ -179,6 +191,7 @@ serve(async (req) => {
           }
         }
       } catch (error) {
+        console.error(`Error processing user ${userRecord.id}:`, error);
         results.push({
           user_id: userRecord.id,
           email: userRecord.email,
