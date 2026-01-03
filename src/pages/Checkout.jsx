@@ -137,14 +137,14 @@ export default function Checkout() {
                     {plan.stripe_price_monthly_id && (
                       <div className="mb-2 flex items-baseline">
                         <span className="text-4xl font-bold text-gray-900">
-                          ${plan.price ? (plan.price / 100).toFixed(2) : "0.00"}
+                          €{plan.monthly_price_cents ? (plan.monthly_price_cents / 100).toFixed(2) : "0.00"}
                         </span>
-                        <span className="ml-2 text-gray-600">/month</span>
+                        <span className="ml-2 text-gray-600">/maand</span>
                       </div>
                     )}
                     {plan.trial_days > 0 && (
                       <p className="text-sm text-green-600">
-                        {plan.trial_days}-day free trial
+                        {plan.trial_days} dagen gratis proberen
                       </p>
                     )}
                   </div>
