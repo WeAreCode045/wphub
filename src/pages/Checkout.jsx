@@ -273,57 +273,6 @@ export default function Checkout() {
               </Card>
             </div>
           </div>
-                          <p className="text-sm font-semibold text-green-900">
-                            ✓ {selectedPlan.trial_days} days free trial
-                          </p>
-                          <p className="text-xs text-green-700 mt-1">
-                            No payment required during trial period
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="border-t pt-4 space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Subtotal:</span>
-                          <span className="font-semibold text-gray-900">
-                            €{isYearly 
-                              ? (selectedPlan.yearly_price_cents / 100).toFixed(2) 
-                              : (selectedPlan.monthly_price_cents / 100).toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-lg font-bold pt-2 border-t">
-                          <span>Total:</span>
-                          <span className="text-blue-600">
-                            €{isYearly 
-                              ? (selectedPlan.yearly_price_cents / 100).toFixed(2) 
-                              : (selectedPlan.monthly_price_cents / 100).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right Column - Checkout Form */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Complete Your Purchase</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CheckoutForm
-                    priceId={selectedPriceId}
-                    quantity={1}
-                    selectedPlan={selectedPlan}
-                    billingPeriod={isYearly ? "yearly" : "monthly"}
-                    onCancel={() => setSelectedPriceId(null)}
-                  />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
         </div>
       </div>
     );

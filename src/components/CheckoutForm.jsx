@@ -30,6 +30,7 @@ const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
  * @param {Object} metadata - Additional metadata to pass to Stripe
  * @param {Function} onSuccess - Callback when checkout session is created
  * @param {Function} onCancel - Callback when user cancels
+ * @param {boolean} summaryOnly - If true, only show coupon section (for sidebar)
  */
 export default function CheckoutForm({
   priceId,
@@ -39,6 +40,7 @@ export default function CheckoutForm({
   metadata = {},
   onSuccess,
   onCancel,
+  summaryOnly = false,
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -266,159 +268,91 @@ export default function CheckoutForm({
 
   return (
     <div className="w-full space-y-6">
-      {/* Plan Details Overview */}
-      {selectedPlan && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6">
-            <h3 className="font-semibold text-blue-900 mb-4">Plan Details</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-slate-700">Plan:</span>
-                <span className="font-semibold text-slate-900">{selectedPlan.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-700">Billing Period:</span>
-                <span className="font-semibold text-slate-900">
-                  {billingPeriod === "monthly" ? "Monthly" : "Yearly"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-700">Price:</span>
-                <span className="text-xl font-bold text-slate-900">
-                  €{billingPeriod === "monthly" 
-                    ? (selectedPlan.monthly_price_cents / 100).toFixed(2)
-                    : (selectedPlan.yearly_price_cents / 100).toFixed(2)}
-                  <span className="text-sm font-normal text-slate-600">
-                    /{billingPeriod === "monthly" ? "month" : "year"}
-                  </span>
-                </span>
-              </div>
-              {selectedPlan.trial_days > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-slate-700">Trial Period:</span>
-                  <span className="font-semibold text-green-700">
-                    {selectedPlan.trial_days} days free
-                  </span>
+      {/* SUMMARY ONLY MODE - Just show coupon section for sidebar */}
+      {summaryOnly ? (
+        <>
+          {/* Coupon Section in Summary */}
+          <div>
+            <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Have a coupon?
+            </h3>
+            
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between rounded-lg bg-green-50 p-3 border border-green-200">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium text-green-900 text-sm">
+                      {appliedCoupon.code}
+                    </p>
+                    <p className="text-xs text-green-700 mt-0.5">
+                      {appliedCoupon.type === 'percentage' 
+                        ? `${appliedCoupon.discount}% off` 
+                        : `€${(appliedCoupon.discount / 100).toFixed(2)} off`}
+                    </p>
+                  </div>
                 </div>
-              )}
-              <div className="pt-3 border-t border-blue-300 mt-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-700">Start Date:</span>
-                  <span className="font-semibold text-slate-900">
-                    {new Date().toLocaleDateString('nl-NL', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm mt-2">
-                  <span className="text-slate-700">Next Billing Date:</span>
-                  <span className="font-semibold text-slate-900">
-                    {(() => {
-                      const startDate = new Date();
-                      const trialDays = selectedPlan.trial_days || 0;
-                      const nextBilling = new Date(startDate);
-                      nextBilling.setDate(nextBilling.getDate() + trialDays);
-                      if (billingPeriod === "monthly") {
-                        nextBilling.setMonth(nextBilling.getMonth() + 1);
-                      } else {
-                        nextBilling.setFullYear(nextBilling.getFullYear() + 1);
-                      }
-                      return nextBilling.toLocaleDateString('nl-NL', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      });
-                    })()}
-                  </span>
-                </div>
+                <button
+                  onClick={handleRemoveCoupon}
+                  className="text-xs font-medium text-green-600 hover:text-green-700"
+                >
+                  ✕
+                </button>
               </div>
+            ) : (
+              <form onSubmit={handleValidateCoupon} className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Code"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  disabled={isValidatingCoupon}
+                  className="flex-1 text-sm"
+                />
+                <Button
+                  type="submit"
+                  disabled={isValidatingCoupon || !couponCode.trim()}
+                  size="sm"
+                  className="whitespace-nowrap"
+                >
+                  {isValidatingCoupon && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                  {isValidatingCoupon ? "..." : "Add"}
+                </Button>
+              </form>
+            )}
+            
+            {couponError && (
+              <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2">
+                <AlertCircle className="h-3 w-3 text-red-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-red-600">{couponError}</p>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* FULL MODE - Show payment form only */}
+          {/* Checkout Section */}
+          {isLoading ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />
+              <span className="text-blue-700 font-medium">Preparing payment form...</span>
             </div>
-          </CardContent>
-        </Card>
+          ) : !options ? (
+            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-yellow-800">
+                Unable to load payment form. Please select a plan.
+              </p>
+            </div>
+          ) : stripePromise && options ? (
+            <EmbeddedCheckoutProvider stripe={stripePromise} options={options} key={`checkout-${clientSecret}`}>
+              <EmbeddedCheckout />
+            </EmbeddedCheckoutProvider>
+          ) : null}
+        </>
       )}
-
-      {/* Coupon Section */}
-      <Card>
-        <CardContent className="pt-6">
-          <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <Gift className="h-4 w-4" />
-            Have a coupon?
-          </h3>
-          
-          {appliedCoupon ? (
-            <div className="flex items-center justify-between rounded-lg bg-green-50 p-4 border border-green-200">
-              <div className="flex items-start gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium text-green-900">
-                    Coupon applied: <span className="text-green-700">{appliedCoupon.code}</span>
-                  </p>
-                  <p className="text-sm text-green-700 mt-1">
-                    Discount: {appliedCoupon.type === 'percentage' 
-                      ? `${appliedCoupon.discount}%` 
-                      : `€${(appliedCoupon.discount / 100).toFixed(2)}`}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={handleRemoveCoupon}
-                className="text-sm font-medium text-green-600 hover:text-green-700 underline"
-              >
-                Remove
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleValidateCoupon} className="flex gap-2">
-              <Input
-                type="text"
-                placeholder="Enter coupon code"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                disabled={isValidatingCoupon}
-                className="flex-1"
-              />
-              <Button
-                type="submit"
-                disabled={isValidatingCoupon || !couponCode.trim()}
-                size="sm"
-              >
-                {isValidatingCoupon && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {isValidatingCoupon ? "Validating..." : "Apply"}
-              </Button>
-            </form>
-          )}
-          
-          {couponError && (
-            <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-              <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-red-600">{couponError}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Checkout Section */}
-      {isLoading ? (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="pt-6 flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />
-            <span className="text-blue-700 font-medium">Preparing payment form...</span>
-          </CardContent>
-        </Card>
-      ) : !options ? (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-yellow-800">
-            Unable to load payment form. Please double-check your Stripe key and select a plan.
-          </p>
-        </div>
-      ) : stripePromise && options ? (
-        <EmbeddedCheckoutProvider stripe={stripePromise} options={options} key={`checkout-${clientSecret}`}>
-          <EmbeddedCheckout />
-        </EmbeddedCheckoutProvider>
-      ) : null}
     </div>
   );
 }
