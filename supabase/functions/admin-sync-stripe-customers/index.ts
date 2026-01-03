@@ -43,7 +43,15 @@ serve(async (req) => {
     }
 
     // Use SERVICE_ROLE_KEY to bypass RLS
-    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+    
+    console.log('[SYNC] Supabase client initialized with service role key');
+    console.log('[SYNC] Using URL:', supabaseUrl);
     
     // Also create a client with explicit POST method for direct REST API updates
     const supabaseApiUrl = supabaseUrl.replace(/\/$/, '');
@@ -118,11 +126,27 @@ serve(async (req) => {
 
     // Get all users without stripe_customer_id
     console.log('[SYNC] Querying users without stripe_customer_id...');
+    
+    // Try with direct query first
+    const { data: allUsers, error: allUsersError } = await supabaseClient
+      .from('users')
+      .select('id, email, stripe_customer_id')
+      .limit(10);
+    
+    console.log('[SYNC] Test query - all users (first 10):', allUsers?.length || 0);
+    if (allUsersError) {
+      console.error('[SYNC] Test query error:', allUsersError);
+    }
+    
     const { data: usersWithoutStripe, error: usersError } = await supabaseClient
       .from('users')
-      .select('id, email')
+      .select('id, email, stripe_customer_id')
       .is('stripe_customer_id', null);
 
+    console.log('[SYNC] Query completed');
+    console.log('[SYNC] Data:', usersWithoutStripe);
+    console.log('[SYNC] Error:', usersError);
+    
     if (usersError) {
       console.error('[SYNC] Failed to fetch users:', usersError);
       return jsonResponse({ error: 'Failed to fetch users: ' + usersError.message }, 500);
