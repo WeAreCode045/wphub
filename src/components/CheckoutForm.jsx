@@ -38,19 +38,14 @@ export default function CheckoutForm({
   selectedPlan = null,
   billingPeriod = "monthly",
   metadata = {},
+  appliedCouponCode = null,
   onSuccess,
   onCancel,
-  summaryOnly = false,
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [couponError, setCouponError] = useState(null);
-  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
   const [clientSecret, setClientSecret] = useState(null);
   const [user, setUser] = useState(null);
-  const validateCouponMutation = useValidateCoupon();
 
   useEffect(() => {
     async function loadUserData() {
@@ -74,45 +69,6 @@ export default function CheckoutForm({
   }, []);
 
   const handleValidateCoupon = async (e) => {
-    e.preventDefault();
-    if (!couponCode.trim()) {
-      setCouponError("Please enter a coupon code");
-      return;
-    }
-
-    try {
-      setCouponError(null);
-      setIsValidatingCoupon(true);
-      const result = await validateCouponMutation.mutateAsync({
-        code: couponCode,
-        subscription_id: undefined,
-        amount: undefined,
-      });
-      
-      if (result.valid) {
-        setAppliedCoupon({
-          code: couponCode,
-          discount: result.discount,
-          type: result.type,
-        });
-        setCouponError(null);
-      } else {
-        setCouponError(result.message || "Invalid or expired coupon code");
-        setAppliedCoupon(null);
-      }
-    } catch (err) {
-      setCouponError(err.message || "Failed to validate coupon");
-      setAppliedCoupon(null);
-    } finally {
-      setIsValidatingCoupon(false);
-    }
-  };
-
-  const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponCode("");
-    setCouponError(null);
-  };
 
   useEffect(() => {
     let isMounted = true;
@@ -143,7 +99,7 @@ export default function CheckoutForm({
           body: JSON.stringify({
             price_id: priceId,
             quantity,
-            coupon_code: appliedCoupon?.code || null,
+            coupon_code: appliedCouponCode || null,
             billing_details: user ? {
               address: {
                 line1: user.billing_address || undefined,
@@ -236,7 +192,7 @@ export default function CheckoutForm({
     return () => {
       isMounted = false;
     };
-  }, [priceId, quantity, metadata, onSuccess, appliedCoupon]);
+  }, [priceId, quantity, metadata, onSuccess, appliedCouponCode, user]);
 
   const options = useMemo(() => 
     clientSecret ? { clientSecret } : undefined, 
@@ -268,91 +224,24 @@ export default function CheckoutForm({
 
   return (
     <div className="w-full space-y-6">
-      {/* SUMMARY ONLY MODE - Just show coupon section for sidebar */}
-      {summaryOnly ? (
-        <>
-          {/* Coupon Section in Summary */}
-          <div>
-            <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-              <Gift className="h-4 w-4" />
-              Have a coupon?
-            </h3>
-            
-            {appliedCoupon ? (
-              <div className="flex items-center justify-between rounded-lg bg-green-50 p-3 border border-green-200">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="font-medium text-green-900 text-sm">
-                      {appliedCoupon.code}
-                    </p>
-                    <p className="text-xs text-green-700 mt-0.5">
-                      {appliedCoupon.type === 'percentage' 
-                        ? `${appliedCoupon.discount}% off` 
-                        : `€${(appliedCoupon.discount / 100).toFixed(2)} off`}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleRemoveCoupon}
-                  className="text-xs font-medium text-green-600 hover:text-green-700"
-                >
-                  ✕
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleValidateCoupon} className="flex gap-2">
-                <Input
-                  type="text"
-                  placeholder="Code"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  disabled={isValidatingCoupon}
-                  className="flex-1 text-sm"
-                />
-                <Button
-                  type="submit"
-                  disabled={isValidatingCoupon || !couponCode.trim()}
-                  size="sm"
-                  className="whitespace-nowrap"
-                >
-                  {isValidatingCoupon && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-                  {isValidatingCoupon ? "..." : "Add"}
-                </Button>
-              </form>
-            )}
-            
-            {couponError && (
-              <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2">
-                <AlertCircle className="h-3 w-3 text-red-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-red-600">{couponError}</p>
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <>
-          {/* FULL MODE - Show payment form only */}
-          {/* Checkout Section */}
-          {isLoading ? (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />
-              <span className="text-blue-700 font-medium">Preparing payment form...</span>
-            </div>
-          ) : !options ? (
-            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-yellow-800">
-                Unable to load payment form. Please select a plan.
-              </p>
-            </div>
-          ) : stripePromise && options ? (
-            <EmbeddedCheckoutProvider stripe={stripePromise} options={options} key={`checkout-${clientSecret}`}>
-              <EmbeddedCheckout />
-            </EmbeddedCheckoutProvider>
-          ) : null}
-        </>
-      )}
+      {/* Checkout Section - Payment Form Only */}
+      {isLoading ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />
+          <span className="text-blue-700 font-medium">Preparing payment form...</span>
+        </div>
+      ) : !options ? (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-yellow-800">
+            Unable to load payment form. Please select a plan.
+          </p>
+        </div>
+      ) : stripePromise && options ? (
+        <EmbeddedCheckoutProvider stripe={stripePromise} options={options} key={`checkout-${clientSecret}`}>
+          <EmbeddedCheckout />
+        </EmbeddedCheckoutProvider>
+      ) : null}
     </div>
   );
 }

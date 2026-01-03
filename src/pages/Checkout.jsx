@@ -4,7 +4,9 @@ import { supabase } from "@/api/supabaseClient";
 import CheckoutForm from "@/components/CheckoutForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useValidateCoupon } from "@/hooks/useStripeElements";
+import { ArrowLeft, Package, Gift, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 /**
  * Checkout Page
@@ -19,6 +21,11 @@ export default function Checkout() {
   const [selectedPriceId, setSelectedPriceId] = useState(null);
   const [billingPeriod, setBillingPeriod] = useState("monthly");
   const [error, setError] = useState(null);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState(null);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const validateCouponMutation = useValidateCoupon();
 
   useEffect(() => {
     loadPlans();
@@ -62,6 +69,47 @@ export default function Checkout() {
   const handleCancel = () => {
     setSelectedPriceId(null);
     navigate("/BillingAccount");
+  };
+
+  const handleValidateCoupon = async (e) => {
+    e.preventDefault();
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+
+    try {
+      setCouponError(null);
+      setIsValidatingCoupon(true);
+      const result = await validateCouponMutation.mutateAsync({
+        code: couponCode,
+        subscription_id: undefined,
+        amount: undefined,
+      });
+      
+      if (result.valid) {
+        setAppliedCoupon({
+          code: couponCode,
+          discount: result.discount,
+          type: result.type,
+        });
+        setCouponError(null);
+      } else {
+        setCouponError(result.message || "Invalid or expired coupon code");
+        setAppliedCoupon(null);
+      }
+    } catch (err) {
+      setCouponError(err.message || "Failed to validate coupon");
+      setAppliedCoupon(null);
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError(null);
   };
 
   if (isLoading) {
@@ -219,14 +267,61 @@ export default function Checkout() {
 
                       {/* Coupon Section in Summary */}
                       <div className="border-t pt-4">
-                        <CheckoutForm
-                          priceId={selectedPriceId}
-                          quantity={1}
-                          selectedPlan={selectedPlan}
-                          billingPeriod={isYearly ? "yearly" : "monthly"}
-                          onCancel={() => setSelectedPriceId(null)}
-                          summaryOnly={true}
-                        />
+                        <h3 className="font-semibold text-sm text-gray-900 mb-3 flex items-center gap-2">
+                          <Gift className="h-4 w-4" />
+                          Have a coupon?
+                        </h3>
+                        
+                        {appliedCoupon ? (
+                          <div className="flex items-center justify-between rounded-lg bg-green-50 p-3 border border-green-200">
+                            <div className="flex items-start gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <p className="font-medium text-green-900 text-xs">
+                                  {appliedCoupon.code}
+                                </p>
+                                <p className="text-xs text-green-700 mt-0.5">
+                                  {appliedCoupon.type === 'percentage' 
+                                    ? `${appliedCoupon.discount}% off` 
+                                    : `€${(appliedCoupon.discount / 100).toFixed(2)} off`}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleRemoveCoupon}
+                              className="text-xs font-medium text-green-600 hover:text-green-700"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <form onSubmit={handleValidateCoupon} className="flex gap-2">
+                            <Input
+                              type="text"
+                              placeholder="Code"
+                              value={couponCode}
+                              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                              disabled={isValidatingCoupon}
+                              className="flex-1 text-sm"
+                            />
+                            <Button
+                              type="submit"
+                              disabled={isValidatingCoupon || !couponCode.trim()}
+                              size="sm"
+                              className="whitespace-nowrap"
+                            >
+                              {isValidatingCoupon && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                              {isValidatingCoupon ? "..." : "Add"}
+                            </Button>
+                          </form>
+                        )}
+                        
+                        {couponError && (
+                          <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-2">
+                            <AlertCircle className="h-3 w-3 text-red-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-red-600">{couponError}</p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Pricing Summary */}
@@ -266,8 +361,8 @@ export default function Checkout() {
                     quantity={1}
                     selectedPlan={selectedPlan}
                     billingPeriod={isYearly ? "yearly" : "monthly"}
+                    appliedCouponCode={appliedCoupon?.code || null}
                     onCancel={() => setSelectedPriceId(null)}
-                    summaryOnly={false}
                   />
                 </CardContent>
               </Card>
