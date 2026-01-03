@@ -1,6 +1,6 @@
 import Stripe from "https://esm.sh/stripe@17.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { jwtDecode } from "https://esm.sh/jwt-decode@4.0.0";
+import { authMeWithToken, extractBearerFromReq, jsonResponse, corsHeaders } from '../_helpers.ts';
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!);
 const supabase = createClient(
@@ -8,13 +8,8 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-interface JWTPayload {
-  sub: string;
-  user_metadata?: {
-    role?: string;
-  };
-  [key: string]: unknown;
-}
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || Deno.env.get("VITE_SUPABASE_URL");
+const SERVICE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 interface CreatePlanRequest {
   name: string;
@@ -36,53 +31,34 @@ interface CreatePlanRequest {
 Deno.serve(async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders() });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   if (req.method !== "POST") {
-    return error("Method not allowed", 405);
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   try {
-    // Verify JWT and check admin role
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return error("Missing Authorization header", 401);
+    // Verify token and check admin role
+    const token = extractBearerFromReq(req);
+    const caller = await authMeWithToken(token);
+    if (!caller) {
+      return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    let decoded: JWTPayload;
-    
-    try {
-      decoded = jwtDecode<JWTPayload>(token);
-    } catch (decodeErr) {
-      console.error("JWT decode error:", decodeErr);
-      return error("Invalid Authorization token", 401);
+    // Check if caller is admin by querying users table
+    const adminRes = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(caller.id)}`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+    });
+    if (!adminRes.ok) {
+      console.error("Failed to verify admin status");
+      return jsonResponse({ error: "Failed to verify admin" }, 500);
     }
-    
-    const userId = decoded.sub;
-
-    if (!userId) {
-      return error("Invalid token: missing user ID", 401);
-    }
-
-    // Check user role from database instead of JWT metadata
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", userId)
-      .single();
-
-    if (userError || !userData) {
-      console.error("User lookup error:", userError);
-      return error("User not found", 404);
-    }
-
-    const isAdmin = userData.role === "admin";
-    console.log("Auth debug - userId:", userId, "role:", userData.role, "isAdmin:", isAdmin);
-
-    if (!isAdmin) {
-      return error("Unauthorized: admin role required (user role: " + userData.role + ")", 403);
+    const adminArr = await adminRes.json();
+    const admin = adminArr?.[0];
+    if (!admin || admin.role !== "admin") {
+      console.log("User role:", admin?.role, "User ID:", caller.id);
+      return jsonResponse({ error: "Admin access required" }, 403);
     }
 
     const body = (await req.json()) as CreatePlanRequest;
@@ -179,45 +155,20 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to create plan in Supabase: ${planError.message}`);
     }
 
-    return success({
+    return jsonResponse({
       plan_id: plan.id,
       stripe_product_id: product.id,
       stripe_price_monthly_id: monthlyPrice.id,
       stripe_price_yearly_id: yearlyPrice.id,
       message: "Subscription plan created successfully",
-    });
+    }, 200);
   } catch (err) {
     console.error("Error creating plan:", err);
 
     if (err instanceof Stripe.errors.StripeError) {
-      return error(`Stripe error: ${err.message}`, 400);
+      return jsonResponse({ error: `Stripe error: ${err.message}` }, 400);
     }
 
-    return error(
-      err instanceof Error ? err.message : "Internal server error",
-      500
-    );
+    return jsonResponse({ error: err instanceof Error ? err.message : "Internal server error" }, 500);
   }
 });
-
-function success(data: unknown) {
-  return new Response(JSON.stringify(data), {
-    status: 200,
-    headers: corsHeaders(),
-  });
-}
-
-function error(message: string, status: number) {
-  return new Response(JSON.stringify({ error: message }), {
-    status,
-    headers: corsHeaders(),
-  });
-}
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, content-type",
-  };
-}
