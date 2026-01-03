@@ -73,18 +73,33 @@ serve(async (req) => {
 
     let stripeCustomerId = user?.stripe_customer_id;
 
-    // Create Stripe customer on-demand if missing
+    // Create or link Stripe customer on-demand if missing
     if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: user?.email || undefined,
-        name: user?.full_name || undefined,
-        metadata: {
-          platform_user_id: caller.id,
-          created_at: new Date().toISOString(),
-        },
-      });
+      let existingCustomerId: string | null = null;
 
-      stripeCustomerId = customer.id;
+      // Try to reuse existing Stripe customer by email
+      if (user?.email) {
+        const existing = await stripe.customers.list({ email: user.email, limit: 1 });
+        if (existing.data.length > 0) {
+          existingCustomerId = existing.data[0].id;
+        }
+      }
+
+      if (existingCustomerId) {
+        // Link existing customer
+        stripeCustomerId = existingCustomerId;
+      } else {
+        // Create new customer
+        const customer = await stripe.customers.create({
+          email: user?.email || undefined,
+          name: user?.full_name || undefined,
+          metadata: {
+            platform_user_id: caller.id,
+            created_at: new Date().toISOString(),
+          },
+        });
+        stripeCustomerId = customer.id;
+      }
 
       // Persist to users table
       const { error: updateError } = await supabase
