@@ -37,7 +37,11 @@ serve(async (req) => {
       return jsonResponse({ error: 'Service role key not configured' }, 500);
     }
 
+    // Use SERVICE_ROLE_KEY to bypass RLS
     const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
+    
+    // Also create a client with explicit POST method for direct REST API updates
+    const supabaseApiUrl = supabaseUrl.replace(/\/$/, '');
 
     // Verify admin - check role field
     let adminUser = null;
@@ -77,6 +81,36 @@ serve(async (req) => {
     const stripe = new Stripe(stripeSecretKey, {
       apiVersion: '2024-11-20.acacia',
     });
+
+    // Helper function to update user with Stripe customer ID using raw REST API
+    const updateUserWithCustomerId = async (userId: string, customerId: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const updateResponse = await fetch(
+          `${supabaseApiUrl}/rest/v1/users?id=eq.${encodeURIComponent(userId)}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'apikey': serviceRoleKey,
+              'Authorization': `Bearer ${serviceRoleKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ stripe_customer_id: customerId }),
+          }
+        );
+
+        if (!updateResponse.ok) {
+          const errorBody = await updateResponse.text();
+          console.error(`REST API update failed for user ${userId}:`, errorBody);
+          return { success: false, error: `REST API error: ${updateResponse.status} ${errorBody}` };
+        }
+
+        return { success: true };
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        console.error(`Failed to update user ${userId}:`, errMsg);
+        return { success: false, error: errMsg };
+      }
+    };
 
     // Get all users without stripe_customer_id
     const { data: usersWithoutStripe, error: usersError } = await supabaseClient
@@ -128,18 +162,15 @@ serve(async (req) => {
           stripeCustomerId = existingCustomers.data[0].id;
           console.log(`Found existing Stripe customer ${stripeCustomerId} for ${userRecord.email}`);
 
-          const { error: updateError } = await supabaseClient
-            .from('users')
-            .update({ stripe_customer_id: stripeCustomerId })
-            .eq('id', userRecord.id);
+          const updateResult = await updateUserWithCustomerId(userRecord.id, stripeCustomerId);
 
-          if (updateError) {
-            console.error(`Failed to update user ${userRecord.id}:`, updateError);
+          if (!updateResult.success) {
+            console.error(`Failed to link customer for user ${userRecord.id}:`, updateResult.error);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
               status: 'error',
-              error: 'Failed to update user: ' + updateError.message,
+              error: 'Failed to update user: ' + updateResult.error,
             });
             errors++;
           } else {
@@ -165,18 +196,15 @@ serve(async (req) => {
           stripeCustomerId = newCustomer.id;
           console.log(`Created Stripe customer ${stripeCustomerId} for ${userRecord.email}`);
 
-          const { error: updateError } = await supabaseClient
-            .from('users')
-            .update({ stripe_customer_id: stripeCustomerId })
-            .eq('id', userRecord.id);
+          const updateResult = await updateUserWithCustomerId(userRecord.id, stripeCustomerId);
 
-          if (updateError) {
-            console.error(`Failed to update user ${userRecord.id} with Stripe customer:`, updateError);
+          if (!updateResult.success) {
+            console.error(`Failed to save customer for user ${userRecord.id}:`, updateResult.error);
             results.push({
               user_id: userRecord.id,
               email: userRecord.email,
               status: 'error',
-              error: 'Failed to update user: ' + updateError.message,
+              error: 'Failed to update user: ' + updateResult.error,
             });
             errors++;
           } else {
