@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { entities } from "@/api/entities";
+import { entities, functions } from "@/api/entities";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,27 +31,33 @@ import {
   Eye,
   EyeOff,
   Save,
-  X
+  X,
+  Zap
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function ProductManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
       name: '',
       description: '',
-      stripe_product_id: '',
-      stripe_price_monthly_id: '',
-      stripe_price_yearly_id: '',
+      monthly_price_cents: 0,
+      yearly_price_cents: 0,
+      trial_days: 14,
       position: 0,
       is_public: true,
-      is_subscription: true,
-      trial_days: 14
+      limits_sites: 5,
+      feature_projects: false,
+      feature_local_plugins: false,
+      feature_local_themes: false,
+      feature_team_invites: false,
     }
   });
 
@@ -61,17 +67,58 @@ export default function ProductManagement() {
     queryFn: () => entities.SubscriptionPlan.list(),
   });
 
-  // Create plan mutation
+  // Create plan mutation - calls edge function to create in Stripe
   const createPlanMutation = useMutation({
-    mutationFn: (data) => entities.SubscriptionPlan.create(data),
+    mutationFn: async (data) => {
+      const { data: { session } } = await (await import('@/api/supabaseClient')).supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-plan`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: data.name,
+            description: data.description,
+            monthly_price_cents: Math.round(data.monthly_price_cents * 100),
+            yearly_price_cents: Math.round(data.yearly_price_cents * 100),
+            trial_days: data.trial_days,
+            position: data.position,
+            is_public: data.is_public,
+            features: {
+              limits_sites: data.limits_sites,
+              feature_projects: data.feature_projects,
+              feature_local_plugins: data.feature_local_plugins,
+              feature_local_themes: data.feature_local_themes,
+              feature_team_invites: data.feature_team_invites,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create plan');
+      }
+
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscription-plans'] });
       setShowCreateDialog(false);
       reset();
-      toast.success("Abonnementsplan succesvol aangemaakt");
+      toast.success("Abonnementsplan en Stripe product succesvol aangemaakt");
     },
     onError: (error) => {
-      toast.error("Fout bij aanmaken abonnement: " + error.message);
+      toast.error("Fout bij aanmaken: " + error.message);
     }
   });
 
@@ -113,12 +160,10 @@ export default function ProductManagement() {
     setEditingPlan(plan);
     setValue('name', plan.name);
     setValue('description', plan.description || '');
-    setValue('stripe_product_id', plan.stripe_product_id);
-    setValue('stripe_price_monthly_id', plan.stripe_price_monthly_id || '');
-    setValue('stripe_price_yearly_id', plan.stripe_price_yearly_id || '');
+    setValue('monthly_price_cents', plan.monthly_price_cents ? plan.monthly_price_cents / 100 : 0);
+    setValue('yearly_price_cents', plan.yearly_price_cents ? plan.yearly_price_cents / 100 : 0);
     setValue('position', plan.position);
     setValue('is_public', plan.is_public);
-    setValue('is_subscription', plan.is_subscription);
     setValue('trial_days', plan.trial_days || 14);
     setShowCreateDialog(true);
   };
@@ -199,40 +244,45 @@ export default function ProductManagement() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Stripe Koppeling</h3>
-
-                <div className="space-y-2">
-                  <Label htmlFor="stripe_product_id">Stripe Product ID *</Label>
-                  <Input
-                    id="stripe_product_id"
-                    {...register('stripe_product_id', { required: 'Stripe Product ID is verplicht' })}
-                    placeholder="prod_..."
-                  />
-                  {errors.stripe_product_id && <p className="text-sm text-red-600">{errors.stripe_product_id.message}</p>}
-                </div>
+                <h3 className="text-lg font-medium flex items-center">
+                  <DollarSign className="w-5 h-5 mr-2" />
+                  Prijzen
+                </h3>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="stripe_price_monthly_id">Maandelijkse Price ID</Label>
+                    <Label htmlFor="monthly_price_cents">Maandelijkse prijs ($) *</Label>
                     <Input
-                      id="stripe_price_monthly_id"
-                      {...register('stripe_price_monthly_id')}
-                      placeholder="price_..."
+                      id="monthly_price_cents"
+                      type="number"
+                      step="0.01"
+                      {...register('monthly_price_cents', {
+                        required: 'Maandelijkse prijs is verplicht',
+                        valueAsNumber: true,
+                        min: { value: 0, message: 'Prijs moet groter zijn dan 0' }
+                      })}
+                      placeholder="29.99"
                     />
+                    {errors.monthly_price_cents && <p className="text-sm text-red-600">{errors.monthly_price_cents.message}</p>}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="stripe_price_yearly_id">Jaarlijkse Price ID</Label>
+                    <Label htmlFor="yearly_price_cents">Jaarlijkse prijs ($) *</Label>
                     <Input
-                      id="stripe_price_yearly_id"
-                      {...register('stripe_price_yearly_id')}
-                      placeholder="price_..."
+                      id="yearly_price_cents"
+                      type="number"
+                      step="0.01"
+                      {...register('yearly_price_cents', {
+                        required: 'Jaarlijkse prijs is verplicht',
+                        valueAsNumber: true,
+                        min: { value: 0, message: 'Prijs moet groter zijn dan 0' }
+                      })}
+                      placeholder="299.99"
                     />
+                    {errors.yearly_price_cents && <p className="text-sm text-red-600">{errors.yearly_price_cents.message}</p>}
                   </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="trial_days">Proefperiode (dagen)</Label>
                   <Input
@@ -242,24 +292,93 @@ export default function ProductManagement() {
                     placeholder="14"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium flex items-center">
+                  <Zap className="w-5 h-5 mr-2" />
+                  Functies & Limieten
+                </h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="limits_sites">Max. aantal websites</Label>
+                    <Input
+                      id="limits_sites"
+                      type="number"
+                      {...register('limits_sites', { valueAsNumber: true })}
+                      placeholder="5"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="trial_days_alt">Proefperiode</Label>
+                    <Input
+                      disabled
+                      value={`${watch('trial_days')} dagen`}
+                      className="bg-gray-50"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2 border-t">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="feature_projects"
+                      {...register('feature_projects')}
+                      checked={watch('feature_projects')}
+                    />
+                    <Label htmlFor="feature_projects" className="mb-0">Projecten feature</Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="feature_local_plugins"
+                      {...register('feature_local_plugins')}
+                      checked={watch('feature_local_plugins')}
+                    />
+                    <Label htmlFor="feature_local_plugins" className="mb-0">Lokale plugins uploaden</Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="feature_local_themes"
+                      {...register('feature_local_themes')}
+                      checked={watch('feature_local_themes')}
+                    />
+                    <Label htmlFor="feature_local_themes" className="mb-0">Lokale thema's uploaden</Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="feature_team_invites"
+                      {...register('feature_team_invites')}
+                      checked={watch('feature_team_invites')}
+                    />
+                    <Label htmlFor="feature_team_invites" className="mb-0">Team leden uitnodigen</Label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="position">Volgorde (voor weergave)</Label>
+                  <Input
+                    id="position"
+                    type="number"
+                    {...register('position', { valueAsNumber: true })}
+                    placeholder="0"
+                  />
+                </div>
 
                 <div className="flex items-center space-x-2 pt-8">
                   <Switch
                     id="is_public"
                     {...register('is_public')}
-                    defaultChecked={watch('is_public')}
+                    checked={watch('is_public')}
                   />
                   <Label htmlFor="is_public">Openbaar zichtbaar</Label>
                 </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="is_subscription"
-                  {...register('is_subscription')}
-                  defaultChecked={watch('is_subscription')}
-                />
-                <Label htmlFor="is_subscription">Is abonnement (niet eenmalig)</Label>
               </div>
 
               <div className="flex justify-end space-x-2 pt-4">
@@ -302,38 +421,40 @@ export default function ProductManagement() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Product ID:</span>
-                  <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                    {plan.stripe_product_id.slice(-8)}
-                  </code>
-                </div>
-
-                {plan.stripe_price_monthly_id && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Maandelijks:</span>
-                    <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                      {plan.stripe_price_monthly_id.slice(-8)}
-                    </code>
-                  </div>
-                )}
-
-                {plan.stripe_price_yearly_id && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Jaarlijks:</span>
-                    <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                      {plan.stripe_price_yearly_id.slice(-8)}
-                    </code>
-                  </div>
-                )}
-
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Proefperiode:</span>
-                  <span>{plan.trial_days || 0} dagen</span>
+                  <span className="text-gray-600">Maandelijkse prijs:</span>
+                  <span className="font-semibold">${(plan.monthly_price_cents / 100).toFixed(2)}</span>
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Positie:</span>
-                  <span>{plan.position}</span>
+                  <span className="text-gray-600">Jaarlijkse prijs:</span>
+                  <span className="font-semibold">${(plan.yearly_price_cents / 100).toFixed(2)}</span>
+                </div>
+
+                <div className="border-t my-2 pt-2">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-600">Proefperiode:</span>
+                    <span>{plan.trial_days || 0} dagen</span>
+                  </div>
+
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-600">Websites:</span>
+                    <span>{plan.monthly_price_cents ? 'Onbeperkt' : 'Limiet'}</span>
+                  </div>
+
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Positie:</span>
+                    <span>{plan.position}</span>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500 mt-2 p-2 bg-gray-50 rounded">
+                  <div>Product ID: {plan.stripe_product_id.slice(-8)}</div>
+                  {plan.stripe_price_monthly_id && (
+                    <div>Monthly: {plan.stripe_price_monthly_id.slice(-8)}</div>
+                  )}
+                  {plan.stripe_price_yearly_id && (
+                    <div>Yearly: {plan.stripe_price_yearly_id.slice(-8)}</div>
+                  )}
                 </div>
               </div>
 
@@ -342,6 +463,8 @@ export default function ProductManagement() {
                   variant="outline"
                   size="sm"
                   onClick={() => handleEdit(plan)}
+                  disabled
+                  title="Bewerken is niet beschikbaar via Stripe"
                 >
                   <Edit className="w-4 h-4" />
                 </Button>
