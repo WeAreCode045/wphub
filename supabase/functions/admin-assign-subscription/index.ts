@@ -107,6 +107,39 @@ serve(async (req) => {
         .eq('id', user_id);
     }
 
+    // Check if customer has a default payment method
+    const customer = await stripe.customers.retrieve(customerId);
+    let defaultPaymentMethod = customer.invoice_settings?.default_payment_method as string | null;
+    
+    // If no payment method, check for platform default setting
+    if (!defaultPaymentMethod) {
+      const { data: settingsData } = await supabaseClient
+        .from('site_settings')
+        .select('setting_value')
+        .eq('setting_key', 'stripe_default_payment_method')
+        .single();
+      
+      if (settingsData?.setting_value) {
+        defaultPaymentMethod = settingsData.setting_value;
+        
+        // Attach the default payment method to the customer
+        try {
+          await stripe.paymentMethods.attach(defaultPaymentMethod, {
+            customer: customerId,
+          });
+          
+          // Set as default for the customer
+          await stripe.customers.update(customerId, {
+            invoice_settings: {
+              default_payment_method: defaultPaymentMethod,
+            },
+          });
+        } catch (e) {
+          console.error('Failed to attach default payment method:', e);
+        }
+      }
+    }
+
     // Check for existing active subscription
     const { data: existingSub } = await supabaseClient
       .from('user_subscriptions')

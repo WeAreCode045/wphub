@@ -63,6 +63,7 @@ export default function FinanceSettings() {
     item_background_color: "#f9fafb",
     text_color: "#111827"
   });
+  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState("");
   const [discountForm, setDiscountForm] = useState({
     code: "",
     description: "",
@@ -136,12 +137,14 @@ export default function FinanceSettings() {
         invoice_footer: settings.find(s => s.setting_key === 'invoice_footer')?.setting_value || "",
         accent_color: settings.find(s => s.setting_key === 'invoice_accent_color')?.setting_value || "#6366f1",
         item_background_color: settings.find(s => s.setting_key === 'invoice_item_bg_color')?.setting_value || "#f9fafb",
-        text_color: settings.find(s => s.setting_key === 'invoice_text_color')?.setting_value || "#111827"
+        text_color: settings.find(s => s.setting_key === 'invoice_text_color')?.setting_value || "#111827",
+        default_payment_method: settings.find(s => s.setting_key === 'stripe_default_payment_method')?.setting_value || ""
       };
     },
     enabled: !!user && user.role === "admin",
     onSuccess: (data) => {
       setInvoiceSettings(data);
+      setDefaultPaymentMethod(data.default_payment_method);
     }
   });
 
@@ -227,6 +230,33 @@ export default function FinanceSettings() {
     },
     onError: (error) => {
       alert('❌ Opslaan mislukt: ' + error.message);
+    }
+  });
+
+  const saveDefaultPaymentMethodMutation = useMutation({
+    mutationFn: async (paymentMethodId) => {
+      const existingSettings = await entities.SiteSettings.list();
+      const existing = existingSettings.find(s => s.setting_key === 'stripe_default_payment_method');
+      
+      if (existing) {
+        await entities.SiteSettings.update(existing.id, {
+          setting_value: paymentMethodId,
+          description: 'Default payment method ID to use for users without a payment method'
+        });
+      } else {
+        await entities.SiteSettings.create({
+          setting_key: 'stripe_default_payment_method',
+          setting_value: paymentMethodId,
+          description: 'Default payment method ID to use for users without a payment method'
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoice-settings'] });
+      alert('✅ Default payment method saved successfully!');
+    },
+    onError: (error) => {
+      alert('❌ Error saving: ' + error.message);
     }
   });
 
@@ -515,6 +545,72 @@ export default function FinanceSettings() {
                     <p className="text-gray-700">Webhooks zijn actief en ontvangen events van Stripe</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-md">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
+                  Default Payment Method
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-900 mb-2">
+                    <strong>Info:</strong> Set a default payment method that will be automatically assigned to users who don't have a payment method set when subscriptions are created.
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    This is useful for trial users or internal accounts where you want to provide a fallback payment method.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="default-payment-method">Default Payment Method ID</Label>
+                  <Input
+                    id="default-payment-method"
+                    placeholder="pm_xxxxxxxxxxxxx (Stripe Payment Method ID)"
+                    className="mt-2"
+                    value={defaultPaymentMethod}
+                    onChange={(e) => setDefaultPaymentMethod(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-600 mt-2">
+                    Enter a Stripe Payment Method ID (starts with 'pm_'). This will be used for users without their own payment method.
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    You can find payment methods in your <a href="https://dashboard.stripe.com/test/payment-methods" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Stripe Dashboard</a>
+                  </p>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => saveDefaultPaymentMethodMutation.mutate(defaultPaymentMethod)}
+                    disabled={saveDefaultPaymentMethodMutation.isPending || !defaultPaymentMethod.trim()}
+                  >
+                    {saveDefaultPaymentMethodMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Save Default Payment Method
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {defaultPaymentMethod && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      <strong>Current Setting:</strong> {defaultPaymentMethod}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      This payment method will be used when assigning subscriptions to users without a payment method.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
