@@ -29,21 +29,45 @@ serve(async (req) => {
       return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
-    // Initialize Supabase
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    );
+    // Initialize Supabase with SERVICE_ROLE_KEY for bypassing RLS
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    
+    if (!serviceRoleKey) {
+      return jsonResponse({ error: 'Service role key not configured' }, 500);
+    }
 
-    // Verify admin
-    const { data: adminUser, error: adminError } = await supabaseClient
-      .from('users')
-      .select('is_admin')
-      .eq('id', user.id)
-      .single();
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
-    if (adminError || !adminUser?.is_admin) {
-      return jsonResponse({ error: 'Admin access required' }, 403);
+    // Verify admin - with better error handling
+    let adminUser = null;
+    try {
+      const { data, error } = await supabaseClient
+        .from('users')
+        .select('id, is_admin, role, email')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Admin check error:', error);
+        // If RLS prevents query, try to infer from auth claims
+        return jsonResponse({ 
+          error: 'Failed to verify admin status: ' + error.message 
+        }, 403);
+      }
+
+      adminUser = data;
+    } catch (err) {
+      console.error('Admin verification failed:', err);
+      return jsonResponse({ error: 'Admin verification failed' }, 403);
+    }
+
+    // Check if user is admin (check both is_admin and role = 'admin')
+    const isAdmin = adminUser?.is_admin === true || adminUser?.role === 'admin';
+    if (!adminUser || !isAdmin) {
+      return jsonResponse({ 
+        error: 'Admin access required. User is_admin = ' + adminUser?.is_admin + ', role = ' + adminUser?.role 
+      }, 403);
     }
 
     // Initialize Stripe
