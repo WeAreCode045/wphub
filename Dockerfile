@@ -20,9 +20,13 @@ FROM base AS build
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
+# Install pnpm
+RUN npm install -g pnpm
+
 # Install node modules
-COPY package-lock.json package.json ./
-RUN npm ci --include=dev --ignore-scripts
+COPY package-lock.json package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY packages ./packages
+RUN pnpm install --frozen-lockfile
 
 # Copy application code
 COPY . .
@@ -40,10 +44,10 @@ ENV VITE_APP_NAME=$VITE_APP_NAME
 ENV VITE_APP_DOMAIN=$VITE_APP_DOMAIN
 
 # Build application
-RUN npm run build
+RUN pnpm run build
 
 # Remove development dependencies
-RUN npm prune --omit=dev
+RUN pnpm prune --prod
 
 
 # Final stage for app image
