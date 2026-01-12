@@ -47,6 +47,7 @@ ENV VITE_APP_DOMAIN=$VITE_APP_DOMAIN
 RUN pnpm run build
 
 # Remove development dependencies
+ENV CI=true
 RUN pnpm prune --prod
 
 
