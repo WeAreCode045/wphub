@@ -24,7 +24,7 @@ RUN apt-get update -qq && \
 RUN npm install -g pnpm
 
 # Install node modules
-COPY package-lock.json package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 
